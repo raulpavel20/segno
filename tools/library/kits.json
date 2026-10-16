@@ -391,6 +391,1150 @@
    ]
   },
   {
+   "name": "Funk studio",
+   "tags": [
+    "Drums",
+    "Acoustic",
+    "Funk"
+   ],
+   "description": "A dry studio kit for funk and soul: a tight half-muted snare that loves ghost notes, a short kick, crisp hats, no room.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Studio kit/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Studio kit/Cross-stick.sfz",
+     "name": "Cross-stick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Studio kit/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Studio kit/Snare muted.sfz",
+     "name": "Muted",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Studio kit/Snare open.sfz",
+     "name": "Open snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Studio kit/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Studio kit/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Studio kit/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.15,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Studio kit/Pedal hat.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Studio kit/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Studio kit/Half-open hat.sfz",
+     "name": "Half hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Studio kit/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Studio kit/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/Studio kit/Ride bell.sfz",
+     "name": "Ride bell",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Dusty",
+   "tags": [
+    "Drums",
+    "Acoustic",
+    "Lo-fi"
+   ],
+   "description": "The jazz kit heard through a 1950s microphone: warm, worn and mid-heavy, made for boom bap and lo-fi beats.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Dusty kit/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Dusty kit/Cross-stick.sfz",
+     "name": "Cross-stick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Dusty kit/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Dusty kit/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Dusty kit/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Dusty kit/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Dusty kit/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Dusty kit/Pedal hat.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Dusty kit/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Dusty kit/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Dusty kit/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Rock",
+   "tags": [
+    "Drums",
+    "Acoustic",
+    "Rock"
+   ],
+   "description": "An early-80s kit hit hard: a damped 24-inch kick, a deep snare with rimshots, four toms and a full set of cymbals, a china among them.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Vintage rock kit/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Vintage rock kit/Side-stick.sfz",
+     "name": "Side-stick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Vintage rock kit/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Vintage rock kit/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Vintage rock kit/Snare edge.sfz",
+     "name": "Edge",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Vintage rock kit/Floor tom.sfz",
+     "name": "Floor tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Vintage rock kit/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Vintage rock kit/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Vintage rock kit/Pedal hat.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Vintage rock kit/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Vintage rock kit/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Vintage rock kit/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Vintage rock kit/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Vintage rock kit/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Vintage rock kit/China.sfz",
+     "name": "China",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.45,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/Vintage rock kit/Ride bell.sfz",
+     "name": "Ride bell",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 57,
+     "piece": "Samples/Drums/Vintage rock kit/Sizzle crash.sfz",
+     "name": "Sizzle crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.45,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Mallets",
+   "tags": [
+    "Drums",
+    "Acoustic",
+    "Cinematic"
+   ],
+   "description": "The rock kit played with soft mallets: booming toms and cymbals that swell and wash, for film and ambient music.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Vintage rock kit/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Vintage rock kit/Snare mallet.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Vintage rock kit/Floor tom mallet.sfz",
+     "name": "Floor tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Vintage rock kit/Low tom mallet.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Vintage rock kit/Mid tom mallet.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Vintage rock kit/High tom mallet.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Vintage rock kit/Crash mallet.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Vintage rock kit/Ride mallet.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 4
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Vintage rock kit/China mallet.sfz",
+     "name": "China",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.45,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/Vintage rock kit/Sizzle mallet.sfz",
+     "name": "Sizzle",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.45,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Brushes",
+   "tags": [
+    "Drums",
+    "Acoustic",
+    "Jazz"
+   ],
+   "description": "A kit played with brushes in a small room: snare hits, digs and stirs, a soft kick, and cymbals that hiss and shimmer.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Brushed kit/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Brushed kit/Snare edge.sfz",
+     "name": "Edge",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -3
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Brushed kit/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Brushed kit/Snare dig.sfz",
+     "name": "Dig",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Brushed kit/Stir.sfz",
+     "name": "Stir",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -4
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Brushed kit/Floor tom.sfz",
+     "name": "Floor tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Brushed kit/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Brushed kit/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.15,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Brushed kit/Pedal hat.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Brushed kit/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Brushed kit/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Brushed kit/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.15,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Brushed kit/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Brushed kit/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Brushed kit/China.sfz",
+     "name": "China",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.4,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/Brushed kit/Splash.sfz",
+     "name": "Splash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Indie",
+   "tags": [
+    "Drums",
+    "Acoustic",
+    "Indie"
+   ],
+   "description": "A kit with snare wires on every drum: a buzzing kick, snares turned into toms, a loose hat and trashy cymbals. Garage and indie rock.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Wired kit/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Wired kit/Side-stick.sfz",
+     "name": "Side-stick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Wired kit/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Wired kit/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Wired kit/Small snare.sfz",
+     "name": "Small snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Wired kit/Floor tom.sfz",
+     "name": "Floor tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Wired kit/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Wired kit/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.1,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Wired kit/Pedal hat.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Wired kit/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.15,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Wired kit/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Wired kit/Loose hat.sfz",
+     "name": "Loose hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Wired kit/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Wired kit/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/Wired kit/Ride bell.sfz",
+     "name": "Ride bell",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/Wired kit/Crash edge.sfz",
+     "name": "Crash edge",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 76,
+     "piece": "Samples/Drums/Wired kit/Woodblock.sfz",
+     "name": "Woodblock",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "70s soul",
+   "tags": [
+    "Drums",
+    "Acoustic",
+    "Soul"
+   ],
+   "description": "A kit recorded for a 1973 sound: a deep thud of a kick, a fat snare, three toms and a hi-hat that opens wide. Soul, funk and breaks.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Seventies kit/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Seventies kit/Side-stick.sfz",
+     "name": "Side-stick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Seventies kit/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Seventies kit/Snare edge.sfz",
+     "name": "Edge",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Seventies kit/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Seventies kit/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Seventies kit/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Seventies kit/Pedal hat.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Seventies kit/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Seventies kit/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Seventies kit/Tight hat.sfz",
+     "name": "Tight hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Seventies kit/Loose hat.sfz",
+     "name": "Loose hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
    "name": "Body",
    "tags": [
     "Drums",

@@ -165,6 +165,8 @@ class Context:
     def text(self, source, path):
         local = os.path.join(self.cache, source, SOURCES[source]["commit"], path)
         if not os.path.exists(local):
+            if path not in self.trees[source]:
+                sys.exit(f"{source}: {path} isn't there")
             data = fetch(raw_url(source, path))
             os.makedirs(os.path.dirname(local), exist_ok=True)
             with open(local, "wb") as f:
