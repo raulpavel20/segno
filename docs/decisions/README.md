@@ -75,6 +75,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0064](0064-a-drum-kit-whose-pads-hold-any-instrument.md) | A Drum Kit instrument whose pads hold any instrument and effects, the Sampler by default; 128 pads, 16 shown; choke groups through a new All sound off event; kits are its presets; built on racks but never called one; the DAW's only; replaces the Drum Sampler and the Drum Rack | Accepted |
 | [0066](0066-a-drum-kits-clips-open-on-its-pads.md) | A Drum Kit's clips open on its pads: a row for each pad with a sound, named; a toggle per clip for the whole roll; the chord lane, the key and the melodic tools off the surface there, dimmed in the menu bar; assistants see the pads (amends 0058's in-key default for them) | Accepted |
 | [0067](0067-drum-machine-numbers-are-terms-of-the-trade.md) | The bare numbers that became the trade's names for a sound (808, 909, 606, 707, 727, 626, 303) are allowed in kit and preset names; makers' names and full model names (Roland, TR-808, LinnDrum) stay out (amends 0052) | Accepted |
+| [0068](0068-the-factory-kits-sources.md) | The factory kits' sounds are CC0 only, verified and pinned; Fischer's 808 (CC0 added by its repackager) and recordings of sample-playback machines are accepted; Freesound waits; Segno renders its own drum voices where no CC0 recording exists | Accepted |
 
 ## Template
 
