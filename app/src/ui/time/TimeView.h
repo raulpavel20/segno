@@ -42,6 +42,15 @@ void paintPlayhead(juce::Graphics& g, const model::Timeline& timeline, juce::Rec
 /// A rubber-band selection.
 void paintBoxSelection(juce::Graphics& g, juce::Rectangle<float> box);
 
+/// A selection's time handles in a ruler (piano-roll.md §9.2, audio-editor.md §7.6): one inside each
+/// end of the span from `x0` to `x1` (the view's x), in the ruler's lower half. Empty when there's no
+/// room for both.
+[[nodiscard]] std::pair<juce::Rectangle<int>, juce::Rectangle<int>> timeHandles(juce::Rectangle<int> ruler,
+                                                                                int x0, int x1);
+/// The handles, joined by a bar over the span, in `active` (the caller clips to its ruler).
+void paintTimeHandles(juce::Graphics& g,
+                      const std::pair<juce::Rectangle<int>, juce::Rectangle<int>>& handles);
+
 /// Invalidates only the old and new playhead strips when the playhead moves (the GL thread
 /// redraws just those).
 class PlayheadTracker

@@ -104,6 +104,10 @@ public:
     /// A tool's last settings (its defaults the first time), and keeping new ones.
     [[nodiscard]] model::ToolValues toolValues(const model::ToolSpec& tool) const;
     void setToolValues(const model::ToolSpec& tool, const model::ToolValues& values);
+    /// Another editor's tool's last settings, kept with these under `key` (the audio editor's, whose
+    /// Quantise isn't the notes').
+    [[nodiscard]] model::ToolValues keptToolValues(const std::string& key, const model::ToolSpec& tool) const;
+    void keepToolValues(const std::string& key, const model::ToolSpec& tool, const model::ToolValues& values);
 
     /// Notes ▸ Re-roll chance (§10): the clip's notes decided again.
     void rerollChance();

@@ -1,5 +1,7 @@
 #include "model/PianoRollOptions.h"
 
+#include "model/AudioToolkit.h"
+
 #include <array>
 #include <nlohmann/json.hpp>
 #include <string_view>
@@ -111,10 +113,14 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
             if (id.is_number_unsigned())
                 o.othersHidden.insert(id.get<std::uint64_t>());
     o.lane.kind = fromWord(json, "lane", laneWords, o.lane.kind);
-    // Each tool's settings, kept to its description (a tool or setting gone is dropped).
+    // Each tool's settings, kept to its description (a tool or setting gone is dropped); the audio
+    // editor's under "audio." (its Quantise isn't the notes').
+    constexpr std::string_view audio = "audio.";
     if (const auto it = json.find("tools"); it != json.end() && it->is_object())
         for (const auto& [id, values] : it->items())
-            if (const auto* tool = findNoteTool(id); tool != nullptr && values.is_object())
+            if (const auto* tool =
+                    id.starts_with(audio) ? findAudioTool(id.substr(audio.size())) : findNoteTool(id);
+                tool != nullptr && values.is_object())
             {
                 ToolValues given;
                 for (const auto& [setting, value] : values.items())

@@ -109,10 +109,12 @@ std::optional<float> AudioClipView::transientX(size_t index) const
 
 std::optional<size_t> AudioClipView::markerAt(juce::Point<float> p) const
 {
-    if (!markerStripArea().toFloat().expanded(0.0f, 1.0f).contains(p))
+    if (!markerStripArea().toFloat().contains(p))
         return std::nullopt;
+    // Its handle, and at least what grabs an edge.
     std::optional<size_t> best;
-    float bestDistance = static_cast<float>(ui::Theme::current().shell.warpMarkerWidth) * 0.5f + 1.0f;
+    float bestDistance =
+        std::max(static_cast<float>(ui::Theme::current().shell.warpMarkerWidth) * 0.5f, grab());
     for (size_t i = 0; i < playedWarp().markers.size(); ++i)
         if (const auto x = markerX(i); x && std::abs(*x - p.x) <= bestDistance)
         {
@@ -127,7 +129,7 @@ std::optional<size_t> AudioClipView::transientAt(juce::Point<float> p) const
     if (!markerStripArea().toFloat().contains(p))
         return std::nullopt;
     std::optional<size_t> best;
-    float bestDistance = grab() + 1.0f;
+    float bestDistance = grab();
     const auto xs = transientXs();
     for (size_t i = 0; i < xs.size(); ++i)
         if (std::abs(xs[i] - p.x) <= bestDistance)
@@ -142,15 +144,10 @@ std::pair<juce::Rectangle<int>, juce::Rectangle<int>> AudioClipView::timeHandles
 {
     if (!range_ || !clip_)
         return {};
-    const auto& s = ui::Theme::current().shell;
     const auto ruler = rulerArea();
-    const int x0 = ruler.getX() + static_cast<int>(std::round(timeline_.xForTime(range_->first)));
-    const int x1 = ruler.getX() + static_cast<int>(std::round(timeline_.xForTime(range_->second)));
-    const int h = s.rulerHeight / 2 - 1;
-    const int y = ruler.getBottom() - h;
-    if (x1 - x0 < 2 * s.timeHandleWidth)
-        return {};
-    return {{x0, y, s.timeHandleWidth, h}, {x1 - s.timeHandleWidth, y, s.timeHandleWidth, h}};
+    return time::timeHandles(ruler,
+                             ruler.getX() + static_cast<int>(std::round(timeline_.xForTime(range_->first))),
+                             ruler.getX() + static_cast<int>(std::round(timeline_.xForTime(range_->second))));
 }
 
 // ---- painting ------------------------------------------------------------------------------
@@ -184,19 +181,17 @@ void AudioClipView::paintMarkers(juce::Graphics& g)
     const auto xs = transientXs();
     const auto tickTop = static_cast<float>(strip.getBottom() - s.transientTick);
     for (size_t i = 0; i < xs.size(); ++i)
-        if (const float x = xs[i];
-            x >= static_cast<float>(strip.getX()) - 1.0f && x <= static_cast<float>(strip.getRight()) + 1.0f)
+        if (const float x = std::round(xs[i]);
+            x >= static_cast<float>(strip.getX()) && x < static_cast<float>(strip.getRight()))
         {
             const bool hovered = hoveredTransient_ == i;
             g.setColour(hovered ? t.textSecondary : t.textTertiary);
-            g.fillRect(
-                juce::Rectangle<float>(std::round(x), tickTop, 1.0f, static_cast<float>(s.transientTick)));
+            g.fillRect(juce::Rectangle<float>(x, tickTop, 1.0f, static_cast<float>(s.transientTick)));
             if (hovered)
             {
-                const float dash[] = {3.0f, 3.0f};
+                const float dash[] = {static_cast<float>(s.dashLength), static_cast<float>(s.dashLength)};
                 const auto area = waveformArea().toFloat();
-                g.drawDashedLine({std::round(x) + 0.5f, area.getY(), std::round(x) + 0.5f, area.getBottom()},
-                                 dash, 2);
+                g.drawDashedLine({x + 0.5f, area.getY(), x + 0.5f, area.getBottom()}, dash, 2);
             }
         }
     if (!shownWarp().on)
@@ -207,8 +202,8 @@ void AudioClipView::paintMarkers(juce::Graphics& g)
     const auto pin = [&](float x, juce::Colour colour)
     {
         const float half = static_cast<float>(s.warpMarkerWidth) * 0.5f;
-        const float top = static_cast<float>(strip.getY() + 2),
-                    tip = static_cast<float>(strip.getBottom() - 2);
+        const float top = static_cast<float>(strip.getY() + s.warpMarkerInset),
+                    tip = static_cast<float>(strip.getBottom() - s.warpMarkerInset);
         const float shoulder = tip - half;
         juce::Path p;
         p.startNewSubPath(x - half, top);
@@ -235,12 +230,9 @@ void AudioClipView::paintMarkers(juce::Graphics& g)
     {
         const float x0 = static_cast<float>(waveformArea().getX() + timeline_.xForTime(markerBox_.first));
         const float x1 = static_cast<float>(waveformArea().getX() + timeline_.xForTime(markerBox_.second));
-        const auto box = juce::Rectangle<float>(std::min(x0, x1), static_cast<float>(strip.getY()),
-                                                std::abs(x1 - x0), static_cast<float>(strip.getHeight()));
-        g.setColour(t.roles.selectionFill);
-        g.fillRect(box);
-        g.setColour(t.roles.selectionStroke);
-        g.drawRect(box, 1.0f);
+        time::paintBoxSelection(g, juce::Rectangle<float>(std::min(x0, x1), static_cast<float>(strip.getY()),
+                                                          std::abs(x1 - x0),
+                                                          static_cast<float>(strip.getHeight())));
     }
     if ((gesture_ == Gesture::Marker || gesture_ == Gesture::Transient) && moved_ && dragMarker_)
         if (const auto x = markerX(*dragMarker_))
@@ -249,17 +241,13 @@ void AudioClipView::paintMarkers(juce::Graphics& g)
 
 void AudioClipView::paintTimeHandles(juce::Graphics& g) const
 {
-    const auto [left, right] = timeHandles();
+    const auto handles = timeHandles();
+    const auto& [left, right] = handles;
     if (left.isEmpty())
         return;
-    const auto& t = ui::Theme::current();
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(rulerArea());
-    g.setColour(t.active);
-    const int barY = left.getCentreY() - t.shell.songBracket / 2;
-    g.fillRect(left.getX(), barY, right.getRight() - left.getX(), t.shell.songBracket);
-    g.fillRoundedRectangle(left.toFloat(), 1.0f);
-    g.fillRoundedRectangle(right.toFloat(), 1.0f);
+    time::paintTimeHandles(g, handles);
     if (gesture_ == Gesture::TimeHandle && moved_ && range_)
     {
         const double was = rangeFrom_.second - rangeFrom_.first;

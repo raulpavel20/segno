@@ -183,10 +183,14 @@ struct ShellMetrics
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on
     int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
     int loopNotch = 4;            // a looped clip's notch at each seam: its depth, half its width (clip-loops.md §5)
-    int timeHandleWidth = 4;      // a selection's time handle in the piano roll's ruler (piano-roll.md §9.2)
+    // A selection's time handle in a ruler (piano-roll.md §9.2, audio-editor.md §7.6): its width, and
+    // how far its top stays under the ruler's middle (its corners rounded as much).
+    int timeHandleWidth = 4, timeHandleInset = 1;
     // The audio editor's marker strip under its ruler (audio-editor.md §4, §7.4, §7.5): a warp
-    // marker's handle (a pin pointing down at its moment), and a transient's tick at the strip's foot.
-    int markerStripHeight = 16, warpMarkerWidth = 9, transientTick = 6;
+    // marker's handle (a pin pointing down at its moment, inset from the strip's top and foot), and a
+    // transient's tick at the strip's foot.
+    int markerStripHeight = 16, warpMarkerWidth = 9, warpMarkerInset = 2, transientTick = 6;
+    int dashLength = 4; // a dashed line's dashes and gaps (an automation lane's value, a transient's guide)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 

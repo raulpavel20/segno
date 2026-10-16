@@ -243,7 +243,8 @@ void addAudioTools(Registry& registry, ToolEnv& env)
                  {"inverted", boolean("Polarity inverted")},
                  {"channels", string("stereo, left, right, mono or swapped")}},
                 {"clips"}),
-         result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)}}, {"clips"}), sets},
+         result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)}}, {"clips"}),
+         writes}, // gainBy moves the gain again each call
         [&env](const Json& args, CallContext&)
         {
             const auto ids = audioClipIds(env, args["clips"]);
@@ -263,8 +264,7 @@ void addAudioTools(Registry& registry, ToolEnv& env)
                     throw Problem{"Channels are stereo, left, right, mono or swapped."};
                 change.channels = *mode;
             }
-            const engine::Session::EditGroup group(env.session, "Clip sound");
-            env.session.setSound(ids, change, "Clip sound");
+            // Everything's read and checked before anything changes: a call is whole, or does nothing.
             engine::Session::WarpChange warp;
             if (args.contains("warp"))
                 warp.on = args["warp"].get<bool>();
@@ -308,7 +308,17 @@ void addAudioTools(Registry& registry, ToolEnv& env)
             }
             if (args.contains("followKey"))
                 warp.followKey = args["followKey"].get<bool>();
-            env.session.setWarp(ids, warp, "Clip sound");
+            const auto asked = [&args](std::initializer_list<const char*> keys)
+            {
+                return std::any_of(keys.begin(), keys.end(),
+                                   [&args](const char* k) { return args.contains(k); });
+            };
+            const engine::Session::EditGroup group(env.session, "Clip sound");
+            if (asked({"gain", "gainBy", "reverse", "inverted", "channels"}))
+                env.session.setSound(ids, change, "Clip sound");
+            if (asked({"warp", "mode", "tails", "formants", "tempo", "sensitivity", "transpose", "fine",
+                       "key", "followKey"}))
+                env.session.setWarp(ids, warp, "Clip sound");
             Json out{{"clips", clipsJson(env, ids)}};
             if (warp.followKey.value_or(false))
             {
@@ -651,15 +661,26 @@ void addAudioTools(Registry& registry, ToolEnv& env)
                 const double grid = gridBeatsArg(args.value("grid", Json("1/16")));
                 const auto values = model::toolValues(*tool, given);
                 const engine::Session::EditGroup group(env.session, "Quantise");
+                size_t changed = 0;
+                std::string refused; // the clips it couldn't quantise, and why
                 for (auto id : ids)
-                    if (const auto why = env.session.quantiseAudio(
-                            id, {.grid = model::warpQuantiseChoice(values, grid),
-                                 .sensitivity = given.contains("sensitivity")
-                                                    ? std::optional(model::quantiseSensitivity(values))
-                                                    : std::nullopt});
-                        !why.empty() && ids.size() == 1)
+                {
+                    const auto why = env.session.quantiseAudio(
+                        id, {.grid = model::warpQuantiseChoice(values, grid),
+                             .sensitivity = given.contains("sensitivity")
+                                                ? std::optional(model::quantiseSensitivity(values))
+                                                : std::nullopt});
+                    if (why.empty())
+                        ++changed;
+                    else if (ids.size() == 1)
                         throw Problem{why};
-                return ToolResult::ok({{"clips", clipsJson(env, ids)}, {"changed", ids.size()}});
+                    else
+                        refused += (refused.empty() ? "" : " ") + formatId(IdKind::Clip, id) + ": " + why;
+                }
+                Json out{{"clips", clipsJson(env, ids)}, {"changed", changed}};
+                if (!refused.empty())
+                    out["note"] = refused;
+                return ToolResult::ok(out);
             }
             if (tool->id == "slice")
             {
@@ -692,7 +713,8 @@ void addAudioTools(Registry& registry, ToolEnv& env)
             }
             if (tool->id == "tempo")
             {
-                const engine::Session::EditGroup group(env.session, "Tempo");
+                // Each clip's choice first: a clip with no tempo heard refuses the call before any changes.
+                std::vector<model::TempoChoice> choices;
                 for (auto id : ids)
                 {
                     auto values = given;
@@ -700,14 +722,17 @@ void addAudioTools(Registry& registry, ToolEnv& env)
                     if (!values.contains("tempo"))
                     {
                         if (!found)
-                            throw Problem{"No tempo is heard in a clip: give \"tempo\"."};
+                            throw Problem{"No tempo is heard in " + formatId(IdKind::Clip, id) +
+                                          ": give \"tempo\"."};
                         values["tempo"] = found->bpm;
                     }
                     if (!values.contains("downbeat"))
                         values["downbeat"] = found ? found->downbeat : 0.0;
-                    const auto choice = model::tempoChoice(values);
-                    env.session.applyTempo(id, choice.bpm, choice.downbeat, choice.songTempo);
+                    choices.push_back(model::tempoChoice(values));
                 }
+                const engine::Session::EditGroup group(env.session, "Tempo");
+                for (size_t i = 0; i < ids.size(); ++i)
+                    env.session.applyTempo(ids[i], choices[i].bpm, choices[i].downbeat, choices[i].songTempo);
                 return ToolResult::ok({{"clips", clipsJson(env, ids)}, {"changed", ids.size()}});
             }
             const auto choice = model::normaliseChoice(given);

@@ -888,6 +888,11 @@ TEST_CASE("audio editor: the marker strip: transients, markers, and a transient 
     CHECK(f.clip().warp.markers.size() == 7);
     f.dump("audio-warp-markers@2x.png", v);
 
+    // One selection at a time: a range lets go of the markers selected, so Delete takes the range.
+    v.selectMarkers({0, 1});
+    v.selectAll();
+    CHECK_FALSE(v.hasMarkerSelection());
+
     // Transients by hand (§7.4, Audio ▸ Warp markers): one added at the playhead, those in the range
     // removed, each one undo step.
     v.setRange(std::nullopt);

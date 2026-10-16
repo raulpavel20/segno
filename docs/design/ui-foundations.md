@@ -124,7 +124,8 @@ Role functions for colours that depend on content:
 | `shell.windowButtonWidth` | 40 (a window button, as tall as the title bar) |
 | `shell.resizeBorder` | 4 (Linux: the resize grips just inside the window's edges, outside its content) |
 | `shell.rulerHeight` / `shell.loopStripHeight` | 24 / 12 |
-| `shell.markerStripHeight` / `shell.warpMarkerWidth` / `shell.transientTick` | 16 / 9 / 6 (the audio editor's marker strip under its ruler; a warp marker's handle, a pin pointing down at its moment; a transient's tick at the strip's foot: [audio-editor.md](audio-editor.md) §4) |
+| `shell.markerStripHeight` / `shell.warpMarkerWidth` / `shell.warpMarkerInset` / `shell.transientTick` | 16 / 9 / 2 / 6 (the audio editor's marker strip under its ruler; a warp marker's handle, a pin pointing down at its moment, inset from the strip's top and foot; a transient's tick at the strip's foot: [audio-editor.md](audio-editor.md) §4) |
+| `shell.dashLength` | 4 (a dashed line's dashes and gaps: an automation lane's value, a hovered transient's guide) |
 | `shell.trackHeaderWidth` | 180 |
 | `shell.panelHeaderHeight` | 24 (detail panel tabs, side panel titles) |
 | `shell.padding` | 12 (inside side panels and popovers) |
@@ -171,7 +172,7 @@ Role functions for colours that depend on content:
 | `shell.rackLabelHeight` | 16 (the frame's strip under its panels, naming the chain shown) |
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
 | `shell.loopNotch` | 4 (a looped clip's notch at each seam: its depth and half its width, cut into the title strip in `surface0`; laps closer than two notches' width show none; M3 C10, [clip-loops.md](clip-loops.md) §5) |
-| `shell.timeHandleWidth` | 4 (a time handle at each end of the selected notes' span in the piano roll's ruler, as tall as the ruler's lower half less a pixel, joined by a `songBracket`-thick bar in `active`; [piano-roll.md](piano-roll.md) §9.2) |
+| `shell.timeHandleWidth` / `shell.timeHandleInset` | 4 / 1 (a time handle at each end of a selection's span in a ruler, as tall as the ruler's lower half less the inset, its corners rounded as much, joined by a `songBracket`-thick bar in `active`: `time::paintTimeHandles`; [piano-roll.md](piano-roll.md) §9.2) |
 
 Components size themselves for their text: `ui::Toggle::widthFor(label)`, `ui::NumberField::widthFor(widest value)` and `ui::ChoiceField::widthFor(value)`; bars ask them rather than adding padding by hand. A top bar item may also give a narrower width (`BarItem::narrowWidth`: the key's short name), which `model::layoutTopBar` takes before anything drops. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`), with its edges on whole pixels.
 
@@ -236,6 +237,7 @@ Every view that shows time (the arrangement, the piano roll, automation lanes fr
 | `GridPainter` | Bar, beat and subdivision lines in the grid roles, over any rectangle. |
 | `Playhead` | Draws the playhead line, and invalidates just its old and new strip each frame. |
 | `BoxSelection` | Draws the rubber band in the selection roles. |
+| `TimeHandles` (`timeHandles`, `paintTimeHandles`) | A selection's time handles in a ruler: one inside each end of its span, joined by a bar, in `active` (the piano roll's notes, [piano-roll.md](piano-roll.md) §9.2; the audio editor's range, [audio-editor.md](audio-editor.md) §7.6). |
 | `TimeInput` | One mapping for every time view: Ctrl+wheel or pinch zooms at the mouse; Shift+wheel and horizontal wheel scroll time; the plain wheel scrolls the view's other axis (tracks, pitches). |
 
 ## Track headers (`model::TrackHeaderLayout`)

@@ -1,5 +1,6 @@
 // JUCE-free tests of the piano roll's tools (app/src/model/NoteTools, docs/design/piano-roll.md).
 
+#include "model/AudioToolkit.h"
 #include "model/NoteTools.h"
 #include "model/PianoRollOptions.h"
 
@@ -417,6 +418,9 @@ TEST_CASE("The clip view's options round-trip as view state", "[fast]")
                .voicing = fd::music::Voicing::Drop3,
                .inversion = fd::music::Inversion::Second};
     o.tools["quantise"] = toolValues(*findNoteTool("quantise"), {{"strength", 50.0}, {"moves", 1.0}});
+    // The audio editor's Quantise, kept apart: its settings aren't the notes'.
+    o.tools["audio.quantise"] =
+        toolValues(*findAudioTool("quantise"), {{"strength", 75.0}, {"sensitivity", 30.0}});
     o.toolsOpen = true;
     o.toolsTab = ToolKind::Generate;
     CHECK(pianoRollOptionsFromJson(pianoRollOptionsToJson(o)) == o);

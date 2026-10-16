@@ -294,14 +294,25 @@ model::ToolContext PianoRoll::toolContext() const
 
 model::ToolValues PianoRoll::toolValues(const model::ToolSpec& tool) const
 {
-    const auto it = options_.tools.find(std::string(tool.id));
-    return model::toolValues(tool, it != options_.tools.end() ? it->second : model::ToolValues{});
+    return keptToolValues(std::string(tool.id), tool);
 }
 
 void PianoRoll::setToolValues(const model::ToolSpec& tool, const model::ToolValues& values)
 {
+    keepToolValues(std::string(tool.id), tool, values);
+}
+
+model::ToolValues PianoRoll::keptToolValues(const std::string& key, const model::ToolSpec& tool) const
+{
+    const auto it = options_.tools.find(key);
+    return model::toolValues(tool, it != options_.tools.end() ? it->second : model::ToolValues{});
+}
+
+void PianoRoll::keepToolValues(const std::string& key, const model::ToolSpec& tool,
+                               const model::ToolValues& values)
+{
     auto o = options_;
-    o.tools[std::string(tool.id)] = model::toolValues(tool, values);
+    o.tools[key] = model::toolValues(tool, values);
     setOptions(o);
 }
 
@@ -1628,16 +1639,13 @@ void PianoRoll::paintRuler(juce::Graphics& g)
     time::paintRuler(g, lines_, timeline_, rulerArea(), {.range = playedRange(), .rangeColour = t.clipColour(clip_->colour)});
 
     // The selection's time handles (§9.2): a bracket over its span, a handle at each end.
-    const auto [left, right] = timeHandles();
+    const auto handles = timeHandles();
+    const auto& [left, right] = handles;
     if (left.isEmpty())
         return;
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(rulerArea());
-    g.setColour(t.active);
-    const int barY = left.getCentreY() - s.songBracket / 2;
-    g.fillRect(left.getX(), barY, right.getRight() - left.getX(), s.songBracket);
-    g.fillRoundedRectangle(left.toFloat(), 1.0f);
-    g.fillRoundedRectangle(right.toFloat(), 1.0f);
+    time::paintTimeHandles(g, handles);
     if (gesture_ == Gesture::TimeHandle && moved_)
         ui::paintValueTag(g, (handleAtEnd_ ? right : left).getCentre().toFloat(), getLocalBounds(),
                           factorText(stretchFactor_));
@@ -1656,16 +1664,10 @@ std::pair<juce::Rectangle<int>, juce::Rectangle<int>> PianoRoll::timeHandles() c
     const auto span = selectionSpan();
     if (!span || !clip_)
         return {};
-    const auto& s = ui::Theme::current().shell;
     const auto ruler = rulerArea();
     const auto geo = geometry();
-    const int x0 = ruler.getX() + static_cast<int>(std::round(geo.xForBeat(span->first)));
-    const int x1 = ruler.getX() + static_cast<int>(std::round(geo.xForBeat(span->second)));
-    const int h = s.rulerHeight / 2 - 1;
-    const int y = ruler.getBottom() - h;
-    if (x1 - x0 < 2 * s.timeHandleWidth)
-        return {};
-    return {{x0, y, s.timeHandleWidth, h}, {x1 - s.timeHandleWidth, y, s.timeHandleWidth, h}};
+    return time::timeHandles(ruler, ruler.getX() + static_cast<int>(std::round(geo.xForBeat(span->first))),
+                             ruler.getX() + static_cast<int>(std::round(geo.xForBeat(span->second))));
 }
 
 void PianoRoll::paintChordLane(juce::Graphics& g)

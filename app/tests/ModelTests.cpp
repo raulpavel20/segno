@@ -277,6 +277,27 @@ TEST_CASE("peaks hold the min and max at every resolution", "[fast]")
     CHECK(buildPeaks("/nonexistent/fd.wav") == nullptr);
 }
 
+TEST_CASE("peaks per channel, and the channels' mean as Mono plays it", "[fast]")
+{
+    // The right channel the left upside down: each at full scale, their mean silent.
+    const auto path = (std::filesystem::temp_directory_path() / "fd-channel-peaks-test.wav").string();
+    std::vector<std::vector<float>> ch(2, std::vector<float>(48000));
+    for (size_t i = 0; i < ch[0].size(); ++i)
+    {
+        ch[0][i] = 0.5f * std::sin(static_cast<float>(i) * 0.01f);
+        ch[1][i] = -ch[0][i];
+    }
+    REQUIRE(fd::audiofile::writeWav(path, ch, 48000.0));
+    const auto peaks = buildChannelPeaks(path);
+    std::filesystem::remove(path);
+    REQUIRE(peaks.size() == 3);
+    CHECK(peaks[0]->range(0, 48000).second == Approx(0.5f).margin(0.01));
+    CHECK(peaks[1]->range(0, 48000).first == Approx(-0.5f).margin(0.01));
+    const auto [lo, hi] = peaks[2]->range(0, 48000);
+    CHECK(lo == Approx(0.0f).margin(1e-6));
+    CHECK(hi == Approx(0.0f).margin(1e-6));
+}
+
 #include "model/Editing.h"
 
 #include <set>

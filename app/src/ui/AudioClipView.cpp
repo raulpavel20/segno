@@ -207,15 +207,25 @@ void AudioClipView::setClip(std::optional<model::ClipInfo> clip, const model::Te
     lineView_ = model::lineToView(clip_->sound.line, origin(), model::contentMap(*clip_));
     laneKept_.reset(); // the snapshot has it now
     laneHead_.setVisible(true);
-    warpPreview_.reset(); // the snapshot has it now
+    // The same clip keeps what's previewed on it: a gesture's, a tool's (the Tools pane previews
+    // again when version() changes). Another drops them all, a gesture under way included.
     if (another)
     {
         needsFit_ = true;
         fitToClip();
+        gesture_ = Gesture::None;
         points_.clear();
         markers_.clear();
         hoveredTransient_.reset();
+        hoveredPoint_.reset();
+        lanePreview_.reset();
+        linePreview_.reset();
+        dragMarker_.reset();
+        warpPreview_.reset();
         previewGains_.clear();
+        sensitivityPreview_.reset();
+        tempoPreview_.reset();
+        slicePreview_.clear();
         setRange(std::nullopt);
     }
     else if (range_)
@@ -244,6 +254,13 @@ void AudioClipView::setRange(std::optional<std::pair<double, double>> range)
 {
     if (range == range_)
         return;
+    // A new range is what Edit's commands act on: markers and points selected before let go, so
+    // Delete never takes what's no longer the selection.
+    if (range)
+    {
+        markers_.clear();
+        points_.clear();
+    }
     range_ = range;
     if (onRangeChanged)
         onRangeChanged();
@@ -543,13 +560,30 @@ std::uint64_t AudioClipView::version() const
     const auto mix = [&v](std::uint64_t x) { v = (v ^ x) * 1099511628211ull; };
     for (auto id : toolClips())
         mix(id);
+    const auto mixTime = [&mix](double t) { mix(static_cast<std::uint64_t>(std::llround(t * 1e6))); };
     if (clip_)
     {
         mix(static_cast<std::uint64_t>(std::llround(clip_->sound.gainDb * 1000.0f)));
-        mix(clip_->sound.line.size());
-        mix(clip_->warp.markers.size());
-        mix(static_cast<std::uint64_t>(std::llround(clip_->warp.tempo * 1000.0)));
-        mix(static_cast<std::uint64_t>(std::llround(clip_->warp.sensitivity * 1000.0)));
+        mix(static_cast<std::uint64_t>(clip_->sound.channels));
+        mix(clip_->sound.reversed ? 1u : 0u);
+        for (const auto& p : clip_->sound.line)
+        {
+            mixTime(p.time);
+            mixTime(p.value);
+        }
+        for (const double t : {clip_->start, clip_->length, clip_->offset})
+            mixTime(t);
+        mix(clip_->warp.on ? 1u : 0u);
+        for (const auto& m : clip_->warp.markers)
+        {
+            mixTime(m.file);
+            mixTime(m.beat);
+        }
+        mixTime(clip_->warp.tempo);
+        mixTime(clip_->warp.sensitivity);
+        for (const auto* times : {&clip_->transientsAdded, &clip_->transientsRemoved})
+            for (const double t : *times)
+                mixTime(t);
         mix(clip_->analysis != nullptr ? 1u : 0u);
     }
     if (range_)
@@ -579,12 +613,7 @@ const model::Peaks* AudioClipView::rowPeaks(int row)
     case M::Right:
         return channels[1];
     case M::Mono:
-    {
-        auto& mean = mean_[clip_->sourcePath];
-        if (mean == nullptr)
-            mean = model::meanPeaks(*channels[0], *channels[1]);
-        return mean.get();
-    }
+        return channels.back(); // the channels' mean, built with them
     }
     return channels.front();
 }

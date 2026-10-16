@@ -46,6 +46,7 @@ public:
     /// The range selected in the waveform: seconds on the timeline (the lap the view shows), within
     /// the clip.
     [[nodiscard]] const std::optional<std::pair<double, double>>& range() const noexcept { return range_; }
+    /// A new range lets go of the markers and points selected: one selection at a time.
     void setRange(std::optional<std::pair<double, double>> range);
     /// Edit > Select all: the whole clip.
     void selectAll();
@@ -239,7 +240,6 @@ private:
 
     engine::Session& session_;
     WaveformCache waveforms_{true}; // its file's peaks, a channel each (one file at a time)
-    std::map<std::string, std::shared_ptr<const model::Peaks>> mean_; // Mono's rows, by file
     std::optional<model::ClipInfo> clip_;
     model::TempoMap tempo_;
     model::Timeline timeline_;

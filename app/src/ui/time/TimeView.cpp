@@ -110,6 +110,30 @@ void paintBoxSelection(juce::Graphics& g, juce::Rectangle<float> box)
     g.drawRect(box, 1.0f);
 }
 
+std::pair<juce::Rectangle<int>, juce::Rectangle<int>> timeHandles(juce::Rectangle<int> ruler, int x0, int x1)
+{
+    const auto& s = ui::Theme::current().shell;
+    const int h = ruler.getHeight() / 2 - s.timeHandleInset;
+    const int y = ruler.getBottom() - h;
+    if (x1 - x0 < 2 * s.timeHandleWidth)
+        return {};
+    return {{x0, y, s.timeHandleWidth, h}, {x1 - s.timeHandleWidth, y, s.timeHandleWidth, h}};
+}
+
+void paintTimeHandles(juce::Graphics& g, const std::pair<juce::Rectangle<int>, juce::Rectangle<int>>& handles)
+{
+    const auto& [left, right] = handles;
+    if (left.isEmpty())
+        return;
+    const auto& t = ui::Theme::current();
+    const auto radius = static_cast<float>(t.shell.timeHandleInset);
+    g.setColour(t.active);
+    const int barY = left.getCentreY() - t.shell.songBracket / 2;
+    g.fillRect(left.getX(), barY, right.getRight() - left.getX(), t.shell.songBracket);
+    g.fillRoundedRectangle(left.toFloat(), radius);
+    g.fillRoundedRectangle(right.toFloat(), radius);
+}
+
 void PlayheadTracker::update(juce::Component& component, const model::Timeline& timeline, juce::Rectangle<int> lanes,
                              double seconds)
 {

@@ -23,7 +23,8 @@ public:
     void request(const std::string& path);
     /// The peaks if ready, else null (per channel: the first channel's). No side effects (safe in paint).
     [[nodiscard]] const model::Peaks* find(const std::string& path) const;
-    /// Per channel: each channel's peaks if ready, else empty.
+    /// Per channel: each channel's peaks if ready, else empty; then, with two or more, their mean
+    /// (model::buildChannelPeaks).
     [[nodiscard]] std::vector<const model::Peaks*> channels(const std::string& path) const;
     /// Blocks until every requested file is built (tests and benchmarks).
     void waitUntilIdle();

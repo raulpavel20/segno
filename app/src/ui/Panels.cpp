@@ -2507,9 +2507,11 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     // The Tempo tool's downbeat dragged on the waveform shows in its form (§7.8).
     audio_.onToolValue = [this](std::string_view setting, double value)
     { tools_.form().show(setting, value); };
-    audio_.rememberedValues = [this](const model::ToolSpec& tool) { return roll_.toolValues(tool); };
+    // Kept with the piano roll's, apart: both have a Quantise, with other settings.
+    audio_.rememberedValues = [this](const model::ToolSpec& tool)
+    { return roll_.keptToolValues("audio." + std::string(tool.id), tool); };
     audio_.rememberValues = [this](const model::ToolSpec& tool, const model::ToolValues& values)
-    { roll_.setToolValues(tool, values); };
+    { roll_.keepToolValues("audio." + std::string(tool.id), tool, values); };
     updateOptions();
     header_.resized();
 }

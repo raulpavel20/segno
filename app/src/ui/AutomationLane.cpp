@@ -80,7 +80,8 @@ void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geo, const LaneP
             // the middle), so the two never touch.
             const float y = geo.y(*lane.current);
             g.setColour(t.automationLine(lane.colour, false));
-            const float dashes[] = {4.0f, 4.0f};
+            const float dashes[] = {static_cast<float>(t.shell.dashLength),
+                                    static_cast<float>(t.shell.dashLength)};
             const float gap = static_cast<float>(t.shell.itemGap);
             const float half = hintFont.getHeight() * 0.5f + gap;
             if (hint && std::abs(y - hintArea.getCentreY()) < half)
