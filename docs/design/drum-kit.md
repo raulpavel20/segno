@@ -727,7 +727,7 @@ Names follow ADR 0067: 808, 909, 707 and 606 are allowed; makers' and model name
 - **Velocity:** the Sampler's Velocity is 30 for a piece with deep layers (they carry the dynamics), 40–60 for one with few or one, so a soft hit is still softer.
 
 **What it made:**
-- 565 pieces, 2,810 samples, **258 MB.** The Library is 604 MB with them, past the 500 MB expected (factory-library.md L10).
+- 565 pieces, 2,810 samples, **258 MB.** The Library is 604 MB with them. The product owner (2026-10-16): fine, and more would be too; libraries are often gigabytes, and L10's 500 MB was never a limit.
 - The sources fetched once for the whole Library grow from 1.9 GB to 3.2 GB.
 - Kits play their preview beat at −20 to −32 dB RMS, peaking at −1.6 to −10.8 dBFS. Sub 808, Analog lab and Hardstyle are the loudest; Machine percussion and Mallets the quietest.
 

@@ -281,6 +281,7 @@ PLACES
   - a piece can be levelled as one (every zone the same gain);
   - drums are trimmed to their onset;
   - a zone can be a voice rendered from its parameters.
-- **What it made:** 565 pieces, 2,810 samples, 258 MB. The Library is 604 MB, past the 500 MB of L10 (B94); its sources fetched once are 3.2 GB.
+- **What it made:** 565 pieces, 2,810 samples, 258 MB. The Library is 604 MB; its sources fetched once are 3.2 GB.
+- **Size isn't a limit** (the product owner, 2026-10-16, B94): "604 MB is fine, even more would also be totally fine, libraries are often GBs in size". L10's 500 MB was an estimate. Sound decides what goes in, not megabytes.
 - **The README** credits every source, CC0 or not asked.
 - `fd-library files` lists a recipe's source files for the build's hash check, and `fd-library measure` gives a sample's levels for balancing the kits.
