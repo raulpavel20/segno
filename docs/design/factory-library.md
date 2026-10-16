@@ -273,3 +273,14 @@ PLACES
 - **The waveform** is drawn scaled to the sample's own peak: the Library's quiet samples took their level from their zones and showed as flat lines.
 - **The Library's README** thanks Versilian Studios, though CC0 asks nothing.
 - **Signed off by the product owner (2026-10-14),** with the Sampler's stage 2 and its 48 presets: the Library is done but for shipping it, which comes with releases (§6).
+
+**The drums (2026-10-16):** the Drum Kit's factory kits ([drum-kit.md](drum-kit.md) §27–§28, [ADR 0068](../decisions/0068-the-factory-kits-sources.md)) add `Samples/Drums/<pool>/`.
+- **Fourteen more sources,** each a git repository fetched file by file at a pinned commit, as VSCO's and VCSL's are, plus pieces Segno renders itself (`tools/library/DrumSynth`). `tools/library/drums.py` lists them and their pieces; `make_recipe.py` adds them to `recipe.json`.
+- **New in the build:**
+  - a zone can mix several microphones into one sample;
+  - a piece can be levelled as one (every zone the same gain);
+  - drums are trimmed to their onset;
+  - a zone can be a voice rendered from its parameters.
+- **What it made:** 565 pieces, 2,810 samples, 258 MB. The Library is 604 MB, past the 500 MB of L10 (B94); its sources fetched once are 3.2 GB.
+- **The README** credits every source, CC0 or not asked.
+- `fd-library files` lists a recipe's source files for the build's hash check, and `fd-library measure` gives a sample's levels for balancing the kits.

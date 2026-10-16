@@ -699,3 +699,53 @@ Names follow ADR 0067: 808, 909, 707 and 606 are allowed; makers' and model name
   - every preset is what its recipe makes;
   - with the Library built, every kit renders its preview beat without silence or clipping.
 - **Signed off by ear,** kit by kit, by the product owner.
+
+## 28. Step 3, the factory kits, built (2026-10-16)
+
+40 kits from the sources in §27.1, each from one pool. The kits, their pads and their levels are recipes in `tools/library/drums.py`; the Library build makes their samples, and `make_kits.py` writes their presets.
+
+| Folder | Kits |
+|---|---|
+| **Acoustic** (8) | 70s soul, Brushes, Dusty, Funk studio, Indie, Jazz sticks, Mallets, Rock |
+| **Electronic** (22) | 606 analog, 707 dance, 808 boom, 808 classic, 808 trap, 80s digital, 80s electronic, 909 house, 909 techno, 90s club, 90s studio, Analog lab, Chip, Drum and bass, Electro lab, Future bass, Glitch, Hardstyle, Hip-hop, Minimal, Sub 808, Synth percussion |
+| **Percussion** (10) | Bobobo, Body, Cajón, Flamenco, Junkyard, Latin, Machine percussion, Middle Eastern, Orchestral, Tabla |
+
+**What changed from §27.2:**
+- **No Segno folder.** Analog lab, Chip and Sub 808 sit in Electronic with the kits they're played beside; their descriptions say Segno made them.
+- **Folders are a kit's first tag,** so kits don't start with "Drums": a family (Acoustic, Electronic, Percussion), then styles from a fixed list (`drums.FAMILIES`, `drums.STYLES`; [presets.md](presets.md) §13). `make_recipe.py` refuses any other.
+- **Kits added:** Funk studio, Dusty (the Virtuosity kit's other microphones), 80s electronic (the 80s machine's other half), Future bass and Minimal. The digital machine's 606 voices didn't make a kit of their own: 606 analog is the analog machine, its numbered hits chosen by their decay.
+- **Glitch is Electronic.** Machine percussion stays in Percussion.
+
+**How they're made:**
+- **A piece** is one SFZ in `Library/Samples/Drums/<pool>/`. Its zones are the source's layers and takes, read from the source's own maps where it has them, otherwise from file names, thinned to at most 8 layers × 4 takes.
+- **Microphones are mixed** into one stereo sample per hit (`Zone::mix`): each microphone's gain, and a mono one's pan, are set per pool.
+- **Trimmed to the hit:** a drum's sample starts 1 ms before its onset (−40 dB of its peak), faded in over that millisecond, so every pad speaks at once.
+- **Levelled as one:** every zone of a piece gets the same gain, its loudest zone peaking at −1 dBFS, so its layers keep their own dynamics. The gains are measured once and kept with the build's cache.
+- **Pad volumes** come from what a hit sounds like, not its peak. Each pad's role (kick, snare, hat, cymbal…) has a target for the loudest 25 ms of its loudest layer, and its volume meets it. No pad peaks above −3 dBFS at full velocity, so two hits together stay clear of clipping.
+- **Segno's own voices** (`tools/library/DrumSynth`) render kicks, toms, snares, claps, metal hats and cymbals, rims, 8-bit chip voices and a tuned 808 bass at 48 kHz, the same on every machine. A piece's softer layers are the same voice played softer, and its takes differ by their noise.
+- **Each pad** is a Sampler in One-shot mode, playing its piece from the Library at its own pitch (Sub 808's bass pads are transposed C to B). Hats share a choke group.
+- **Velocity:** the Sampler's Velocity is 30 for a piece with deep layers (they carry the dynamics), 40–60 for one with few or one, so a soft hit is still softer.
+
+**What it made:**
+- 565 pieces, 2,810 samples, **258 MB.** The Library is 604 MB with them, past the 500 MB expected (factory-library.md L10).
+- The sources fetched once for the whole Library grow from 1.9 GB to 3.2 GB.
+- Kits play their preview beat at −20 to −32 dB RMS, peaking at −1.6 to −10.8 dBFS. Sub 808, Analog lab and Hardstyle are the loudest; Machine percussion and Mallets the quietest.
+
+**Checked by tests:**
+- `KitRecipesTests` (`[fast]`):
+  - every kit's pieces are in the Library's recipe;
+  - every preset is what its recipe makes;
+  - names and descriptions keep makers' and model names out (ADR 0067);
+  - a kit's first tag is its family;
+  - its hats choke each other.
+- `FactoryKitTests` (`[library]`, skipped where the Library isn't built):
+  - every pad's Sampler loads its piece with nothing missing, and sounds on its own;
+  - every kit's beat peaks at or under −0.5 dBFS and isn't near silent.
+  - With `FD_DUMP_DIR` it writes each kit's beat and its pads one by one as WAVs, for listening.
+- `LibraryBuildTests`: mixing, levelling, onsets and the voices.
+
+**For the product owner's ear:**
+- **606 analog:** its hits are the source's numbered files, chosen by their decay rather than heard.
+- **Cajón:** the source names its strokes only by number; bass, tone and slap are guesses from how they sound.
+- **Levels between kits:** Sub 808, Analog lab and Hardstyle are 5 dB or more above the middle, and Machine percussion and Mallets below it.
+- **Any pad that's wrong for its kit,** too loud or soft within it, or too long.
