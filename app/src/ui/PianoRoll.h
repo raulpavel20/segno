@@ -9,6 +9,7 @@
 #include "ui/ClipLoopBrace.h"
 #include "ui/time/TimeView.h"
 
+#include <bitset>
 #include <fd_ui/fd_ui.h>
 #include <map>
 #include <optional>
@@ -55,6 +56,9 @@ public:
     /// In key (§6, §21): only the key's rows, or (off) the whole roll, for the clip shown; turned
     /// off, it's remembered for that clip.
     void setInKey(bool on);
+    /// The pads (drum-kit.md §23, ADR 0066), or (off) the whole roll, for a Drum Kit's clip;
+    /// remembered for the clip as In key is, in the same place.
+    void setPads(bool on);
     void setOthers(bool on);
     /// Others leaves out a track's notes, or shows them again (§8).
     void setOthersHidden(std::uint64_t track, bool hidden);
@@ -67,8 +71,30 @@ public:
     /// The song's key where the clip is (none: no key).
     [[nodiscard]] const std::optional<music::Key>& key() const noexcept { return key_; }
     /// Shows only the key's rows (§21): the song has a key, and the clip isn't turned to the whole
-    /// roll. A row is then a step of the key: drawing lands on it, ↑/↓ move by the key's steps.
+    /// roll (nor a Drum Kit's). A row is then a step of the key: drawing lands on it, ↑/↓ move by
+    /// the key's steps.
     [[nodiscard]] bool inKey() const noexcept;
+
+    // ---- a Drum Kit's clip (drum-kit.md §23, ADR 0066) ------------------------------------------
+
+    /// One of the kit's pads with a sound, as its row shows it.
+    struct PadRow
+    {
+        int note = 0;
+        juce::String name;
+        bool on = true;
+
+        friend bool operator==(const PadRow&, const PadRow&) = default;
+    };
+    /// The clip's track's Drum Kit (0: none): Pads takes In key's place for it.
+    [[nodiscard]] std::uint64_t kit() const noexcept { return kit_; }
+    [[nodiscard]] const std::vector<PadRow>& pads() const noexcept { return pads_; }
+    /// The pad on a note, if it has a sound.
+    [[nodiscard]] const PadRow* padOn(int note) const noexcept;
+    /// Shows the kit's pads: a kit's clip not turned to the whole roll. A row is then a pad (and a
+    /// pitch with notes and no pad, hatched): drawing lands on it, ↑/↓ move a row; the chord lane,
+    /// Draw's chords and Others go (§23.4).
+    [[nodiscard]] bool onPads() const noexcept;
     // ---- the bottom lane (§11) -----------------------------------------------------------------
 
     void setLane(const model::BottomLane& lane);
@@ -234,9 +260,11 @@ public:
     /// The point at `beat` (content beats) in the middle of `pitch`'s row.
     [[nodiscard]] juce::Point<float> pointFor(double beat, int pitch) const;
     [[nodiscard]] const model::Timeline& timeline() const noexcept { return timeline_; }
-    /// The rows shown (§21), low to high: In key, the key's and those of notes outside it; empty
-    /// for the whole roll.
+    /// The rows shown (§21), low to high: In key, the key's and those of notes outside it; on the
+    /// pads, theirs; empty for the whole roll.
     [[nodiscard]] const std::vector<int>& shownRows() const noexcept { return rows_; }
+    /// The keys' column: the piano's width, or on the pads as wide as their names need (§23.2).
+    [[nodiscard]] int keysWidth() const noexcept;
     /// The bottom lane (velocity, chance, release velocity or a controller), right of the keys.
     [[nodiscard]] juce::Rectangle<int> laneArea() const { return velocityArea(); }
     /// The other tracks' notes shown faint (§8): how many, for tests.
@@ -292,6 +320,13 @@ private:
     [[nodiscard]] double secondsForBeat(double beat) const;
     void clampPitchView();
     void fitToClip();
+    /// The rows' height and where they are: the pads fill the height (§23.2), the roll centres on
+    /// the notes at its own row height.
+    void fitRows();
+    void setWholeRoll(bool whole);
+    /// The clip's track's kit and its pads, from the snapshot; true if they changed.
+    bool updateKit(const std::optional<model::ClipInfo>& clip);
+    void updateKeysWidth();
     void commit(model::NoteEdit edit);
     /// The notes changed: the rows shown and the chord lane follow.
     void notesChanged();
@@ -344,6 +379,7 @@ private:
     void paintNotes(juce::Graphics& g);
     void paintVelocities(juce::Graphics& g);
     void paintKeys(juce::Graphics& g);
+    void paintPadKeys(juce::Graphics& g); // the pads' names (§23.2)
     void paintRuler(juce::Graphics& g);
     void paintChordLane(juce::Graphics& g);
     /// A chord's label in the lane, made when the chords change rather than every frame.
@@ -374,7 +410,15 @@ private:
     std::vector<model::Note> notes_;    // the clip's notes: the snapshot's, or our last edit
     std::set<std::size_t> selection_;   // indices into notes_
     std::optional<model::NoteEdit> preview_;        // during a gesture, or a tool's preview
-    std::vector<int> rows_;                         // In key: the pitches shown; empty: every pitch
+    std::vector<int> rows_;                         // In key or on the pads: the pitches shown
+    bool folded_ = false;                           // rows_ are the rows (else every pitch is one)
+    std::uint64_t kit_ = 0;                         // the clip's track's Drum Kit (§23)
+    std::vector<PadRow> pads_;                      // its pads with sounds, low to high
+    std::bitset<128> padNotes_;                     // their notes
+    bool padsShown_ = false;                        // the rows were the pads at the last fit...
+    std::size_t fittedRows_ = 0;                    // ...and this many
+    int keysWidth_ = 0;                             // on the pads: as wide as their names (0: the piano's)
+    std::optional<int> pressedPad_;                 // the row pressed last on the pads (Rhythm's pad)
     std::vector<model::ChordSpan> spans_;           // the chord lane, read from notes_
     std::vector<Ghost> ghosts_;                     // the other tracks' notes (§8)
     std::vector<model::ChordSpan> allSpans_;        // the chords of everything shown, with Others on
@@ -392,6 +436,7 @@ private:
     bool pointsUsed_ = false; // the controller lane was used last: Delete deletes its points
     std::uint64_t editVersion_ = 0;
     double rowHeight_ = 12.0;
+    double rollRowHeight_ = 12.0; // the roll's own, as zoomed: the pads fill the height instead
     double topEdge_ = 84.0; // see NoteGeometry
     bool needsFit_ = false;
     double lastGridHeight_ = 0.0;

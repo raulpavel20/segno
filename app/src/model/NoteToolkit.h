@@ -31,6 +31,9 @@ struct ToolSetting
     int whenIs = -1;
     bool menu = false; // a choice too long for segments: a choice field
     bool halveDouble = false; // a number with ×2 and ÷2 beside it (the audio Tempo tool's tempo)
+    /// Not on a Drum Kit's pads (drum-kit.md §23.4): hidden there, its first choice taken (Rhythm's
+    /// On: a pitch, never the chords).
+    bool melodic = false;
 
     [[nodiscard]] bool isChoice() const noexcept { return !choices.empty(); }
 };
@@ -48,6 +51,9 @@ struct ToolSpec
     ToolKind kind = ToolKind::Transform;
     std::string_view about; // one line, for assistants and tooltips
     std::vector<ToolSetting> settings;
+    /// It works on a Drum Kit's pads (drum-kit.md §23.4): shown there. Strum, Arpeggiate, Randomise
+    /// pitch, Melody, Chords and Bassline don't.
+    bool drums = true;
 
     [[nodiscard]] const ToolSetting* setting(std::string_view which) const noexcept;
 };
@@ -63,8 +69,10 @@ using ToolValues = std::map<std::string, double>;
 /// step (a choice's index whole). Settings the tool hasn't are dropped.
 [[nodiscard]] ToolValues toolValues(const ToolSpec& tool, const ToolValues& given);
 
-/// Whether a setting shows for these values (one shown only for a choice of another).
-[[nodiscard]] bool settingShown(const ToolSpec& tool, const ToolSetting& setting, const ToolValues& values);
+/// Whether a setting shows for these values (one shown only for a choice of another), and on a
+/// Drum Kit's pads (`drums`: a melodic one doesn't).
+[[nodiscard]] bool settingShown(const ToolSpec& tool, const ToolSetting& setting, const ToolValues& values,
+                                bool drums = false);
 
 /// A value as the popover writes it: "40 ms", "−8 per note", "C3", "Up".
 [[nodiscard]] std::string settingText(const ToolSetting& setting, double value, const music::Key* key);
@@ -81,6 +89,8 @@ struct ToolContext
     std::pair<double, double> span{0.0, 16.0};
     /// The grid's step, in beats: what Quantise moves notes to.
     double gridStep = 0.25;
+    /// On a Drum Kit's pads (drum-kit.md §23.4): melodic settings take their first choice.
+    bool drums = false;
 };
 
 /// A tool's run: the notes as it leaves them (the changed or new notes selected), or why it

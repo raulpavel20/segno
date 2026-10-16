@@ -37,6 +37,12 @@ ToolSetting shownFor(ToolSetting s, std::string_view when, int is)
     return s;
 }
 
+ToolSetting melodic(ToolSetting s)
+{
+    s.melodic = true;
+    return s;
+}
+
 ToolSetting seed()
 {
     return number("seed", "Seed", 1, 9999, 1);
@@ -77,7 +83,8 @@ std::vector<ToolSpec> makeTools()
          {choice("direction", "Direction", {"Up", "Down", "Alternate"}, {"up", "down", "alternate"}),
           number("time", "Time", 0, 250, 40, "ms"),
           choice("curve", "Curve", {"Even", "Faster", "Slower"}, {"even", "faster", "slower"}),
-          number("velocity", "Velocity", -20, 20, 0, "per note")}},
+          number("velocity", "Velocity", -20, 20, 0, "per note")},
+         false},
         {"arpeggiate",
          "Arpeggiate",
          K::Transform,
@@ -85,7 +92,8 @@ std::vector<ToolSpec> makeTools()
          {choice("order", "Order", {"Up", "Down", "Up-down", "Played", "Random"},
                  {"up", "down", "up-down", "played", "random"}),
           rate("rate", "Rate", {"1/4", "1/8", "1/16", "1/32"}, 2), number("gate", "Gate", 10, 100, 80, "%"),
-          number("octaves", "Octaves", 1, 4, 1), seed()}},
+          number("octaves", "Octaves", 1, 4, 1), seed()},
+         false},
         {"chop",
          "Chop",
          K::Transform,
@@ -121,14 +129,15 @@ std::vector<ToolSpec> makeTools()
          K::Transform,
          "Pitches moved at random within a range, by steps of the key with one",
          {number("range", "Range", 1, 24, 5), choice("inKey", "In key", {"Yes", "No"}, {"yes", "no"}),
-          seed()}},
+          seed()},
+         false},
         {"rhythm",
          "Rhythm",
          K::Generate,
          "A Euclidean pattern, on a pitch or on the chords there",
          {number("steps", "Steps", 1, 32, 16), number("pulses", "Pulses", 1, 32, 5),
           number("rotate", "Rotate", 0, 31, 0), rate("step", "Step", {"1/4", "1/8", "1/16", "1/32"}, 2),
-          choice("on", "On", {"A pitch", "The chords"}, {"pitch", "chords"}),
+          melodic(choice("on", "On", {"A pitch", "The chords"}, {"pitch", "chords"})),
           shownFor(number("pitch", "Pitch", 0, 127, 60, "pitch"), "on", 0),
           number("velocity", "Velocity", 1, 127, 100), existing()}},
         {"melody",
@@ -137,7 +146,8 @@ std::vector<ToolSpec> makeTools()
          "Notes of the key, mostly by steps; chord notes on strong beats",
          {number("low", "Lowest", 0, 127, 60, "pitch"), number("high", "Highest", 0, 127, 72, "pitch"),
           number("density", "Density", 10, 100, 60, "%"), rate("step", "Step", {"1/8", "1/16"}, 0), seed(),
-          existing()}},
+          existing()},
+         false},
         {"chords",
          "Chords",
          K::Generate,
@@ -149,7 +159,8 @@ std::vector<ToolSpec> makeTools()
           choice("each", "Each", {"1 bar", "2 beats", "1 beat"}, {"bar", "2 beats", "beat"}),
           choice("voicing", "Voicing", {"Smooth", "Close", "Open", "Spread"},
                  {"smooth", "close", "open", "spread"}),
-          shownFor(seed(), "progression", 5), number("velocity", "Velocity", 1, 127, 90), existing()}},
+          shownFor(seed(), "progression", 5), number("velocity", "Velocity", 1, 127, 90), existing()},
+         false},
         {"bassline",
          "Bassline",
          K::Generate,
@@ -157,7 +168,8 @@ std::vector<ToolSpec> makeTools()
          {choice("pattern", "Pattern", {"Roots", "Roots and fifths", "Walking"},
                  {"roots", "fifths", "walking"}, 0, true),
           rate("step", "Step", {"1/4", "1/8"}, 0), number("around", "Around", 24, 60, 36, "pitch"),
-          number("velocity", "Velocity", 1, 127, 100), existing()}},
+          number("velocity", "Velocity", 1, 127, 100), existing()},
+         false},
     };
 }
 
@@ -575,7 +587,7 @@ std::vector<Note> rhythm(const std::vector<Note>& notes, const ToolValues& v, co
     const int pulses = std::clamp(pick(v, "pulses"), 0, steps), rotate = pick(v, "rotate");
     const auto& spec = *findNoteTool("rhythm");
     const double step = rateBeats(spec.setting("step")->words[static_cast<std::size_t>(pick(v, "step"))]);
-    const bool onChords = pick(v, "on") == 1;
+    const bool onChords = !c.drums && pick(v, "on") == 1; // a pad's, on the pads
     const auto spans = chordSpans(notes);
     const auto velocity = static_cast<float>(get(v, "velocity") / 127.0);
     if (onChords)
@@ -779,8 +791,10 @@ ToolValues toolValues(const ToolSpec& tool, const ToolValues& given)
     return out;
 }
 
-bool settingShown(const ToolSpec& tool, const ToolSetting& setting, const ToolValues& values)
+bool settingShown(const ToolSpec& tool, const ToolSetting& setting, const ToolValues& values, bool drums)
 {
+    if (drums && setting.melodic)
+        return false;
     if (setting.when.empty())
         return true;
     const auto it = values.find(std::string(setting.when));

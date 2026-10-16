@@ -25,6 +25,10 @@ inline constexpr int firstShown = 36; // a new kit shows C1 to D♯2, where the 
 /// Every note that has a pad with a sound.
 [[nodiscard]] std::bitset<padCount> padsWithSounds(const RackInfo& kit) noexcept;
 
+/// A track's Drum Kit, when it's the track's instrument (its chain's, not inside a rack): its clips
+/// open on its pads (§23, ADR 0066). Null: the track has none.
+[[nodiscard]] const DeviceSlot* trackKit(const std::vector<DeviceSlot>& devices) noexcept;
+
 /// A note's name on a pad, C3 = 60 (daw-shell.md): "C1", "C♯1".
 [[nodiscard]] std::string noteName(int note);
 

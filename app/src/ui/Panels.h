@@ -454,6 +454,8 @@ private:
     void updateHeader();
     /// The clip view's options in the header, as the piano roll has them.
     void updateOptions();
+    /// In key, or Pads on a Drum Kit's clip (drum-kit.md §23.3): its text, whether it shows, its state.
+    void updateRowsOption();
     /// Modules, Clip where it's available, the editor's while one is open.
     void updateTabs();
     /// The audio editor's bar as its clip and range are now.
@@ -473,7 +475,7 @@ private:
     /// while drawing chords, the kind side by side and the voicing (§20.2).
     ui::ViewChoice draw_, drawVoicing_;
     ui::Segments drawKind_;
-    ui::ViewOption inKey_{"In key"}, others_{"Others"};
+    ui::ViewOption inKey_{"In key"}, others_{"Others"}; // In key reads Pads on a Drum Kit's clip
     /// The piano roll's Snap and grid step (ADR 0047), on the right while it shows a clip.
     ui::ViewOption snap_{"Snap"};
     ui::ViewChoice grid_;

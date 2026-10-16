@@ -2279,7 +2279,14 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
         "How the chords drawn are voiced: Smooth moves least from the chord before; and their inversion");
     drawVoicing_.onClick = [this] { drawVoicing_.showMenu(roll_.voicingMenu()); };
     inKey_.setClickingTogglesState(false);
-    inKey_.onClick = [this] { roll_.setInKey(!roll_.inKey()); };
+    // On a Drum Kit's clip it reads Pads: its pads or the whole roll (drum-kit.md §23.3).
+    inKey_.onClick = [this]
+    {
+        if (roll_.kit() != 0)
+            roll_.setPads(!roll_.onPads());
+        else
+            roll_.setInKey(!roll_.inKey());
+    };
     others_.setClickingTogglesState(false);
     others_.onClick = [this] { roll_.setOthers(!roll_.options().others); };
     // Right-click: which tracks, one by one (§8); also View > Other tracks' notes.
@@ -2613,12 +2620,15 @@ void DetailPanel::updateOptions()
                               ? juce::String(model::voicingName(o.chord.voicing))
                               : juce::String(model::voicingName(o.chord.voicing)) +
                                     juce::String::fromUTF8(" · ") + model::inversionName(o.chord.inversion));
-    const bool chords = showsPianoRoll() && o.draw != model::DrawMode::Note;
+    // On a Drum Kit's pads, Draw and Others go (drum-kit.md §23.4); turned to the whole roll, back.
+    const bool roll = showsPianoRoll() && !roll_.onPads();
+    const bool chords = roll && o.draw != model::DrawMode::Note;
+    draw_.setVisible(roll);
+    others_.setVisible(roll);
     drawKind_.setVisible(chords);
     drawVoicing_.setVisible(chords);
-    inKey_.setToggleState(roll_.inKey(), juce::dontSendNotification);
+    updateRowsOption();
     others_.setToggleState(o.others, juce::dontSendNotification);
-    inKey_.setTooltip(actions_.tooltip("view.clipInKey"));
     others_.setTooltip(actions_.tooltip("view.clipOthers"));
     // The Tools pane as the view state has it (a project opened with it open, on a tab).
     if (o.toolsTab != tools_.tab())
@@ -2629,6 +2639,20 @@ void DetailPanel::updateOptions()
         updateVisibility();
     header_.resized(); // the choices are as wide as their values
     header_.repaint();
+}
+
+void DetailPanel::updateRowsOption()
+{
+    // In key, or on a Drum Kit's clip Pads (drum-kit.md §23.3): each clip its own.
+    const bool kit = roll_.kit() != 0;
+    if (const juce::String text = kit ? "Pads" : "In key"; inKey_.getButtonText() != text)
+    {
+        inKey_.setButtonText(text);
+        header_.resized();
+    }
+    inKey_.setVisible(showsPianoRoll() && (kit || roll_.key().has_value()));
+    inKey_.setToggleState(kit ? roll_.onPads() : roll_.inKey(), juce::dontSendNotification);
+    inKey_.setTooltip(actions_.tooltip("view.clipInKey"));
 }
 
 void DetailPanel::chooseMode(Mode mode)
@@ -2760,12 +2784,13 @@ void DetailPanel::updateVisibility()
     const bool notes = showsPianoRoll();
     notes_.setVisible(notes);
     quantise_.setVisible(notes);
-    draw_.setVisible(notes);
-    drawKind_.setVisible(notes && roll_.options().draw != model::DrawMode::Note);
-    drawVoicing_.setVisible(notes && roll_.options().draw != model::DrawMode::Note);
-    inKey_.setVisible(notes && roll_.key().has_value());
-    inKey_.setToggleState(roll_.inKey(), juce::dontSendNotification); // each clip its own
-    others_.setVisible(notes);
+    // On a Drum Kit's pads, what drums don't need goes: Draw's chords and Others (drum-kit.md §23.4).
+    const bool pads = notes && roll_.onPads();
+    draw_.setVisible(notes && !pads);
+    drawKind_.setVisible(notes && !pads && roll_.options().draw != model::DrawMode::Note);
+    drawVoicing_.setVisible(notes && !pads && roll_.options().draw != model::DrawMode::Note);
+    updateRowsOption();
+    others_.setVisible(notes && !pads);
     transform_.setVisible(notes);
     generate_.setVisible(notes);
     transform_.setToggleState(notes && toolsShown(model::ToolKind::Transform), juce::dontSendNotification);

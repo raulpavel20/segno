@@ -88,6 +88,14 @@ public:
     }
     std::uint64_t version() const override { return roll_.editVersion(); }
     juce::String what() const override { return "the notes"; }
+    std::vector<std::pair<int, juce::String>> pads() const override
+    {
+        std::vector<std::pair<int, juce::String>> out;
+        if (roll_.onPads())
+            for (const auto& pad : roll_.pads())
+                out.emplace_back(pad.note, pad.name);
+        return out;
+    }
 
 private:
     [[nodiscard]] model::ToolRun run(const model::ToolSpec& tool, const model::ToolValues& values) const
@@ -149,7 +157,32 @@ ToolsPane::~ToolsPane() = default;
 
 bool ToolsPane::shows(const TileItem& item) const noexcept
 {
-    return audio_ != nullptr ? item.audio : !item.audio && item.kind == tab_;
+    if (audio_ != nullptr)
+        return item.audio;
+    if (item.audio || item.kind != tab_)
+        return false;
+    // On a Drum Kit's pads, only the tools that work on drums (drum-kit.md §23.4).
+    if (!drums_)
+        return true;
+    const auto* tool = model::findNoteTool(item.id);
+    return tool != nullptr && tool->drums; // Make chords isn't one of them
+}
+
+void ToolsPane::updateDrums()
+{
+    if (roll_.onPads() == drums_)
+        return;
+    drums_ = roll_.onPads();
+    const auto chosen = chosen_;
+    for (auto& item : tiles_)
+        item.tile->setVisible(shows(item));
+    const auto it = std::find_if(tiles_.begin(), tiles_.end(), [&](const auto& t) { return t.id == chosen; });
+    if (!chosen.empty() && it != tiles_.end() && !shows(*it))
+        disarm(); // a tool drums don't use goes with its tile
+    else if (!chosen.empty() && chosen != kMakeChords)
+        form_.setTool(findTool(chosen)); // its settings as the pads have them: a pad, not a pitch
+    resized();
+    repaint();
 }
 
 const std::vector<model::ToolSpec>& ToolsPane::catalogue() const
@@ -278,6 +311,7 @@ juce::String ToolsPane::tipFor(const TileItem& item) const
 
 void ToolsPane::refresh()
 {
+    updateDrums();
     for (auto& item : tiles_)
     {
         const bool can = unavailable(item).isEmpty();

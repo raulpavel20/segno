@@ -1,7 +1,7 @@
 #include "ui/PianoRoll.h"
 
 #include "model/ClipLoops.h"
-
+#include "model/DrumKit.h"
 #include "ui/GridMenu.h"
 #include "ui/time/TimeView.h"
 
@@ -11,6 +11,9 @@ namespace fd::app
 {
 namespace
 {
+// Alt+wheel's row heights (the roll's own axis); the pads grow up to the tallest (§23.2).
+constexpr double kMinRowHeight = 6.0, kMaxRowHeight = 32.0;
+
 bool isBlackKey(int pitch)
 {
     const int k = pitch % 12;
@@ -116,18 +119,41 @@ void PianoRoll::setOptions(const model::PianoRollOptions& options)
 
 bool PianoRoll::inKey() const noexcept
 {
-    return key_.has_value() && clip_ && !options_.wholeRoll.contains(clip_->id);
+    return key_.has_value() && clip_ && kit_ == 0 && !options_.wholeRoll.contains(clip_->id);
+}
+
+bool PianoRoll::onPads() const noexcept
+{
+    return clip_ && kit_ != 0 && !options_.wholeRoll.contains(clip_->id);
+}
+
+const PianoRoll::PadRow* PianoRoll::padOn(int note) const noexcept
+{
+    for (const auto& pad : pads_)
+        if (pad.note == note)
+            return &pad;
+    return nullptr;
 }
 
 void PianoRoll::setInKey(bool on)
 {
+    setWholeRoll(!on);
+}
+
+void PianoRoll::setPads(bool on)
+{
+    setWholeRoll(!on);
+}
+
+void PianoRoll::setWholeRoll(bool whole)
+{
     if (!clip_)
         return;
     auto o = options_;
-    if (on)
-        o.wholeRoll.erase(clip_->id); // the clip follows the key again
-    else
+    if (whole)
         o.wholeRoll.insert(clip_->id);
+    else
+        o.wholeRoll.erase(clip_->id); // the clip follows the key, or the kit, again
     setOptions(o);
 }
 
@@ -281,7 +307,8 @@ model::ToolContext PianoRoll::toolContext() const
                          .beatsPerBar = tempo_.beatsPerBar(),
                          .secondsPerBeat = tempo_.secondsForBeats(1.0),
                          .origin = clip_ ? clip_->contentStartBeat : 0.0,
-                         .gridStep = gridStep()};
+                         .gridStep = gridStep(),
+                         .drums = onPads()};
     if (const auto span = model::notesSpan(notes_, selection_))
         c.span = *span;
     else
@@ -294,7 +321,27 @@ model::ToolContext PianoRoll::toolContext() const
 
 model::ToolValues PianoRoll::toolValues(const model::ToolSpec& tool) const
 {
-    return keptToolValues(std::string(tool.id), tool);
+    auto values = keptToolValues(std::string(tool.id), tool);
+    if (!onPads() || pads_.empty())
+        return values;
+    // On the pads a pitch is a pad (§23.4): one kept that isn't a pad becomes the selected notes'
+    // pad, else the row pressed last, else the lowest.
+    for (const auto& s : tool.settings)
+        if (s.unit == "pitch")
+            if (auto& v = values[std::string(s.id)]; padOn(static_cast<int>(std::lround(v))) == nullptr)
+            {
+                std::optional<int> chosen;
+                for (auto i : selection_)
+                    if (padOn(notes_[i].pitch) != nullptr)
+                    {
+                        chosen = notes_[i].pitch;
+                        break;
+                    }
+                if (!chosen && pressedPad_ && padOn(*pressedPad_) != nullptr)
+                    chosen = pressedPad_;
+                v = chosen.value_or(pads_.front().note);
+            }
+    return values;
 }
 
 void PianoRoll::setToolValues(const model::ToolSpec& tool, const model::ToolValues& values)
@@ -460,6 +507,35 @@ juce::PopupMenu PianoRoll::voicingMenu()
 
 // ---- geometry ------------------------------------------------------------------------------
 
+void PianoRoll::updateKeysWidth()
+{
+    // On the pads, as wide as their names and notes need, between the piano's and the column's
+    // widest (§23.2); a longer name ends in an ellipsis.
+    int width = 0;
+    if (onPads())
+    {
+        const auto& s = ui::Theme::current().shell;
+        int names = 0, notes = 0;
+        for (const auto& pad : pads_)
+            names = std::max(names, nameWidth(pad.name, ui::TextStyle::Control));
+        for (const int p : rows_)
+            notes = std::max(notes, nameWidth(noteName(p), ui::TextStyle::ValueSmall));
+        // The cells end a pixel short of the column's edge, where its line is.
+        width = std::clamp(s.listTextInset * 2 + names + (names > 0 ? s.groupGap : 0) + notes + 1,
+                           s.keyboardWidth, s.padNamesWidth);
+    }
+    if (width == keysWidth_)
+        return;
+    keysWidth_ = width;
+    resized();
+    repaint();
+}
+
+int PianoRoll::keysWidth() const noexcept
+{
+    return keysWidth_ > 0 ? keysWidth_ : ui::Theme::current().shell.keyboardWidth;
+}
+
 int PianoRoll::chordLaneLines() const
 {
     if (!showsChordLane())
@@ -471,8 +547,10 @@ int PianoRoll::chordLaneLines() const
 
 bool PianoRoll::showsChordLane() const
 {
-    return clip_ && (!spans_.empty() || options_.draw != model::DrawMode::Note ||
-                     (options_.others && !allSpans_.empty()));
+    // Never on the pads: a kick, a snare and a hat together aren't a chord (§23.4).
+    return clip_ && !onPads() &&
+           (!spans_.empty() || options_.draw != model::DrawMode::Note ||
+            (options_.others && !allSpans_.empty()));
 }
 
 int PianoRoll::topHeight() const
@@ -484,13 +562,16 @@ int PianoRoll::topHeight() const
 juce::Rectangle<int> PianoRoll::loopStripArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().removeFromTop(s.loopStripHeight).withTrimmedLeft(s.keyboardWidth);
+    return getLocalBounds().removeFromTop(s.loopStripHeight).withTrimmedLeft(keysWidth());
 }
 
 juce::Rectangle<int> PianoRoll::rulerArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().withTrimmedTop(s.loopStripHeight).removeFromTop(s.rulerHeight).withTrimmedLeft(s.keyboardWidth);
+    return getLocalBounds()
+        .withTrimmedTop(s.loopStripHeight)
+        .removeFromTop(s.rulerHeight)
+        .withTrimmedLeft(keysWidth());
 }
 
 juce::Rectangle<int> PianoRoll::chordLaneArea() const
@@ -499,25 +580,31 @@ juce::Rectangle<int> PianoRoll::chordLaneArea() const
     return getLocalBounds()
         .withTrimmedTop(s.loopStripHeight + s.rulerHeight)
         .removeFromTop(chordLaneLines() * s.rowHeight)
-        .withTrimmedLeft(s.keyboardWidth);
+        .withTrimmedLeft(keysWidth());
 }
 
 juce::Rectangle<int> PianoRoll::velocityArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().removeFromBottom(s.velocityHeight).withTrimmedLeft(s.keyboardWidth);
+    return getLocalBounds().removeFromBottom(s.velocityHeight).withTrimmedLeft(keysWidth());
 }
 
 juce::Rectangle<int> PianoRoll::keysArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().withTrimmedTop(topHeight()).withTrimmedBottom(s.velocityHeight + 1).removeFromLeft(s.keyboardWidth);
+    return getLocalBounds()
+        .withTrimmedTop(topHeight())
+        .withTrimmedBottom(s.velocityHeight + 1)
+        .removeFromLeft(keysWidth());
 }
 
 juce::Rectangle<int> PianoRoll::gridArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().withTrimmedTop(topHeight()).withTrimmedBottom(s.velocityHeight + 1).withTrimmedLeft(s.keyboardWidth);
+    return getLocalBounds()
+        .withTrimmedTop(topHeight())
+        .withTrimmedBottom(s.velocityHeight + 1)
+        .withTrimmedLeft(keysWidth());
 }
 
 double PianoRoll::contentStartSeconds() const
@@ -551,7 +638,7 @@ model::NoteGeometry PianoRoll::geometry() const
             .pixelsPerBeat = timeline_.pixelsPerSecond() * tempo_.secondsForBeats(1.0),
             .topEdge = topEdge_,
             .rowHeight = rowHeight_,
-            .rows = rows_.empty() ? nullptr : &rows_};
+            .rows = folded_ ? &rows_ : nullptr};
 }
 
 double PianoRoll::beatAtX(float x) const
@@ -602,7 +689,25 @@ void PianoRoll::fitToClip()
     const double length = std::max(to - from, tempo_.secondsForBeats(tempo_.beatsPerBar()));
     const double margin = length * 0.03;
     timeline_.setView(std::max(0.0, from - margin), area.getWidth() / (length + 2.0 * margin));
+    fitRows();
+}
 
+void PianoRoll::fitRows()
+{
+    const auto area = gridArea();
+    padsShown_ = onPads();
+    fittedRows_ = rows_.size();
+    if (padsShown_)
+    {
+        // The pads fill the height, as tall as a row gets; with more than fit at the roll's row
+        // height, they keep it and scroll, the lowest in view (§23.2).
+        const int count = std::max(1, geometry().rowCount());
+        rowHeight_ = std::clamp(area.getHeight() / static_cast<double>(count), rollRowHeight_, kMaxRowHeight);
+        topEdge_ = std::min(static_cast<double>(count), area.getHeight() / rowHeight_);
+        clampPitchView();
+        return;
+    }
+    rowHeight_ = rollRowHeight_;
     // Pitches: centred on the notes, or on C3..C4 for an empty clip.
     int lo = 60, hi = 72;
     if (!notes_.empty())
@@ -625,13 +730,17 @@ void PianoRoll::resized()
     {
         const auto& s = ui::Theme::current().shell;
         laneChoice_.setBounds(
-            getLocalBounds().removeFromBottom(s.velocityHeight).removeFromLeft(s.keyboardWidth));
+            getLocalBounds().removeFromBottom(s.velocityHeight).removeFromLeft(keysWidth()));
     }
-    // Keep the pitch in the middle where it is when the height changes.
+    // Keep the pitch in the middle where it is when the height changes; the pads fill it again
+    // (§23.2).
     const double height = gridArea().getHeight();
-    if (lastGridHeight_ > 0.0 && height > 0.0)
+    const bool refit = padsShown_ && onPads() && height > 0.0 && height != lastGridHeight_;
+    if (!refit && lastGridHeight_ > 0.0 && height > 0.0)
         topEdge_ += (height - lastGridHeight_) / rowHeight_ * 0.5;
     lastGridHeight_ = height;
+    if (refit)
+        fitRows();
     timeline_.setWidth(gridArea().getWidth());
     if (needsFit_)
         fitToClip();
@@ -646,10 +755,46 @@ juce::String PianoRoll::noteName(int pitch) const
     return utf8(music::noteName(keyOrNull(), pitch));
 }
 
+bool PianoRoll::updateKit(const std::optional<model::ClipInfo>& clip)
+{
+    std::uint64_t kit = 0;
+    std::vector<PadRow> pads;
+    if (clip && clip->kind == model::ClipInfo::Kind::Midi)
+        for (const auto& track : session_.snapshot()->tracks)
+            if (std::any_of(track.clips.begin(), track.clips.end(),
+                            [&](const auto& c) { return c.id == clip->id; }))
+            {
+                if (const auto* slot = model::kit::trackKit(track.devices))
+                {
+                    kit = slot->id;
+                    for (const auto& pad : slot->rack->chains)
+                        pads.push_back({pad.note, utf8(pad.name), pad.on});
+                    std::sort(pads.begin(), pads.end(),
+                              [](const auto& a, const auto& b) { return a.note < b.note; });
+                }
+                break;
+            }
+    if (kit == kit_ && pads == pads_)
+        return false;
+    kit_ = kit;
+    pads_ = std::move(pads);
+    padNotes_.reset();
+    for (const auto& pad : pads_)
+        if (pad.note >= 0 && pad.note < 128)
+            padNotes_.set(static_cast<std::size_t>(pad.note));
+    return true;
+}
+
 void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
 {
     tempo_ = tempo;
     bool rows = false;
+    if (updateKit(clip))
+    {
+        rows = true; // the pads' rows, and the chord lane and Others gone or back
+        updateKeysWidth();
+        resized();
+    }
     if (auto key = session_.snapshot()->keys.keyAt(clip ? clip->contentStartBeat : 0.0); key != key_)
     {
         key_ = std::move(key);
@@ -776,14 +921,30 @@ void PianoRoll::updateRows()
                    ? 60
                    : (*before.rows)[static_cast<std::size_t>(std::clamp(
                          static_cast<int>(middleRow), 0, static_cast<int>(before.rows->size()) - 1))]);
-    // A preview's notes outside the key show their rows while it's shown; a drag's land on rows.
-    auto rows = inKey() ? model::keyRows(keyOrNull(), notes_, preview_ ? &preview_->notes : nullptr)
-                        : std::vector<int>{};
-    if (rows.size() == 128)
-        rows.clear(); // every pitch: the whole roll
-    if (rows == rows_)
+    // A preview's notes outside the key (or off the pads) show their rows while it's shown; a
+    // drag's land on rows.
+    const auto* more = preview_ ? &preview_->notes : nullptr;
+    auto rows = onPads()  ? model::padRows(padNotes_, notes_, more)
+                : inKey() ? model::keyRows(keyOrNull(), notes_, more)
+                          : std::vector<int>{};
+    const bool folded = onPads() || (inKey() && rows.size() < 128); // every pitch: the whole roll
+    if (!folded)
+        rows.clear();
+    // To the pads, or back to the roll's row height; on the pads, rows come and go filling the
+    // height, though not under a gesture or a preview (they hold still until it ends).
+    const bool idle = gesture_ == Gesture::None && !preview_;
+    const bool refit = onPads() != padsShown_ || (onPads() && idle && rows.size() != fittedRows_);
+    if (rows == rows_ && folded == folded_ && !refit)
         return;
     rows_ = std::move(rows);
+    folded_ = folded;
+    updateKeysWidth();
+    if (refit && gridArea().getHeight() > 0)
+    {
+        fitRows();
+        repaint();
+        return;
+    }
     topEdge_ = geometry().rowOf(middlePitch) + 0.5 + gridArea().getHeight() / rowHeight_ * 0.5;
     clampPitchView();
     repaint();
@@ -793,7 +954,7 @@ void PianoRoll::updateGhosts()
 {
     ghosts_.clear();
     allSpans_.clear();
-    if (!clip_ || !options_.others)
+    if (!clip_ || !options_.others || onPads()) // another track's pitches aren't the pads (§23.4)
     {
         updateLabels();
         resized();
@@ -964,7 +1125,9 @@ void PianoRoll::transposeSteps(int steps)
 {
     if (!clip_ || selection_.empty())
         return;
-    if (inKey())
+    if (onPads())
+        commit(model::transposeInRows(notes_, selection_, rows_, steps)); // a row: the next pad
+    else if (inKey())
         commit(model::transposeInKey(notes_, selection_, *key_, steps));
     else
         transpose(steps);
@@ -1243,7 +1406,7 @@ model::NoteEdit PianoRoll::drawnAt(juce::Point<float> local, bool bypass) const
                            .start = std::max(0.0, snapping.floor(beat)),
                            .length = gridStep(),
                            .velocity = drawVelocity_};
-    return options_.draw == model::DrawMode::Note
+    return options_.draw == model::DrawMode::Note || onPads() // the pads draw hits (§23.4)
                ? model::addNote(notes_, note)
                : model::drawChord(notes_, note, keyOrNull(), options_.chord,
                                   options_.draw == model::DrawMode::ChordUnder);
@@ -1291,7 +1454,8 @@ void PianoRoll::paintRows(juce::Graphics& g)
     const int lowest = std::max(0, static_cast<int>(std::floor(topEdge_ - 1.0 - area.getHeight() / rowHeight_)));
     const auto x = static_cast<float>(area.getX()), w = static_cast<float>(area.getWidth());
     const auto rh = static_cast<float>(rowHeight_);
-    const bool folded = !rows_.empty();
+    const bool folded = folded_;
+    const bool pads = onPads();
     if (folded) // below the last row: nothing
     {
         g.setColour(t.surface0);
@@ -1301,9 +1465,13 @@ void PianoRoll::paintRows(juce::Graphics& g)
     {
         const int p = folded ? rows_[static_cast<std::size_t>(r)] : r;
         const float y = static_cast<float>(area.getY() + geo.yForPitch(p));
-        g.setColour(isBlackKey(p) ? black : white);
+        // On the pads every row is a pad's, one shade; a pitch with notes and no pad is hatched,
+        // as a note outside the key is (§23.2).
+        g.setColour(pads || !isBlackKey(p) ? white : black);
         g.fillRect(x, y, w, rh);
-        if (folded && key_ && !music::contains(*key_, p)) // inside the row, clear of notes' edges
+        const bool stray =
+            pads ? !padNotes_.test(static_cast<std::size_t>(p)) : key_ && !music::contains(*key_, p);
+        if (folded && stray) // inside the row, clear of notes' edges
             ui::paintHatch(g, {x, y + 1.0f, w, rh - 2.0f}, t.roles.keyRowHatch);
         if (p % 12 == 0 || p % 12 == 5 || folded)
         {
@@ -1323,6 +1491,11 @@ void PianoRoll::paintRows(juce::Graphics& g)
         g.fillRect(clipX1, static_cast<float>(area.getY()), x + w - clipX1, static_cast<float>(area.getHeight()));
 
     time::paintGrid(g, lines_, timeline_, area);
+
+    // An empty kit and clip: nothing to write on yet, and what to do (§23.2).
+    if (pads && rows_.empty())
+        ui::paintEmptyState(
+            g, area, "No pads with sounds yet: drop samples on the Drum Kit's pads, or show the whole roll");
 }
 
 void PianoRoll::paintGhosts(juce::Graphics& g)
@@ -1337,7 +1510,7 @@ void PianoRoll::paintGhosts(juce::Graphics& g)
     for (const auto& ghost : ghosts_)
     {
         const auto& n = ghost.note;
-        if (!rows_.empty() && !std::binary_search(rows_.begin(), rows_.end(), n.pitch))
+        if (folded_ && !std::binary_search(rows_.begin(), rows_.end(), n.pitch))
             continue; // not a row shown
         const float x0 = static_cast<float>(area.getX() + geo.xForBeat(n.start));
         const float x1 = static_cast<float>(area.getX() + geo.xForBeat(n.start + n.length));
@@ -1551,7 +1724,12 @@ void PianoRoll::paintKeys(juce::Graphics& g)
     const int lowest = std::max(0, static_cast<int>(std::floor(topEdge_ - 1.0 - area.getHeight() / rowHeight_)));
     g.setFont(ui::font(ui::TextStyle::Micro));
 
-    if (!rows_.empty())
+    if (onPads())
+    {
+        paintPadKeys(g);
+        return;
+    }
+    if (folded_)
     {
         // In key (§21): each row a key of its own, white or black as on the piano, labelled with
         // its note and, for the key's notes, its step.
@@ -1627,6 +1805,64 @@ void PianoRoll::paintKeys(juce::Graphics& g)
     g.fillRect(area.getRight() - 1, area.getY(), 1, area.getHeight());
 }
 
+void PianoRoll::paintPadKeys(juce::Graphics& g)
+{
+    // Each row its pad's name, as the kit's pads show it (ui::PadGrid): a pad with a sound raised,
+    // its name then its note, the whole row faded while the pad is off; a pitch with notes and no
+    // pad a well with its note alone, hatched as its row is (§23.2).
+    const auto& t = ui::Theme::current();
+    const auto& s = t.shell;
+    const auto area = keysArea();
+    const auto geo = geometry();
+    g.setColour(t.surface1);
+    g.fillRect(area);
+    const auto x = static_cast<float>(area.getX()), w = static_cast<float>(area.getWidth() - 1);
+    const auto rh = static_cast<float>(rowHeight_);
+    const int highest = std::min(geo.rowCount() - 1, static_cast<int>(std::ceil(topEdge_)) - 1);
+    const int lowest =
+        std::max(0, static_cast<int>(std::floor(topEdge_ - 1.0 - area.getHeight() / rowHeight_)));
+    // The pads' own styles where the rows are tall enough for them, else the keys' small one.
+    const auto fits = [this](ui::TextStyle style)
+    { return ui::font(style).getHeight() + 2.0f <= rowHeight_; };
+    const auto nameStyle = fits(ui::TextStyle::Control) ? ui::TextStyle::Control : ui::TextStyle::Micro;
+    const auto noteStyle = fits(ui::TextStyle::ValueSmall) ? ui::TextStyle::ValueSmall : ui::TextStyle::Micro;
+    for (int r = lowest; r <= highest; ++r)
+    {
+        const int p = rows_[static_cast<std::size_t>(r)];
+        const auto cell =
+            juce::Rectangle<float>(x, static_cast<float>(area.getY() + geo.yForPitch(p)), w, rh - 1.0f);
+        const auto* pad = padOn(p);
+        const bool held = previewPitch_ == p;
+        // A pad that's off recedes, whole, as on the kit (dimAlpha, never compounded).
+        const bool off = pad != nullptr && !pad->on;
+        if (off)
+            g.beginTransparencyLayer(t.roles.dimAlpha);
+        g.setColour(pad != nullptr ? t.lift(t.surface3, held, held) : t.surface0);
+        g.fillRect(cell);
+        if (pad == nullptr)
+            ui::paintHatch(g, cell, t.roles.keyRowHatch);
+        if (rowHeight_ >= 8.0)
+        {
+            auto text = cell.reduced(static_cast<float>(s.listTextInset), 0.0f);
+            const auto note = noteName(p);
+            g.setColour(t.textTertiary);
+            g.setFont(ui::font(noteStyle));
+            g.drawText(note, text, juce::Justification::centredRight, false);
+            if (pad != nullptr)
+            {
+                text.removeFromRight(static_cast<float>(nameWidth(note, noteStyle) + s.groupGap));
+                g.setColour(held ? t.textPrimary : t.textSecondary);
+                g.setFont(ui::font(nameStyle));
+                g.drawText(pad->name, text, juce::Justification::centredLeft, true);
+            }
+        }
+        if (off)
+            g.endTransparencyLayer();
+    }
+    g.setColour(t.surface0);
+    g.fillRect(area.getRight() - 1, area.getY(), 1, area.getHeight());
+}
+
 void PianoRoll::paintRuler(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
@@ -1686,7 +1922,7 @@ void PianoRoll::paintChordLane(juce::Graphics& g)
 
     const bool own = !spans_.empty() || options_.draw != model::DrawMode::Note;
     auto lineArea = lane.withHeight(s.rowHeight);
-    auto labelArea = row.withWidth(s.keyboardWidth).withHeight(s.rowHeight);
+    auto labelArea = row.withWidth(keysWidth()).withHeight(s.rowHeight);
     const auto label = [&](const char* text, juce::Rectangle<int> area)
     {
         const int w = static_cast<int>(std::ceil(
@@ -1953,8 +2189,18 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
 
     if (keysArea().contains(pos))
     {
+        if (folded_ && rows_.empty())
+            return; // an empty kit's: no rows
         gesture_ = Gesture::Keys;
-        previewOn(std::clamp(geo.pitchForY(local.y), 0, 127), drawVelocity_);
+        const int pitch = std::clamp(geo.pitchForY(local.y), 0, 127);
+        previewOn(pitch, drawVelocity_);
+        // On the pads, a pad's name is its key: it plays it and selects it in the kit, so the
+        // chain shows its sound (§23.2).
+        if (onPads() && padOn(pitch) != nullptr)
+        {
+            pressedPad_ = pitch;
+            session_.selectPad(kit_, pitch);
+        }
         return;
     }
     if (loopStripArea().contains(pos))
@@ -2109,6 +2355,8 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
             commit(model::deleteNotes(notes_, {hit->index}));
             return;
         }
+        if (folded_ && rows_.empty())
+            return; // an empty kit's: no rows to draw on (§23.2)
         // Draw a note (or a chord, §7.2) one grid step long, on the row and in the step under the
         // mouse (Alt: free of the grid); dragging lengthens it.
         base_ = drawnAt(local, e.mods.isAltDown());
@@ -2236,7 +2484,7 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
         {
             // By the rows shown (In key, the key's steps: §21); Ctrl copies (§9.1).
             drag_.deltaPitch = -static_cast<int>(std::lround((e.position.y - dragStart_.y) / rowHeight_));
-            drag_.rows = rows_.empty() ? nullptr : &rows_;
+            drag_.rows = folded_ ? &rows_ : nullptr;
             drag_.copy = gesture_ == Gesture::Notes && e.mods.isCommandDown();
         }
         preview_ = model::dragNotes(base_.notes, base_.selection, drag_, beatGrid(alt));
@@ -2389,6 +2637,7 @@ void PianoRoll::mouseUp(const juce::MouseEvent& e)
     if (gesture_ == Gesture::Notes || gesture_ == Gesture::Draw || gesture_ == Gesture::Keys)
         previewOff();
     gesture_ = Gesture::None;
+    updateRows(); // the rows held still under the gesture: now they follow the notes
     repaint();
 }
 
@@ -2404,7 +2653,9 @@ void PianoRoll::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheel
         const double y = e.position.y - static_cast<float>(area.getY());
         const double dy = wheel.deltaY * (wheel.isReversed ? -1.0 : 1.0);
         const double row = topEdge_ - y / rowHeight_;
-        rowHeight_ = std::clamp(rowHeight_ * std::pow(2.0, dy), 6.0, 32.0);
+        rowHeight_ = std::clamp(rowHeight_ * std::pow(2.0, dy), kMinRowHeight, kMaxRowHeight);
+        if (!onPads())
+            rollRowHeight_ = rowHeight_; // the roll's own; the pads fill the height when opened
         topEdge_ = row + y / rowHeight_;
     }
     else

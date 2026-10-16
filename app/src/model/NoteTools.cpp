@@ -195,6 +195,52 @@ NoteEdit transposeInKey(const std::vector<Note>& notes, const std::set<std::size
             t.all ? std::set<std::size_t>{} : std::set<std::size_t>(t.indices.begin(), t.indices.end())};
 }
 
+std::vector<int> padRows(const std::bitset<128>& pads, const std::vector<Note>& notes,
+                         const std::vector<Note>* more)
+{
+    auto used = pads;
+    for (const auto* list : {&notes, more})
+        if (list != nullptr)
+            for (const auto& n : *list)
+                used.set(static_cast<std::size_t>(std::clamp(n.pitch, 0, 127)));
+    std::vector<int> rows;
+    for (int p = 0; p <= 127; ++p)
+        if (used.test(static_cast<std::size_t>(p)))
+            rows.push_back(p);
+    return rows;
+}
+
+NoteEdit transposeInRows(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                         const std::vector<int>& rows, int steps)
+{
+    const auto t = targetsOf(notes, selection);
+    for (; steps != 0; steps += steps > 0 ? -1 : 1)
+    {
+        std::vector<Note> changed;
+        bool fits = true;
+        for (auto i : t.indices)
+        {
+            auto n = notes[i];
+            const auto at = std::find(rows.begin(), rows.end(), n.pitch);
+            if (at == rows.end())
+                n.pitch += steps;
+            else
+            {
+                const auto row = (at - rows.begin()) + steps;
+                fits = fits && row >= 0 && row < static_cast<std::ptrdiff_t>(rows.size());
+                if (fits)
+                    n.pitch = rows[static_cast<std::size_t>(row)];
+            }
+            fits = fits && n.pitch >= 0 && n.pitch <= 127;
+            changed.push_back(n);
+        }
+        if (fits)
+            return apply(notes, t, changed);
+    }
+    return {notes,
+            t.all ? std::set<std::size_t>{} : std::set<std::size_t>(t.indices.begin(), t.indices.end())};
+}
+
 NoteEdit fitToKey(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                   const music::Key& key)
 {

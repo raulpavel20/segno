@@ -5,6 +5,7 @@
 #include "model/PianoRollOptions.h"
 
 #include <algorithm>
+#include <bitset>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <nlohmann/json.hpp>
@@ -128,6 +129,32 @@ TEST_CASE("The arrows move by steps of the scale", "[fast]")
     CHECK(out.selection.empty());
     const std::vector<Note> top{note(127, 0.0)};
     CHECK(pitchesOf(transposeInKey(top, {0}, cMajor, 1).notes) == std::vector<int>{127});
+}
+
+TEST_CASE("The pads: a row for each pad with a sound, and one for each pitch with notes and no pad", "[fast]")
+{
+    std::bitset<128> pads;
+    for (int p : {36, 38, 42})
+        pads.set(static_cast<std::size_t>(p));
+    const std::vector<Note> notes{note(36, 0.0), note(40, 1.0)}; // E1 has no pad
+    CHECK(padRows(pads, notes) == std::vector<int>{36, 38, 40, 42});
+    const std::vector<Note> preview{note(45, 0.0)};
+    CHECK(padRows(pads, notes, &preview) == std::vector<int>{36, 38, 40, 42, 45});
+    CHECK(padRows({}, {}).empty()); // an empty kit, an empty clip: no rows
+}
+
+TEST_CASE("The pads: the arrows move a row, as a group, kept on the rows", "[fast]")
+{
+    const std::vector<int> rows{36, 38, 42, 46};
+    const std::vector<Note> notes{note(36, 0.0), note(38, 1.0)};
+    auto out = transposeInRows(notes, {0, 1}, rows, 1);
+    CHECK(pitchesOf(out.notes) == std::vector<int>{38, 42}); // kick to snare, snare to hat
+    CHECK(out.selection == std::set<std::size_t>{0, 1});
+    out = transposeInRows(notes, {}, rows, 2); // nothing selected: every note
+    CHECK(pitchesOf(out.notes) == std::vector<int>{42, 46});
+    // The top row stops the group as far as it can go.
+    CHECK(pitchesOf(transposeInRows(notes, {0, 1}, rows, 5).notes) == std::vector<int>{42, 46});
+    CHECK(pitchesOf(transposeInRows(notes, {0}, rows, -1).notes) == std::vector<int>{36, 38}); // stays
 }
 
 TEST_CASE("Fit to key", "[fast]")

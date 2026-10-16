@@ -79,8 +79,11 @@ private:
         std::unique_ptr<ui::Tile> tile;
         bool audio = false; // one of the audio's tools
     };
-    /// Whether a tile shows now: the audio's, or the notes' of the tab.
+    /// Whether a tile shows now: the audio's, or the notes' of the tab (on a Drum Kit's pads, the
+    /// tools that work on drums).
     [[nodiscard]] bool shows(const TileItem& item) const noexcept;
+    /// The piano roll went on or off a Drum Kit's pads: the tiles and the chosen tool follow.
+    void updateDrums();
     /// The tools shown now, and a tool of them by id.
     [[nodiscard]] const std::vector<model::ToolSpec>& catalogue() const;
     [[nodiscard]] const model::ToolSpec* findTool(std::string_view id) const;
@@ -110,5 +113,6 @@ private:
     std::uint64_t seen_ = 0; // the notes and selection the chosen tool was last shown on
     bool floating_ = false;
     bool compact_ = false;
+    bool drums_ = false; // the piano roll shows a Drum Kit's pads (drum-kit.md §23.4)
 };
 } // namespace fd::app

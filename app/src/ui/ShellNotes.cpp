@@ -216,20 +216,34 @@ void Shell::registerNotesActions()
     const auto clipView = [this] { return detail_.showsPianoRoll(); };
     const auto whyNoClip = []
     { return juce::String("Open a MIDI clip in the clip view first: double-click it"); };
-    actions_.add({.id = "view.clipInKey",
-                  .name = "Show only the key's notes",
-                  .category = "View",
-                  .keys = {key('n', kCmd | kAlt)},
-                  .perform = [&roll] { roll.setInKey(!roll.inKey()); },
-                  .isEnabled = [clipView, &roll] { return clipView() && roll.key().has_value(); },
-                  .isToggled = [&roll] { return roll.inKey(); },
-                  .whyNot =
-                      [this, &roll]
-                  {
-                      return detail_.showsPianoRoll() && !roll.key()
-                                 ? juce::String("The song has no key: Song > Key sets one")
-                                 : juce::String("Open a MIDI clip in the clip view first: double-click it");
-                  }});
+    // On a Drum Kit's clip, the same item shows only its pads (drum-kit.md §23.3).
+    actions_.add(
+        {.id = "view.clipInKey",
+         .name = "Show only the key's notes",
+         .category = "View",
+         .keys = {key('n', kCmd | kAlt)},
+         .perform =
+             [&roll]
+         {
+             if (roll.kit() != 0)
+                 roll.setPads(!roll.onPads());
+             else
+                 roll.setInKey(!roll.inKey());
+         },
+         .isEnabled = [clipView, &roll] { return clipView() && (roll.kit() != 0 || roll.key().has_value()); },
+         .isToggled = [&roll] { return roll.kit() != 0 ? roll.onPads() : roll.inKey(); },
+         .whyNot =
+             [this, &roll]
+         {
+             return detail_.showsPianoRoll() && !roll.key()
+                        ? juce::String("The song has no key: Song > Key sets one")
+                        : juce::String("Open a MIDI clip in the clip view first: double-click it");
+         },
+         .label =
+             [&roll]
+         {
+             return juce::String(roll.kit() != 0 ? "Show only the kit's pads" : "Show only the key's notes");
+         }});
     // The Tools pane (§25): on a tab, or closed, as the header's Transform and Generate do.
     for (const auto& [id, name, tab] :
          {std::tuple{"view.toolsTransform", "Transform tools", model::ToolKind::Transform},

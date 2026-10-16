@@ -2,10 +2,11 @@
 
 #include "model/NoteToolkit.h"
 
-#include <juce_core/juce_core.h>
-
 #include <cstdint>
+#include <juce_core/juce_core.h>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace fd::app
 {
@@ -39,5 +40,8 @@ public:
     [[nodiscard]] virtual std::uint64_t version() const = 0;
     /// What Apply's tooltip and the empty pane say ("the notes", "the clips").
     [[nodiscard]] virtual juce::String what() const = 0;
+    /// On a Drum Kit's pads (drum-kit.md §23.4): each pad's note and name, low to high. A setting
+    /// that names a pitch chooses a pad instead, and the melodic settings go. Empty elsewhere.
+    [[nodiscard]] virtual std::vector<std::pair<int, juce::String>> pads() const { return {}; }
 };
 } // namespace fd::app

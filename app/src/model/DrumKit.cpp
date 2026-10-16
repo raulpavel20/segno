@@ -27,6 +27,14 @@ std::bitset<padCount> padsWithSounds(const RackInfo& kit) noexcept
     return notes;
 }
 
+const DeviceSlot* trackKit(const std::vector<DeviceSlot>& devices) noexcept
+{
+    for (const auto& d : devices)
+        if (d.rack != nullptr && d.rack->kit)
+            return &d;
+    return nullptr;
+}
+
 std::string noteName(int note)
 {
     return music::noteName(nullptr, std::clamp(note, 0, padCount - 1));

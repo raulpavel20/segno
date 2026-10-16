@@ -71,6 +71,11 @@ private:
 
     void build();
     [[nodiscard]] static int heightFor(int rows);
+    /// A setting that names a pitch, on a Drum Kit's pads: it chooses a pad (drum-kit.md §23.4).
+    [[nodiscard]] bool choosesPad(const model::ToolSetting& s) const;
+    [[nodiscard]] juce::String labelOf(const model::ToolSetting& s) const;
+    /// A pitch as it's chosen on the pads: its pad's name, else its note's.
+    [[nodiscard]] juce::String padText(double value) const;
     void paintLabels(juce::Graphics& g) const;
     [[nodiscard]] int controlWidth(const model::ToolSetting& setting) const;
 
@@ -78,6 +83,7 @@ private:
     const model::ToolSpec* tool_ = nullptr;
     model::ToolValues values_;
     std::vector<Row> rows_;
+    std::vector<std::pair<int, juce::String>> pads_; // the host's pads, while it's on them
     std::unique_ptr<Rows> holder_; // the rows, scrolled
     juce::Viewport viewport_;
     ui::Toggle apply_{"Apply"};

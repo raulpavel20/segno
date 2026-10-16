@@ -139,12 +139,32 @@ void ToolForm::setTool(const model::ToolSpec* tool)
         host_->cancel();
 }
 
+bool ToolForm::choosesPad(const model::ToolSetting& s) const
+{
+    return !pads_.empty() && s.unit == "pitch";
+}
+
+juce::String ToolForm::labelOf(const model::ToolSetting& s) const
+{
+    return choosesPad(s) ? juce::String("Pad") : utf8(s.label);
+}
+
+juce::String ToolForm::padText(double value) const
+{
+    const auto note = static_cast<int>(std::lround(value));
+    for (const auto& [pad, name] : pads_)
+        if (pad == note)
+            return name;
+    return utf8(model::settingText(model::ToolSetting{.unit = "pitch"}, value, nullptr));
+}
+
 void ToolForm::build()
 {
     for (auto& row : rows_)
         holder_->removeChildComponent(row.control.get());
     rows_.clear();
     viewport_.setViewPosition(0, 0);
+    pads_ = host_->pads();
     if (tool_ == nullptr)
         return;
     const auto& theme = ui::Theme::current();
@@ -163,6 +183,37 @@ void ToolForm::build()
             segments->setSelected(index);
             segments->onChange = [this, id](int chosen) { setValue(id, chosen); };
             row.control = std::move(segments);
+        }
+        else if (choosesPad(s))
+        {
+            // On the pads, a pitch is a pad, chosen by name (drum-kit.md §23.4).
+            auto field = std::make_unique<ui::ChoiceField>();
+            field->setFontSize(theme.textXs);
+            field->setValue(padText(value));
+            auto* raw = field.get();
+            field->onOpen = [this, raw, id]
+            {
+                juce::PopupMenu menu;
+                const auto now = static_cast<int>(std::lround(values_.at(id)));
+                for (const auto& [pad, name] : pads_)
+                    menu.addItem(juce::PopupMenu::Item(name)
+                                     .setTicked(pad == now)
+                                     .setAction(
+                                         [this, raw, id, pad = pad, name = name]
+                                         {
+                                             raw->setValue(name);
+                                             setValue(id, static_cast<double>(pad));
+                                         }));
+                raw->setOpen(true);
+                const juce::Component::SafePointer<ui::ChoiceField> safe(raw);
+                menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(raw),
+                                   [safe](int)
+                                   {
+                                       if (safe != nullptr)
+                                           safe->setOpen(false);
+                                   });
+            };
+            row.control = std::move(field);
         }
         else if (s.isChoice())
         {
@@ -225,13 +276,13 @@ void ToolForm::build()
             }
         }
         if (auto* tip = dynamic_cast<juce::SettableTooltipClient*>(row.control.get()))
-            tip->setTooltip(utf8(s.label));
+            tip->setTooltip(labelOf(s));
         holder_->addChildComponent(*row.control);
         rows_.push_back(std::move(row));
     }
     for (auto& row : rows_)
     {
-        row.shown = model::settingShown(*tool_, *row.setting, values_);
+        row.shown = model::settingShown(*tool_, *row.setting, values_, !pads_.empty());
         row.control->setVisible(row.shown);
     }
 }
@@ -245,7 +296,8 @@ void ToolForm::setValue(std::string_view setting, double value)
     // A choice others show for (the Velocity tool's shape): the rows that show change.
     bool changed = false;
     for (auto& row : rows_)
-        if (const bool shown = model::settingShown(*tool_, *row.setting, values_); shown != row.shown)
+        if (const bool shown = model::settingShown(*tool_, *row.setting, values_, !pads_.empty());
+            shown != row.shown)
         {
             row.shown = shown;
             row.control->setVisible(shown);
@@ -314,6 +366,13 @@ juce::String ToolForm::title() const
 
 int ToolForm::controlWidth(const model::ToolSetting& s) const
 {
+    if (choosesPad(s))
+    {
+        int widest = 0;
+        for (const auto& [pad, name] : pads_)
+            widest = std::max(widest, measureChoice_.widthFor(name));
+        return widest;
+    }
     if (s.isChoice() && !s.menu)
     {
         int width = 0;
@@ -433,7 +492,7 @@ void ToolForm::paintLabels(juce::Graphics& g) const
     g.setColour(t.textSecondary);
     for (const auto& row : rows_)
         if (row.shown)
-            g.drawText(utf8(row.setting->label),
+            g.drawText(labelOf(*row.setting),
                        row.control->getBounds().withX(0).withWidth(t.shell.propertyLabelWidth),
                        juce::Justification::centredLeft, false);
 }

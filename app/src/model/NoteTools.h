@@ -2,6 +2,7 @@
 
 #include "model/NoteEditing.h"
 
+#include <bitset>
 #include <cstddef>
 #include <fd/music/Chords.h>
 #include <optional>
@@ -28,6 +29,18 @@ namespace fd::model
 /// limited so every note stays within 0..127.
 [[nodiscard]] NoteEdit transposeInKey(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                                       const music::Key& key, int steps);
+
+// ---- The pads (drum-kit.md §23, ADR 0066) ----------------------------------------------------
+
+/// The rows a Drum Kit's clip shows, low to high: the notes of its pads with sounds, and every
+/// pitch with notes and no pad (in `notes`, or in `more`: a preview's), so nothing is hidden.
+[[nodiscard]] std::vector<int> padRows(const std::bitset<128>& pads, const std::vector<Note>& notes,
+                                       const std::vector<Note>* more = nullptr);
+
+/// The arrows on the pads: the notes moved `steps` rows of `rows` (low to high), as a group,
+/// limited so every note stays on a row. A note on no row moves by semitones.
+[[nodiscard]] NoteEdit transposeInRows(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                                       const std::vector<int>& rows, int steps);
 
 /// Fit to key (§6): every note outside the key moves to its nearest note. At an equal distance it
 /// goes the way its melody was moving (up after a rising step from the note before, down after a

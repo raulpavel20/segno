@@ -259,6 +259,29 @@ TEST_CASE("Note tools: Rhythm writes a Euclidean pattern, on a pitch or on the c
         CHECK(n.length == Approx(0.25));
 }
 
+TEST_CASE("Note tools: on a Drum Kit's pads, the tools that work on drums; Rhythm on a pad", "[fast]")
+{
+    // drum-kit.md §23.4: shown on the pads.
+    for (const auto* id : {"quantise", "humanize", "chop", "ornament", "velocity", "span", "rhythm"})
+        CHECK(findNoteTool(id)->drums);
+    for (const auto* id : {"strum", "arpeggiate", "randomise", "melody", "chords", "bassline"})
+        CHECK_FALSE(findNoteTool(id)->drums);
+    // Rhythm's On goes on the pads: always a pitch, the pad's.
+    const auto& rhythm = *findNoteTool("rhythm");
+    const auto& on = *rhythm.setting("on");
+    CHECK(settingShown(rhythm, on, {}));
+    CHECK_FALSE(settingShown(rhythm, on, {}, true));
+    CHECK(settingShown(rhythm, *rhythm.setting("pitch"), {}, true));
+    auto drums = context();
+    drums.drums = true;
+    const auto out =
+        run("rhythm", cMajorChord(0.0, 4.0), {{"on", 1.0}, {"pitch", 38.0}, {"pulses", 4.0}}, {}, drums).edit;
+    for (const auto& n : out.notes)
+        if (n.length == Approx(0.25))
+            CHECK(n.pitch == 38);
+    CHECK(out.notes.size() == 3 + 4); // the chord kept, four hits on the snare
+}
+
 TEST_CASE("Note tools: Melody stays in the key and its range; Keep and Replace", "[fast]")
 {
     const auto out =

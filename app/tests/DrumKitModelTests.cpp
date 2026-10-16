@@ -60,3 +60,17 @@ TEST_CASE("drum kit: a pad's note, its choke group, and the frame's label", "[fa
     kit.selectedPad = 40; // empty
     CHECK(kit::frameLabel(kit) == "Pad E1");
 }
+
+TEST_CASE("drum kit: a track's kit is its instrument in its chain", "[fast]")
+{
+    auto kit = std::make_shared<RackInfo>(kitOf({{36, "Kick"}}));
+    auto rack = std::make_shared<RackInfo>();
+    std::vector<DeviceSlot> devices(3);
+    devices[0].rack = rack; // a rack of effects: not a kit
+    CHECK(kit::trackKit(devices) == nullptr);
+    devices[1].id = 7;
+    devices[1].rack = kit;
+    REQUIRE(kit::trackKit(devices) != nullptr);
+    CHECK(kit::trackKit(devices)->id == 7);
+    CHECK(kit::trackKit({}) == nullptr);
+}

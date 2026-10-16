@@ -602,3 +602,24 @@ The kit's eight macros work as a rack's (§10): `app/src/ui/MacroPanel.*`, a pan
 - **A kit's macro has no Store snapshot or Lock** on its right-click. The Session refuses snapshots, Morph, Vary and locks on a kit (§16).
 - **The rack tools refuse a kit by name.** `get_rack`, `add_rack_chain`, `store_snapshot`, `set_morph`, `vary_module` and the rest say it's a Drum Kit, and point to `get_kit`, `set_pad`, `map_macro` and `set_macro`.
 - **Undoing a macro** puts it back at once. Its parameters follow on the next block the engine plays, as for a rack's macro.
+
+## 25. The drum view, drawn (2026-10-16; for the product owner's approval)
+
+Drawn with the real piano roll, on a kit of seven pads with a beat over four bars (`DrumViewTests`, with FD_DUMP_DIR): the view, a pad that's off, the whole roll, an empty kit, the Tools pane's Transform and Generate, and the header from 1800 to 700 px. Painting a row, the menus' dimmed items and the assistants come after approval, with the rest of step 2b.
+
+**Settled while drawing:**
+- **The names' column looks like the kit's pads** (`ui::PadGrid`):
+  - a pad with a sound is raised, its name then its note;
+  - a pitch with notes and no pad is a well with its note alone, hatched as its row is;
+  - a pad that's off fades, its whole row.
+- **The column's width** is as wide as the names and notes need, between the piano's 56 px and a new metric, `shell.padNamesWidth` (160 px). Past it, a name ends in an ellipsis.
+- **The rows are one shade, with a line under each.** The piano's black and white rows mean nothing for pads.
+- **The rows fill the notes' height, up to 32 px a row** (the tallest Alt+wheel gives).
+  - They fit again when the height changes, and when a row comes or goes.
+  - A row that comes or goes under a gesture waits until the gesture ends, so nothing moves under the pointer.
+  - With more pads than fit at the roll's own row height, the rows keep that height, the lowest pads in view.
+- **The header:** Pads stands where In key does, and stays at every width; Draw and Others go.
+- **The Tools pane:**
+  - Transform shows six tiles: Quantise, Humanize, Chop, Ornament, Velocity and Span;
+  - Generate shows Rhythm alone;
+  - Rhythm's Pitch becomes **Pad**, a choice of the pads by name, and its On goes.

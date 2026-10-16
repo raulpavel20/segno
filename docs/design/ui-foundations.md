@@ -145,6 +145,7 @@ Role functions for colours that depend on content:
 | `shell.formPopoverWidth` | 420 (a popover of property rows: the export panel, C8) |
 | `shell.toastHeight` / `shell.toastWidth` | 36 / 420 |
 | `shell.keyboardWidth` / `shell.velocityHeight` | 56 / 56 (piano roll: the keys, and a lane's head beside it, `LaneChoice`) |
+| `shell.padNamesWidth` | 160 (piano roll on a Drum Kit's pads: the keys' column at its widest, as wide as the pads' names need up to this; a longer name ends in an ellipsis, [drum-kit.md](drum-kit.md) §23.2) |
 | `shell.octaveKeyWidth` / `shell.octaveKeyHeight` / `shell.octaveBlackKeyWidth` / `shell.octaveBlackKeyHeight` | 28 / 52 / 20 / 32 (`ui::OctaveKeys`: the Key popover's root, ADR 0057; the least size: laid out wider, white keys take a seventh each and black keys keep the proportion) |
 | `shell.railWidth` / `shell.splitter` | 44 / 5 |
 | `shell.barPadding` / `shell.barInset` | 8 / 6 (a bar's sides; top and bottom) |
