@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
 """Makes tools/library/recipe.json: every sample instrument in Segno's Library, zone by zone, each
-source file with its SHA-256 (ADR 0055, docs/design/factory-library.md §6-§7).
+source file with its SHA-256 (ADR 0055, docs/design/factory-library.md §6-§7); and
+tools/library/kits.json, the factory kits' recipes (drum-kit.md §27), which make_kits.py turns into
+presets once the Library is built.
 
     python3 tools/library/make_recipe.py <sources cache>
 
 The instruments are listed below: the VSCO 2 Community Edition ones from its own SFZ maps (its 1.1.0
-release), the VCSL ones mapped from their file names. Every file is fetched once into the cache
-(<cache>/<source>/<commit>/<path>, where `segno-library` looks too), checked against its git blob
-id, and hashed. Run it again after changing the list; commit the recipe it writes.
+release), the VCSL ones mapped from their file names, and the drums' pieces from drums.py. Every
+file is fetched once into the cache (<cache>/<source>/<commit>/<path>, where `segno-library` looks
+too), checked against its git blob id, and hashed. Run it again after changing the list; commit the
+recipe it writes.
 """
 
 import concurrent.futures
+import dataclasses
 import hashlib
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import urllib.parse
 import urllib.request
+
+import drums
 
 SOURCES = {
     "vsco": {
@@ -35,6 +43,7 @@ SOURCES = {
         "license": "CC0-1.0",
     },
 }
+SOURCES.update(drums.SOURCES)
 RAW = "https://raw.githubusercontent.com"
 
 # The Library's paths are permanent once released (factory-library.md L13): Samples/<family>/
@@ -122,12 +131,45 @@ def raw_url(source, path):
     return f"{RAW}/{s['repo']}/{s['commit']}/" + urllib.parse.quote(path)
 
 
-def tree(source):
+def tree(source, cache):
+    """A source's files at its commit, kept in the cache once fetched (through `gh` where it's there,
+    as GitHub limits what it answers without an account)."""
     s = SOURCES[source]
-    data = json.loads(fetch(f"https://api.github.com/repos/{s['repo']}/git/trees/{s['commit']}?recursive=1"))
-    if data.get("truncated"):
-        sys.exit(f"{source}: the tree came back truncated")
+    kept = os.path.join(cache, source, s["commit"] + ".tree.json")
+    if os.path.exists(kept):
+        data = json.load(open(kept))
+    else:
+        endpoint = f"repos/{s['repo']}/git/trees/{s['commit']}?recursive=1"
+        if shutil.which("gh"):
+            data = json.loads(subprocess.run(["gh", "api", endpoint], check=True, capture_output=True).stdout)
+        else:
+            data = json.loads(fetch("https://api.github.com/" + endpoint))
+        if data.get("truncated"):
+            sys.exit(f"{source}: the tree came back truncated")
+        os.makedirs(os.path.dirname(kept), exist_ok=True)
+        with open(kept, "w") as f:
+            json.dump(data, f)
     return {e["path"]: e for e in data["tree"] if e["type"] == "blob"}
+
+
+class Context:
+    """What drums.py reads its sources through: their trees, a file's text, the SFZ parser."""
+
+    def __init__(self, trees, cache):
+        self.trees, self.cache = trees, cache
+        self.parse_sfz = parse_sfz
+
+    def tree(self, source):
+        return self.trees[source]
+
+    def text(self, source, path):
+        local = os.path.join(self.cache, source, SOURCES[source]["commit"], path)
+        if not os.path.exists(local):
+            data = fetch(raw_url(source, path))
+            os.makedirs(os.path.dirname(local), exist_ok=True)
+            with open(local, "wb") as f:
+                f.write(data)
+        return open(local, "rb").read().decode("utf-8", "replace")
 
 
 def note_number(name, octave):
@@ -305,12 +347,15 @@ def main():
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     cache = sys.argv[1]
-    trees = {s: tree(s) for s in SOURCES}
+    trees = {s: tree(s, cache) for s in SOURCES}
     instruments = [vsco_instrument(*i, trees["vsco"]) for i in VSCO]
     instruments += [vcsl_instrument(*i, trees["vcsl"]) for i in VCSL]
+    kits = drums.kits(Context(trees, cache))
+    instruments += [p.instrument() for p in drums.PIECES.values()]
 
-    # Every file once: fetched into the cache unless it's there, checked, hashed.
-    wanted = {(i["source"], z["file"]) for i in instruments for z in i["zones"]}
+    # Every file once (a drum's every microphone): fetched into the cache unless it's there, checked,
+    # hashed.
+    wanted = {(i["source"], part["file"]) for i in instruments for z in i["zones"] for part in z.get("mix", [z])}
     hashes = {}
 
     def get(item):
@@ -338,7 +383,8 @@ def main():
                 print(f"{n}/{len(wanted)} files, {total / 1e6:.0f} MB", flush=True)
     for i in instruments:
         for z in i["zones"]:
-            z["sha256"] = hashes[(i["source"], z["file"])]
+            for part in z.get("mix", [z]):
+                part["sha256"] = hashes[(i["source"], part["file"])]
 
     sources = {k: {"name": v["name"], "url": v["url"], "raw": f"{RAW}/{v['repo']}", "commit": v["commit"],
                    "license": v["license"]} for k, v in SOURCES.items()}
@@ -349,6 +395,12 @@ def main():
         f.write("\n")
     print(f"{len(instruments)} instruments, {sum(len(i['zones']) for i in instruments)} zones, "
           f"{len(wanted)} files ({total / 1e6:.0f} MB) in {out}")
+    out = os.path.join(os.path.dirname(out), "kits.json")
+    with open(out, "w") as f:
+        json.dump({"segnoKitRecipes": 1, "author": "Segno", "roles": drums.ROLES,
+                   "kits": [dataclasses.asdict(k) for k in kits]}, f, indent=1, ensure_ascii=False)
+        f.write("\n")
+    print(f"{len(kits)} kits in {out}")
 
 
 if __name__ == "__main__":

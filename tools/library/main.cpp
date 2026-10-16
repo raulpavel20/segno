@@ -9,6 +9,12 @@
 //       and given the rack recipes, the factory racks (Racks/<Folder>/<Name>.segnorack)
 //   fd-library pitch <file>...
 //       the pitch each file sounds at, as a MIDI note: for checking a map's roots
+//   fd-library files <recipe.json>
+//       every source file the recipe needs, a line each: <raw>/<commit>, <source>/<commit>, path,
+//       SHA-256, tab-separated (cmake/FdLibrarySources.cmake fetches them)
+//   fd-library measure <file>...
+//       each file's channels, rate, length, peak, loudness and punch, a JSON line each (for balancing
+//       kits, tools/library/make_recipe.py)
 
 #include "LibraryBuild.h"
 #include "RackRecipes.h"
@@ -104,6 +110,85 @@ int build(const fs::path& folder, const fs::path& recipeFile, const fs::path& so
     return 0;
 }
 
+int files(const fs::path& recipePath)
+{
+    std::string error;
+    const auto recipe = lb::readRecipe(recipePath, &error);
+    if (!recipe)
+        return std::cerr << error << "\n", 1;
+    for (const auto& f : lb::sourceFiles(*recipe))
+        std::cout << f.source->raw << "/" << f.source->commit << "\t" << f.source->id << "/"
+                  << f.source->commit << "\t" << f.file << "\t" << f.sha256 << "\n";
+    return 0;
+}
+
+int measure(int argc, char** argv)
+{
+    for (int i = 2; i < argc; ++i)
+    {
+        std::string error;
+        const auto audio = fd::audiofile::decode(argv[i], &error);
+        nlohmann::json j{{"file", argv[i]}};
+        if (!audio || audio->numFrames() == 0)
+        {
+            j["error"] = audio ? std::string("empty") : error;
+            std::cout << j.dump() << "\n";
+            continue;
+        }
+        // The peak; the loudness of the first 100 ms from its onset (a hit's body) and of the whole,
+        // RMS over the channels; where it falls 60 dB under its peak.
+        const int frames = audio->numFrames();
+        const int onset = lb::onsetOf(*audio);
+        const int body = std::min(frames - onset, static_cast<int>(0.1 * audio->sampleRate));
+        double peak = 0.0, bodySum = 0.0, sum = 0.0;
+        for (const auto& ch : audio->channels)
+            for (int f = 0; f < frames; ++f)
+            {
+                const double x = ch[static_cast<size_t>(f)];
+                peak = std::max(peak, std::abs(x));
+                sum += x * x;
+                if (f >= onset && f < onset + body)
+                    bodySum += x * x;
+            }
+        int last = 0;
+        for (const auto& ch : audio->channels)
+            for (int f = frames - 1; f > last; --f)
+                if (std::abs(ch[static_cast<size_t>(f)]) > peak * 0.001)
+                {
+                    last = f;
+                    break;
+                }
+        // Its punch: the loudest 25 ms, RMS, stepping 5 ms (a clap's energy is in its first 20 ms,
+        // a kick's lasts: a window that long hears both as they're heard).
+        const int window = std::max(1, static_cast<int>(0.025 * audio->sampleRate));
+        const int step = std::max(1, static_cast<int>(0.005 * audio->sampleRate));
+        double punch = 0.0;
+        for (int from = 0; from < frames; from += step)
+        {
+            double s = 0.0;
+            const int to = std::min(frames, from + window);
+            for (const auto& ch : audio->channels)
+                for (int f = from; f < to; ++f)
+                    s += static_cast<double>(ch[static_cast<size_t>(f)]) * ch[static_cast<size_t>(f)];
+            punch = std::max(punch, s / (window * static_cast<double>(audio->numChannels())));
+        }
+        const auto db = [](double v) { return v > 0.0 ? std::round(200.0 * std::log10(v)) / 10.0 : -200.0; };
+        const double n = static_cast<double>(audio->numChannels());
+        j["channels"] = audio->numChannels();
+        j["rate"] = audio->sampleRate;
+        j["bits"] = audio->bitsPerSample;
+        j["seconds"] = static_cast<double>(frames) / audio->sampleRate;
+        j["onset"] = static_cast<double>(onset) / audio->sampleRate;
+        j["tail"] = static_cast<double>(last) / audio->sampleRate;
+        j["peak"] = db(peak);
+        j["body"] = db(std::sqrt(bodySum / std::max(1.0, body * n)));
+        j["rms"] = db(std::sqrt(sum / std::max(1.0, frames * n)));
+        j["punch"] = db(std::sqrt(punch));
+        std::cout << j.dump() << "\n";
+    }
+    return 0;
+}
+
 int pitch(int argc, char** argv)
 {
     for (int i = 2; i < argc; ++i)
@@ -127,7 +212,9 @@ int main(int argc, char** argv)
     const std::string command = argc > 1 ? argv[1] : "";
     constexpr const char* usage =
         "usage: fd-library build <folder> [--recipe <recipe.json> --sources <cache>] [--racks <racks.json>]\n"
-        "       fd-library pitch <file>...\n";
+        "       fd-library pitch <file>...\n"
+        "       fd-library files <recipe.json>\n"
+        "       fd-library measure <file>...\n";
     if (command == "build" && argc >= 3 && argc % 2 == 1)
     {
         fs::path recipe, sources, racks;
@@ -149,6 +236,10 @@ int main(int argc, char** argv)
     }
     if (command == "pitch" && argc > 2)
         return pitch(argc, argv);
+    if (command == "files" && argc == 3)
+        return files(argv[2]);
+    if (command == "measure" && argc > 2)
+        return measure(argc, argv);
     std::cerr << usage;
     return 2;
 }

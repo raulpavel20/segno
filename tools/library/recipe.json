@@ -15,6 +15,27 @@
    "raw": "https://raw.githubusercontent.com/sgossner/VCSL",
    "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
    "license": "CC0-1.0"
+  },
+  "virtuosity": {
+   "name": "Virtuosity Drums (Versilian Studios, Karoryfer Samples)",
+   "url": "https://github.com/sfzinstruments/virtuosity_drums",
+   "raw": "https://raw.githubusercontent.com/sfzinstruments/virtuosity_drums",
+   "commit": "9f04cf9a734527edfbb0a4eee1f674e45bbf71bc",
+   "license": "CC0-1.0"
+  },
+  "bodyperc": {
+   "name": "Body Percussion (sfzinstruments)",
+   "url": "https://github.com/sfzinstruments/body_percussion",
+   "raw": "https://raw.githubusercontent.com/sfzinstruments/body_percussion",
+   "commit": "4ac9d8966679c648b62fa10a188179e186b97f24",
+   "license": "CC0-1.0"
+  },
+  "fischer": {
+   "name": "Michael Fischer's 808 recordings (TidalCycles' repackaging)",
+   "url": "https://github.com/tidalcycles/sounds-tr808-fischer",
+   "raw": "https://raw.githubusercontent.com/tidalcycles/sounds-tr808-fischer",
+   "commit": "85fbecf1bec32553395625ea659e2a56dfd7c0e1",
+   "license": "CC0-1.0"
   }
  },
  "instruments": [
@@ -19328,6 +19349,6242 @@
      "hivel": 127,
      "volume": 9.0,
      "sha256": "48e02d9dd2baf96f2b83eb6f09363013bc8a5c56f7b7b55940292fe7ecc1462f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Kick.sfz",
+   "source": "fischer",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "bd8/BD5050.WAV",
+     "name": "Kick",
+     "sha256": "2ca93cd7a3b19f6ec7fe26fefe51b89de69b7be7a87047ffc8ecd396064a8504"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Rimshot.sfz",
+   "source": "fischer",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "rs8/RS.WAV",
+     "name": "Rimshot",
+     "sha256": "20d5cd385c0f8c3a24bbfe78c2e2747776841ede6185bc0fe93f97f0b455b89c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Snare.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "sd8/SD5050.WAV",
+     "name": "Snare",
+     "sha256": "6dcbf8acd5cee6d6b7955d26c6b57d8ca413f1ae1c7caafaaec780d83f08d712"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Clap.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "cp8/CP.WAV",
+     "name": "Clap",
+     "sha256": "376429bb81cb48d1f392a11cd066c32ffb7883d445b2488704ea52e46bb08286"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Low tom.sfz",
+   "source": "fischer",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "lt8/LT50.WAV",
+     "name": "LowTom",
+     "sha256": "d3720682985a9621c4a67749dfd5336fa4f25564ef7ea2e633ac8ff5fdd64eda"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Closed hat.sfz",
+   "source": "fischer",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "ch8/CH.WAV",
+     "name": "ClosedHat",
+     "sha256": "c9f30ff2b4d73b03f41960e504e03c54e9a59697af666fe4d155bab9cd1ccae6"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Low conga.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "lc8/LC50.WAV",
+     "name": "LowConga",
+     "sha256": "6591f57bbbdb891819a0ce6ce5b3bfd12d24da9f7f413243ef37b2593d1a7393"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Mid tom.sfz",
+   "source": "fischer",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "mt8/MT50.WAV",
+     "name": "MidTom",
+     "sha256": "81bbc63110a21c5d1ff28572734f2969f96db9a2ca7e304e52b4f808de905927"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Open hat.sfz",
+   "source": "fischer",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "oh8/OH50.WAV",
+     "name": "OpenHat",
+     "sha256": "84ae3220fab2396380fb6ba6032bcec7c55a6d3f621d30a13c11fdeaa099aff7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Mid conga.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "mc8/MC50.WAV",
+     "name": "MidConga",
+     "sha256": "8175efe26c67f5af926bdf376b1bde75f495451140a2ebc132e74644b31cae1b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/High tom.sfz",
+   "source": "fischer",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "ht8/HT50.WAV",
+     "name": "HighTom",
+     "sha256": "7e0b9eddd95379298aacbf1520929f586191788d9e0841ad752d84bdde910d88"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Cymbal.sfz",
+   "source": "fischer",
+   "maxSeconds": 5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "cy8/CY5050.WAV",
+     "name": "Cymbal",
+     "sha256": "3aad28641774c1e7a5502f40ec76d1b219192631547e308ce74c6d4a1c5e70a0"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/High conga.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "hc8/HC50.WAV",
+     "name": "HighConga",
+     "sha256": "ee4354b1fb79126e455a5343161f5c1e78165874df8a74dece78cbb5b6964af9"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Cowbell.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "cb8/CB.WAV",
+     "name": "Cowbell",
+     "sha256": "1468cbd6c75a1f23b50a15968796c256c74893a35aa3824c6663db82c271f28d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Maracas.sfz",
+   "source": "fischer",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "ma8/MA.WAV",
+     "name": "Maracas",
+     "sha256": "7b17cc2973fe55233c6ece7b341adb4d04a44b12527582102591c8981a586451"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Claves.sfz",
+   "source": "fischer",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "cl8/CL.WAV",
+     "name": "Claves",
+     "sha256": "4f5b72674791ce133a2ad3bd40c9a0e628bad9062eb8f04de27f59dcc8ce5d46"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Kick.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 2.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Kick_v1_1",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "147f81717c3821008f63b16708a3c97c0935271807868c742f83c14ed9899dec"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "2233f42fd634fd99767eb61763e1ef24cd7d3d8dad362a7e7ef0a00bed085fa3"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl1_rr1.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "c077a384ddf42eeba8430fa3bf7a46d4153960a497c5f57a832b4f0c18e1f6b5"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl1_rr1.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "cce3036d65b7e2e7d11b318673565115e9aa29880ac3be0ab250b11951a08356"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v1_2",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "2a31c5a2394dfd9ded175ab930d53a1614c9638efadf1a79c505d6ff47f164b5"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "dd3711fffe89945b3d6f62e5a87ff26538495d6023ef0ed5eadc43de6b30bdfb"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl1_rr2.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "053a7b4d0746d76003b99c81b150ab7a72c557a8c2ecdebc64740ef63f6f694f"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl1_rr2.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "fd08ab85e20c2993d7af2192f195e740b03c75040577858961e0e399a0a7e4f9"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v1_3",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "4e6e9d50a029367a833675d5315f4a31eb19c5a03243fb6d0e4cbf571883c9dc"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "ba3991b06b41e7ec94df96fe31300e4a9b58b64253b43d5d2ccbb142fc92d8f7"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl1_rr3.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "707cf2ad5650d2bb3019d6424b1c0a3f0a0d4985363d1bc7fd8e6ad938cbaa3e"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl1_rr3.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "6cb187d8e14aa8f4d3228f8b23a756f0e92ed3133b39cf30dbf1b2bc08ca6570"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v2_1",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "5f816bb152f879e09399edb86b8862509360702103a1f9c08ef794a2296c2290"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "72d67008439ced422b6ef952efcc6ed66979f1319a56ef82ab0a531485741dee"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl2_rr1.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "fb2da719f0ae30f668ada98df7503e6def1ee26c53a5e183de50075e43fa597a"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl2_rr1.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "3ccec3716a7fa679e412d04c693aa643398c0ef0e23ef2c945a3e0dee515f769"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v2_2",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "c2cbc978e6271f3029ba79a7829dd90ae8404533483e68d611385f5ca358b7d4"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0a14612152c8da2dd0483d511a28d8f58f484dd1875773b12fe7f95ff939544c"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl2_rr2.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "30da88d84b4e37df87510b40ad115943056a3b5ed9b2dbcbe1266a267848c6f4"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl2_rr2.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "d763612d70c9b1c4d47a66350b4be4a3e43f6166aeaab7b6df025e50929b00b4"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v2_3",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "ba50791ce0a632db126be50a15d92ee89bff59e7b5f62b6692267a195cb6add5"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "b0ec78ac5e50286dda5d823ea3c10c8f6276822f7144026c93d4347cb1c18309"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl2_rr3.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "299f699a43b8433d742c17a96dcc64e9ae2b328ab2813e7a28737d705ef701c4"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl2_rr3.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "389e209e92fd138a7dfa6ed215dc8d71fccd1301cbd5be40e43433f08a26bb79"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v3_1",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "a317688b4a81cb833c579f0004beb4fef46b3c80c858448fe3413b2f9b9410be"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "eb415311ae9dd3068e1ee7b06600556fb1f0c6b7a2e795f2ecb57aadb22ef970"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl3_rr1.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "f3f6dac8ff6dae56a4c1f238e05d563a1be1ee38db60e5e97ac9081cf33d025c"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl3_rr1.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "46de2fff1fe8e4fde47b8086e941dba7ac237a85c4490c02c4eb21040a65b78a"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v3_2",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "387835266e8c7b12310ff41956503d0d9af93722bdcb77f683a1a0d4bdaa67eb"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "001cfa07499a785cfdc4b05d7890922e1f2aa6f910601725c0caff41f4b00698"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl3_rr2.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "672384c968cea5ff84b8ebe4f3d86c75d152b4365f2f944d4afae9a4762c2dac"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl3_rr2.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "8d6c7e0433b2448ddb4fe45c0e866d84fbe376a8f974488e437e3787fd682958"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v3_3",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "57156a987a5fbff08b19cbfa1b16c106f33b865fc1455c1113d79083cfbe91e2"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "4888a12c4fb0df9417edc72dc4f6262eb5c69494533974551ab1003e8c0e8bae"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl3_rr3.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "fa75918ef535e0323bf27b37d4b88b18bba2f642c5a42c8fb28decc4bc25d7cf"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl3_rr3.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "6ef48fc7b896dadbea8aa4e7b659675855266824f76f4ba1169c20655b9d2788"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v4_1",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl4_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "3b9026557c757edeccd26467ff420fceb787902dd94f7f9b2b12b2581faa17e5"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl4_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "48254fc11d8daab4601283205f0c0b7dcb6374f120aff4bda2191462ce2dde2d"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl4_rr1.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "14b76405040ba7e6b9fca95c4f73cf99a27f36e3ec6f071050c26a46cdd3350c"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl4_rr1.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "629d465d7c94f44281793d86a85df4f5560aa8edf2555213e70d88d3147e4a54"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v4_2",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl4_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "662ac9d76024ecc6390b4c98172fb529c65a8a4e617d7b74096eeded84556856"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl4_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0a223d3a345a6ecba4fc13ddf4d07142bdc1a77df0d76e1c6eaf78d871feece8"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl4_rr2.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "1fde8aeb9ed8af4e90c2df124376c88a28c218de76e4db6500f3cb8f791186d7"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl4_rr2.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "0585f049a69d7a78c757f1cf78e52f5fb66ec3f817567f11af93180db15c66d6"
+      }
+     ]
+    },
+    {
+     "name": "Kick_v4_3",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/kickmic/kick/kickmic_kick_snon_vl4_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "c6343a0c3d65fd275515109451731ad896ead3813eb48d907311524739c866b6"
+      },
+      {
+       "file": "Samples/oh/kick/oh_kick_snon_vl4_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "2b02a03ca37485844a9ab8304c7456ca121a11d2ba54cb378bc680fdf145dff9"
+      },
+      {
+       "file": "Samples/mid/kick/mid_kick_snon_vl4_rr3.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "5da7c40bc8a75426d50c6ee66daf47378a3c536cc716fd0a6b0875978ea298ba"
+      },
+      {
+       "file": "Samples/room/kick/room_kick_snon_vl4_rr3.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "3c917b3a761adf5e3361cdda8e0fd2ab9e1a5c81564cbeda1660ec4b22d42e1a"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Cross-stick.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "CrossStick_v1_1",
+     "lovel": 0,
+     "hivel": 23,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_crossstick_vl1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "e3cb6db89d9a3b4abb290008038c7bbdbfa1db1d08babf40cc554457821e1a2e"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_crossstick_vl1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "fc50479bac42a47fa4a358d66e8e503110913d9b91873d3f9880f5adbfb61f7e"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_crossstick_vl1.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "54e6ee6fa82aa2a25befe32f427000d452acc72ef28e780b6b3284675aa041ec"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_crossstick_vl1.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "a72d8f97e1472f5f38b5281e501fd6876c0e5d6f890c0bc722c4754548c43002"
+      }
+     ]
+    },
+    {
+     "name": "CrossStick_v2_1",
+     "lovel": 24,
+     "hivel": 47,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_crossstick_vl4.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "5723f21370a6784b4f52fef43bc0c31751ffe45355cc0602cd7b595e80cf33e3"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_crossstick_vl4.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "02444cdbd262ef63a3718cd76ab1212395240b6813659d6de630ae6121e19486"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_crossstick_vl4.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "8961385e4415091330e506b5bd52ee9363e6bdec48641efbade5300ae6b2bba4"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_crossstick_vl4.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "1e831d0d65d76c88962efdc7ee3d901cfea85439187632fab8d7890ef0bbce47"
+      }
+     ]
+    },
+    {
+     "name": "CrossStick_v3_1",
+     "lovel": 48,
+     "hivel": 71,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_crossstick_vl7.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "8c35f440f37b0b434564526b0259956bed6e2e9f593c24b2496ac152e950683b"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_crossstick_vl7.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "6dcbd22ac377fad2ae60877ea1b437f57e56d0673c7bae862e07b3f43b19df66"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_crossstick_vl7.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "8b5ea36a5f119ce0ffa257160c0ae2361d1fbdb731f3e7cc7c24de2c2dd039a2"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_crossstick_vl7.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "48c90166b6a6041d9365b804e5a6d07f299d1c5f4b9c21c1f7179c77b9da017d"
+      }
+     ]
+    },
+    {
+     "name": "CrossStick_v4_1",
+     "lovel": 72,
+     "hivel": 95,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_crossstick_vl10.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "f0278ade075915864d793a5a9ce790ec4f0d5f39806d0d1a0d0fba1e7973032f"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_crossstick_vl10.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "21a9459ecb50cb6861291c862094b8205da306d82bf586add6d4b8a9c3ffe75c"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_crossstick_vl10.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "e3d1d148ebd43b4a7bc19b8679ebca33a7ceebb0c587f25f4cf47d2943239995"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_crossstick_vl10.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "f14dfd33b8c76759ba75ad3c3070cd5929391ca8ed4713ffe5422cbd92ee5e35"
+      }
+     ]
+    },
+    {
+     "name": "CrossStick_v5_1",
+     "lovel": 96,
+     "hivel": 119,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_crossstick_vl13.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "563a3478501c1c601f4b85a8fd4429b70d8d9cb3c74e5bb85bfe7a3bbe60252f"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_crossstick_vl13.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "62ab7e1ac01eda9546031e120f0146509f39b707a545cb20083909063aa2666d"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_crossstick_vl13.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "eac55aa7a1edc33148fb316df369acc7ff54c8d990337ae25cf20d0b26955748"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_crossstick_vl13.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "6c77f5498c464597a6e68c88ab9c7d567c369408f7829f7ef7552056950fcf57"
+      }
+     ]
+    },
+    {
+     "name": "CrossStick_v6_1",
+     "lovel": 120,
+     "hivel": 127,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_crossstick_vl16.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "2211228b897b87dd133e3bc88295b1ea7b31ba03b9a7db3a66a477d999775e2d"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_crossstick_vl16.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0e3683ae61ff6bb8c138c236cd2e3b07fcbe53c39f47a84e895e208b3566a91f"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_crossstick_vl16.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "b0829554fb7fef382515d78c8aa4cfe68a71f2a3aefea8623568f176b296f2fe"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_crossstick_vl16.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "3e5dc1e7645071dd5de4e52d21f38646bdee4f42503f1bb912780b8934e1baa3"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Snare.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 2.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Snare_v1_1",
+     "lovel": 0,
+     "hivel": 17,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_center_vl1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "9d571e2195ed56572ed36698123566bf3f8d7913b54df5ab6d73c3851e496d2c"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_center_vl1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "de45c095aa7681c2d66f11230ae88c45b09a22969c82f49ee49428f24da99479"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_center_vl1.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "fb7368a000e278a0eb98cd6e7be952cc6c3de4890b398564af28b0aa17421013"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_center_vl1.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "89bd8f90d89466a07c442118ea74ba5299d151a42ef431ae1b93e51d0eaeeefe"
+      }
+     ]
+    },
+    {
+     "name": "Snare_v2_1",
+     "lovel": 18,
+     "hivel": 34,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_center_vl6.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "bc67e86781c1c0d3e8560e441ad471ab7d3a4c80513906778cda709d0c92f9c0"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_center_vl6.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "6c5580a68a6f53f830d51dc839d779c6950169b3381c6df855ec29243101b027"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_center_vl6.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "782824f97d12d8b2a309593aebe2fd379c55652d36f480db141d4885cf8638a8"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_center_vl6.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "62227394dda207395bb5c11f18ae7e97a957857079212361689bd2dc45243562"
+      }
+     ]
+    },
+    {
+     "name": "Snare_v3_1",
+     "lovel": 35,
+     "hivel": 52,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_center_vl11.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "b6a3802b838c0c779e03066e0b6448c3cf7b6c490db1fa03a0878543878db848"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_center_vl11.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "a2b8213cbaa59168481527a71ec9bdc8a7f9ebf53d359107feca68ae4e34dc41"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_center_vl11.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "c0cf2badfb4754b1a6ec319f25e0bd163966f8d22e1f46b6b3615d667163cd0d"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_center_vl11.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "43a94aa4ac7e55a4edceddd2ac9b5f2ffdf2398fc793e3b0be4633e1c67fddfa"
+      }
+     ]
+    },
+    {
+     "name": "Snare_v4_1",
+     "lovel": 53,
+     "hivel": 70,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_center_vl16.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "d401a7cf2ff0c5b0a4fe7aab05b7a0c7dc5a2539e848bc5e5ea0f4faffcfa056"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_center_vl16.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "87d84255d6be22dfec5e2a2ef67340f8ac619471da068f8ac27cc511919944ad"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_center_vl16.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "dd4e1de6e84465f94b26e8dbdfdf0f4e72999a7d5ed348a76ab9c8a73d74da79"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_center_vl16.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "f287145cf9bc6630ee27aac2159dd4b06663a2cf64914d01bf198232f237b591"
+      }
+     ]
+    },
+    {
+     "name": "Snare_v5_1",
+     "lovel": 71,
+     "hivel": 87,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_center_vl21.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "bacedc413df03469251a186d1eed661cfb77d5515d61b2b1c3c8c9d03ac9a77c"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_center_vl21.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "53d1e2f11d9629c890e217a7a94c462369ad24e49f32de9c9c9a6ea8dbf2612d"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_center_vl21.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "284e440372d5d654aa8b257d4616a8f07b98c601d13b5ec22f6df45f811152b5"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_center_vl21.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "e1af26e37c3994a37d121514cd996b78f99e80c54aa190fe190007277ff72fec"
+      }
+     ]
+    },
+    {
+     "name": "Snare_v6_1",
+     "lovel": 88,
+     "hivel": 105,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_center_vl26.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "0502bc52223f14b111be0f741325faa892f745bd8fc173ec9e960b5c7533c289"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_center_vl26.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0e43265973be2fe792aa3546da5ea2067f52e620b459de71373d165e3c5c3eca"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_center_vl26.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "8d1d69d9f219539c395e3e0b7f5bf1966460a7b5e44268c554c98fb374b98282"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_center_vl26.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "af664cac75cea90f77636189acdbd8aacf3967562a4a12d70fd7cd8655b0186f"
+      }
+     ]
+    },
+    {
+     "name": "Snare_v7_1",
+     "lovel": 106,
+     "hivel": 123,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_center_vl31.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "047cfaff61ca9268aca82abcd5a5c8a9733003720fef41744a9e5dbc4dfdc92c"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_center_vl31.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "18a96343893d0b54596d2f536bfd5086f8f8883c2aad7f73dd2b5ce83c7c769c"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_center_vl31.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "8829bb069e3b501d583c3adb15b52b6cf04c02de4ce6b333ce94a92b65c966b4"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_center_vl31.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "06781adba1008b1d808d219ebbc0baa9936f517bcabf332e8751dcd07c3e80b1"
+      }
+     ]
+    },
+    {
+     "name": "Snare_v8_1",
+     "lovel": 124,
+     "hivel": 127,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_center_vl36.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "81140a7b678b4141b5c4e3e857b6ee18fa7933f6f659db01d8deeb9d36eac729"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_center_vl36.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "7464b0a2e2ccfb4782831b04d3e63349974dbf563fd4bb37efce4d33a1f00d19"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_center_vl36.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "61bfa8b38925b5a39053b30ad5640297e5ed49da3bd275a94691fee8a6f752f5"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_center_vl36.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "3f1866c88a3020e8cb1689c77d02efc9a4b1f587f53746d14aa6753e5538430b"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Rimshot.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 2.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Rimshot_v1_1",
+     "lovel": 0,
+     "hivel": 21,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_rimshot_vl1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "c0142fc6c98e285737d1d8c9eb9af5060c963af389201c5e319e3b5a613e10af"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_rimshot_vl1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "228e7745679cf7d7eb1bf6cce3144d6ab175fa4f82736f7714789e0b533909e6"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_rimshot_vl1.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "7968edb18045854be61fd50ca1a43e745dade4c1dca9a78f0178eda67e76c45a"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_rimshot_vl1.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "3d1af360d149966a8b0720c97c9518cc8484c4e2f0b639623b97f0aa07e08bf0"
+      }
+     ]
+    },
+    {
+     "name": "Rimshot_v2_1",
+     "lovel": 22,
+     "hivel": 42,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_rimshot_vl3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "7d54adf75e3ed30eda54ed0ca90c1f0ad671c3aacf6ace276f58feb89c7a1f4f"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_rimshot_vl3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "e842a2615ba8eb6fbbe7da206d640fc6a8829d7848329e82b7a4cf747aa0c9bd"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_rimshot_vl3.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "a499bf7e31681f5b3ba8f7b99c3c9cdd772824930cd8b33f077c4431916d4230"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_rimshot_vl3.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "91c69ef81c61c7ed4439b25e38262592c2e6963829ef8a018010626ddc334c0b"
+      }
+     ]
+    },
+    {
+     "name": "Rimshot_v3_1",
+     "lovel": 43,
+     "hivel": 74,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_rimshot_vl5.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "8dbc8b96a69b15e072b45661094017a5bc6cc81d20927a0ec0d6d6bcf27b2025"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_rimshot_vl5.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "7c303f5661ffd77531180a0ed50473a8f8cb471a6faf92e369dac8527eee0696"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_rimshot_vl5.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "bf8aaf570bd8eeb5bbe943236df907db59590adacb1aff1cbb07767dd8831c8d"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_rimshot_vl5.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "a68e886d775e66b81c0a8d90cdd718d541698b369c15b325f6a495f7534f1217"
+      }
+     ]
+    },
+    {
+     "name": "Rimshot_v4_1",
+     "lovel": 75,
+     "hivel": 95,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_rimshot_vl8.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "8bccd2092a2108f2af89a993af8555ac35d8de5cf39cc2f1803e42220eb44eab"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_rimshot_vl8.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "8e30f05eff8a488dbb692fb7c12dcf35f040e643ea673b8c2bf23fb72b8151aa"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_rimshot_vl8.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "849e6959bc6e1fd40eb9af547998380c922f2118434acf25a331e62627ecb721"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_rimshot_vl8.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "c59157ea72092bbe81ab9f05dacf2a66a50f1ccd5344fa2f3c824027d14e8da4"
+      }
+     ]
+    },
+    {
+     "name": "Rimshot_v5_1",
+     "lovel": 96,
+     "hivel": 117,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_rimshot_vl10.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "78c0eb68dd74b9efdcc222099af458928eb0db677b9c18c9bf702baf764d75db"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_rimshot_vl10.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "300e28acd422128a86f2574d191b4db5af08a607373719465d4e7059d6fe831e"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_rimshot_vl10.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "18de2922c3433c7f96e8ff520dcd529875d4e05b0bf83faaa87098c3f8a92189"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_rimshot_vl10.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "331a0216d218da60506532f42883c7731dde0f3016c96fc9c4aec4637cefffe1"
+      }
+     ]
+    },
+    {
+     "name": "Rimshot_v6_1",
+     "lovel": 118,
+     "hivel": 127,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_rimshot_vl12.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "08fed6a7ff433fd807dc7b9a948d94165495e8e9f4b8b815a4f3b013d3acc8c9"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_rimshot_vl12.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "2a9816bfc172e2cecac56e70710507811657c1d7ec6bb2bea8a913130e832371"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_rimshot_vl12.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "b672eb7023adf4c392f799059454a90f409e5b3cc319bc0b4020a2cf24e66fb4"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_rimshot_vl12.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "18c4bca37e719b824c63663f3079c68c6984a6194ea0fa0fe1a2534ba63746d1"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Snare off-centre.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 2.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "SnareOffCentre_v1_1",
+     "lovel": 0,
+     "hivel": 24,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_offcenter_vl1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "d98acefd5b5be68db348382c2a2cf2cb409990710497a321d07577b090b4edf6"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_offcenter_vl1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "9f64409748a9c5ae3ed16843f89e63a856b0a3d0bbc5b7b3770eaef5fd459ffd"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_offcenter_vl1.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "03197b35f5ff0a0b6e614843f267891cb6ffe2ef2b36132fa37d2f246afeca03"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_offcenter_vl1.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "398862f2daa7c06be9c12667ad1c753d8688d27f48a9bd92d3227fc310ce70a0"
+      }
+     ]
+    },
+    {
+     "name": "SnareOffCentre_v2_1",
+     "lovel": 25,
+     "hivel": 48,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_offcenter_vl8.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "ac8c6b70733686db22f9f7cd33644bdf266f16ca13bd7f816b3a0ae777f84168"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_offcenter_vl8.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "b49e5832370842cf5802bffe44bf76ea2b497d2b7dd04acfeca01efe24e2da9d"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_offcenter_vl8.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "bf5952bb2b8f17740b6a1e201950b457b26a66ab97330c00e5649295f95af2e8"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_offcenter_vl8.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "2378ee5e2717805a032755046c5b58fd6c7b0667a42e6188faf04f8ab8578ee8"
+      }
+     ]
+    },
+    {
+     "name": "SnareOffCentre_v3_1",
+     "lovel": 49,
+     "hivel": 73,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_offcenter_vl15.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "38922ee92bdacafe32a5b66d959dbe4eb8bddae58826ce3e7b142ea0911561f0"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_offcenter_vl15.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "d5c44153d6736ab15f2bde1e25b4819e78731a54011753cbc0dd117d798b4d19"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_offcenter_vl15.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "d2a9e92c73bc0826406f1d0c10cd40d6a1055db2595e0c047d4c12adff323519"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_offcenter_vl15.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "7804aae905293674fdae3a12d6d0c708c808c855d5d97bb9faa92c228a4a34de"
+      }
+     ]
+    },
+    {
+     "name": "SnareOffCentre_v4_1",
+     "lovel": 74,
+     "hivel": 98,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_offcenter_vl22.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "2b3bbcf376853ed233c35ff2827058e02937d7d4b6a1d0ba2dd67be785d2110f"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_offcenter_vl22.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "33543b15d00ca62e5da0f44b6a8083bc4ded20470714028890feadceac232a23"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_offcenter_vl22.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "e48971f0d2a336b9f15b32ee80a2558a98091fb878c4da644ff416b895bb8cc2"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_offcenter_vl22.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "3794706018accb4f804f9b9a80548827359be205d6d4279b880ccce4e7cd9899"
+      }
+     ]
+    },
+    {
+     "name": "SnareOffCentre_v5_1",
+     "lovel": 99,
+     "hivel": 123,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_offcenter_vl29.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "d437e506cd911e57ca57ae7bbc03e118fa4cd7b5a639b6a51ac38bb545805660"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_offcenter_vl29.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "fed47a4d393a05f1d53ef77d553076ed300e72bc451366b60ea64ce35a1f37a1"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_offcenter_vl29.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "e39bb759d99a35c5a7dbce9ed55b4b558d9b21499e641abe9fbceb6c9c1cccea"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_offcenter_vl29.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "da4158c33cd80eff945617f71832c962c642ec13bd3518e15b279a592da14c2c"
+      }
+     ]
+    },
+    {
+     "name": "SnareOffCentre_v6_1",
+     "lovel": 124,
+     "hivel": 127,
+     "mix": [
+      {
+       "file": "Samples/snaremic/snare/snaremic_snare_offcenter_vl36.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "fded7f462b2220910421b4581ec2cf1cf12d139313c8651b880fea3b88ed8529"
+      },
+      {
+       "file": "Samples/oh/snare/oh_snare_offcenter_vl36.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "d8b0f73f8dc75dda8ca13c59416f8b41a9c049bfccb26409ef5d408732274c2f"
+      },
+      {
+       "file": "Samples/mid/snare/mid_snare_offcenter_vl36.flac",
+       "gain": -8.0,
+       "pan": 0.0,
+       "sha256": "07e2d56ce8622df99e1bc580fb8ebd91ad7d3302b3f97c57dbc52bd17bb208c1"
+      },
+      {
+       "file": "Samples/room/snare/room_snare_offcenter_vl36.flac",
+       "gain": -10.0,
+       "pan": 0.0,
+       "sha256": "97502c2b8642a961adf683fd67ebc6afe6c95ea15c6664f851c36542ef6c4726"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Low tom.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 3.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "LowTom_v1_1",
+     "lovel": 0,
+     "hivel": 23,
+     "mix": [
+      {
+       "file": "Samples/oh/ltom/oh_ltom_center_vl1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "f352e63316a278895004116af0385a362cae6784819de0611080757301ab3cbc"
+      },
+      {
+       "file": "Samples/mid/ltom/mid_ltom_center_vl1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "565e8beeeab12f013fc01a347c136f85c3eed3dadd270a7bdc3ec82f7f24a7b6"
+      },
+      {
+       "file": "Samples/room/ltom/room_ltom_center_vl1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "39e9d9a796e0fbddcbb73b17f5bb23576f74624538bd002d9c4c8931244a9130"
+      }
+     ]
+    },
+    {
+     "name": "LowTom_v2_1",
+     "lovel": 24,
+     "hivel": 47,
+     "mix": [
+      {
+       "file": "Samples/oh/ltom/oh_ltom_center_vl4.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "7ecc42f162f825416489f080271ff83d32e5ab57d305447c8d25ae893db408ef"
+      },
+      {
+       "file": "Samples/mid/ltom/mid_ltom_center_vl4.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "c4ca45a333ad94fa810d9f7dea3b1ae9c384208d4f51ca30573bd657947ce98f"
+      },
+      {
+       "file": "Samples/room/ltom/room_ltom_center_vl4.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "8a0e83de2a70a9c38157242c3fbc9a4ad5c2b3cab416ed477f283f0d5e45d80d"
+      }
+     ]
+    },
+    {
+     "name": "LowTom_v3_1",
+     "lovel": 48,
+     "hivel": 71,
+     "mix": [
+      {
+       "file": "Samples/oh/ltom/oh_ltom_center_vl7.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "bffa62c091b77a0eafd101ddf033694585e53773b4a0781ca3db1f1a390e0a5e"
+      },
+      {
+       "file": "Samples/mid/ltom/mid_ltom_center_vl7.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "53eb966a99eef700dd5e55c00eeccf1c0fc19fbc4c75dd535ac5912ba6023b7e"
+      },
+      {
+       "file": "Samples/room/ltom/room_ltom_center_vl7.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "d15e0cbd9eda779e672f6a4d1117a7e549ab547bec1b5dec819931fe1be75a3a"
+      }
+     ]
+    },
+    {
+     "name": "LowTom_v4_1",
+     "lovel": 72,
+     "hivel": 95,
+     "mix": [
+      {
+       "file": "Samples/oh/ltom/oh_ltom_center_vl10.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "6edddb5c17cdff3668c720ec54b561c0b27ba01708901afec161472169e69cc3"
+      },
+      {
+       "file": "Samples/mid/ltom/mid_ltom_center_vl10.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "1ff32c7954cae8c4842fca6b1f229924d3aec1b8261d5f007a15a87588a59472"
+      },
+      {
+       "file": "Samples/room/ltom/room_ltom_center_vl10.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "5283658b46a05d41e3d6e89127ee24c0d68b73a397876ac09bf45f106fab7475"
+      }
+     ]
+    },
+    {
+     "name": "LowTom_v5_1",
+     "lovel": 96,
+     "hivel": 119,
+     "mix": [
+      {
+       "file": "Samples/oh/ltom/oh_ltom_center_vl13.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "77c816b4fc1f892518f96fb511879939fc8045a5f01c2346973a4cd61f62644d"
+      },
+      {
+       "file": "Samples/mid/ltom/mid_ltom_center_vl13.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "541450a5997a30b4482206c65d520817ff6a66f431de496a273916b9dc729fff"
+      },
+      {
+       "file": "Samples/room/ltom/room_ltom_center_vl13.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "8840b7ad473af3e19af8e65bc0381a3fcc4bae487f9807fa20d6032c2629df71"
+      }
+     ]
+    },
+    {
+     "name": "LowTom_v6_1",
+     "lovel": 120,
+     "hivel": 127,
+     "mix": [
+      {
+       "file": "Samples/oh/ltom/oh_ltom_center_vl16.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "28cab9363a520570377df54026b2036f03e59da5f96c60993e1ddf5d7795026c"
+      },
+      {
+       "file": "Samples/mid/ltom/mid_ltom_center_vl16.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "924cf94d67c95ad6ee214a0b16febb89a53d21d49f5c14e3ec8622ff9da976f5"
+      },
+      {
+       "file": "Samples/room/ltom/room_ltom_center_vl16.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "ac3da998658ccaa07816ac210763c2218423f017b485e493bcddd99a9bbce062"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Closed hat.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "ClosedHat_v1_1",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "8e23666927c51d04c0e70085f746778fbac0f76638bde06ff54d88c70031c0dc"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "04f54dc607aeee5ae8b62ba8a8db8b8444759c8dd12da534e4a1d1decb388ce7"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "9069bc1222d3b8fbe852e0eeb00abb154c0cae0a92142f2cdb23c407e1f86de9"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v1_2",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "c8a05ec78f11f7ac4bdc00bbbdb6df445e45106f0adb4eb882ac42fdb0606234"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "d0cfe14e23ca6c1c61b01438320040abc04349f53528d3c676df116d813ebb44"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7b4169f0183ba766a597c25ec22a47f620485467a441a824093bdd3346d57a0f"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v1_3",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "bf5bd60af5ce8f90b66994a46fa878dc0b447f66f5f2dd297b950970cd87d7eb"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "dc9ef1aab3f32e672020688672036289d93dbd450b106ec98c0fbc7301fe43ae"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "9d906dd10d8e4281f9f91e83ab38cf62316d7a3c15c3d90f1c5515812cda0e87"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v2_1",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "466a0dac394ae52abea418ca62c27614986159cd6c7127cb25b4991a9cb614df"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "ca9a6b1ce1d274c329a987e21f22d34a9001bb1869d53f5b00cc88c0128199a3"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "32dd22c972dfaccdcb31bd37fa203fa9dbb2d517463b4f67c1b16de611610697"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v2_2",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "57dff040657690e62a8847919118db5d98ba1ef5bed5230f9510cbf944a40b72"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "8cd1197e7726cc9bcf6b074464c4a42dc00e02a9d402f392bc9d3cb4330d4b96"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "764c7d5660c95ae8213faf949a67513c7cddc345aca4af076e788fb1ab470884"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v2_3",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "06ceaa4a7375307520ce9dd59c68c5e44c01dc7d3fcb85111213db079123d182"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "557b8b65ce48de37741410fd841f9b906af51a516306730ed5804149abefb283"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "067bf98ffd95316b5f7eae273045a18c8f3b2204be7dd199b5a29c8246dcb8b3"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v3_1",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "328a4d33daf15c72362db234312eba56eda60c1668f5c39a5527d61279793fef"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "5a747638b0acb5dc42f2e68c61b29085a489af524bdd5da180cb1de542e1bad1"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "448fd1318cfbb2590908b99a694c1fa74620b5387fcb310de81bca49dfab1bf5"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v3_2",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "53727d06a33fc153df450657aeeba08dd66fa9059825f92227b1c963fd2136b3"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "4d4239f3050af8ec5284ee94bd914c1726a41b0c5375552c2c3f67ff5767c228"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "4b3e91c5e108a3a5b29e230cdedd586fece0b9287fe2779072a8a3c3b10fa1dc"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v3_3",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "2183465bbbeacabe792712f4ed5efc78b33517cf5dbc53e34b8e5b6215bc3139"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "a8d635001a3b6af9cbac1cbbf4df18cfc9ff75ade17bc79182d88a4c8a0fca33"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "2543043d158406ef791dee103f70ecb7a599d1afc40bdf67d313917579f5978b"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v4_1",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl4_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "163b306f52ebe55017e46a7b664b8438458bd7becc01553309a2f441c0bd452b"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl4_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "f4b91973f55cbfc1e424e494cb4a2e15c779967cfa4b7d28c6440337984bd440"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl4_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "d9ef9631e5c7d590937ab2b11a2782e5b27818f53a729757d75d0a30da07f444"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v4_2",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl4_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "32aa1fdbf7be06eb31a1665d5b6390fe3c6209d0abe4230351f07c1af9d4d0c2"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl4_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "ef8cca9e89507fc69738062fcba478fc037e7220c47e040be1298f877e78c402"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl4_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "6a54fdb386a8d3ca8e2d3791f5b648395ba578ad2cfce9dcfe7fb9f52ec4cfb1"
+      }
+     ]
+    },
+    {
+     "name": "ClosedHat_v4_3",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_closed_vl4_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "00774a044569a3ecf1fb29eccd6e862357aa14e136133fdd5ce55b87c3a24625"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_closed_vl4_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "173798eddfa5853f69e78126d89659d80583683e37ca42683e671b736b79dd81"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_closed_vl4_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "6acb69312307c42ba61c51bd34216b9b1e2bbf7c8b72747606489fbdfe7d6acc"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/High tom.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 3.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "HighTom_v1_1",
+     "lovel": 0,
+     "hivel": 23,
+     "mix": [
+      {
+       "file": "Samples/oh/htom/oh_htom_center_vl1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "997aaa8f41ece35e279dea48240e88d28ac4be08187912a26d79b4620d0563f5"
+      },
+      {
+       "file": "Samples/mid/htom/mid_htom_center_vl1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "e83584589fa8701a1e87838764997490445ad566b6f8fb56b3d4a23ba21bcb27"
+      },
+      {
+       "file": "Samples/room/htom/room_htom_center_vl1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "1bc76eb9635d3e8aeea4fb893a0c45a36e6234237a34b6275a784ce7cc97deea"
+      }
+     ]
+    },
+    {
+     "name": "HighTom_v2_1",
+     "lovel": 24,
+     "hivel": 47,
+     "mix": [
+      {
+       "file": "Samples/oh/htom/oh_htom_center_vl4.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "b20aa5d77be540a65d1864c7e40b22792a1e26d0102cda9ad729c244a4269472"
+      },
+      {
+       "file": "Samples/mid/htom/mid_htom_center_vl4.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "665ae1ff419cdfc0cb3b827b31b2ceacf23dabda91335df8f8520b2fb15f45fc"
+      },
+      {
+       "file": "Samples/room/htom/room_htom_center_vl4.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "f67d7d067f06a77137423e8f24072102cdacd4367d6d08340c7073753565c63b"
+      }
+     ]
+    },
+    {
+     "name": "HighTom_v3_1",
+     "lovel": 48,
+     "hivel": 71,
+     "mix": [
+      {
+       "file": "Samples/oh/htom/oh_htom_center_vl7.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "cdcb4be379dd26fd4f230d053a2e132d4692dc7063cde98b985980da1ac3a04a"
+      },
+      {
+       "file": "Samples/mid/htom/mid_htom_center_vl7.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "8038cf152db4ea147ca05d3f0c99b9bd7ea91f0eb5b3d3bdc2efc31c399f584c"
+      },
+      {
+       "file": "Samples/room/htom/room_htom_center_vl7.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "9880f50054a0098ffb0ddad2b5582e326e6c71438f4d0eabcc3f45c3c195ffa2"
+      }
+     ]
+    },
+    {
+     "name": "HighTom_v4_1",
+     "lovel": 72,
+     "hivel": 95,
+     "mix": [
+      {
+       "file": "Samples/oh/htom/oh_htom_center_vl10.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "f9c27dd5539353283dddc7305d2cf270923732279fc96a83468193bc00a63ab7"
+      },
+      {
+       "file": "Samples/mid/htom/mid_htom_center_vl10.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "2c9be5002caa183582fe13bad7dc61fdf08e70e22d4d1cef8d1a050dc5498ead"
+      },
+      {
+       "file": "Samples/room/htom/room_htom_center_vl10.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "64838110daa6138c6c3b5e015a61930d67db7a8fdf1fe59d491fefd727b616b7"
+      }
+     ]
+    },
+    {
+     "name": "HighTom_v5_1",
+     "lovel": 96,
+     "hivel": 119,
+     "mix": [
+      {
+       "file": "Samples/oh/htom/oh_htom_center_vl13.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "0a54429e26cfedcadad58d580af98978c53e4971f59af9f1f0158a79dcc37381"
+      },
+      {
+       "file": "Samples/mid/htom/mid_htom_center_vl13.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "7479cb4430fca0b055027740be929635e8147802e00b7a758ad7ca7f52742117"
+      },
+      {
+       "file": "Samples/room/htom/room_htom_center_vl13.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "e38eeb8dab10856668c4a2b072c2de06be4665e3f4878c84de5aa53a039f203c"
+      }
+     ]
+    },
+    {
+     "name": "HighTom_v6_1",
+     "lovel": 120,
+     "hivel": 127,
+     "mix": [
+      {
+       "file": "Samples/oh/htom/oh_htom_center_vl16.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "04367c509397f84691d389a4166720b1940c9b7d9ff7a87abd35364b3e9ba6bf"
+      },
+      {
+       "file": "Samples/mid/htom/mid_htom_center_vl16.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "230a9e6c6b427c969834c6cb50e730b44487ae5a27f86bf87680359daa6caad9"
+      },
+      {
+       "file": "Samples/room/htom/room_htom_center_vl16.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "0dabb6c235b93248f1927ed275a6e68396fc6504a08c78558a9c43da91f317a1"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Pedal hat.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 1.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "PedalHat_v1_1",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "914fdab7847eacf82f016d48959ddd286c8dff9626ba9a4873a600b3d5d8f6d0"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "c74ef19c1040376a1e06646a072733634747ce98e31c49b523c0fbc3251fb464"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "8145ce7835c6ca6c78e3221c0942b3b734fb1135a06afa987d02b1cca37986c7"
+      }
+     ]
+    },
+    {
+     "name": "PedalHat_v1_2",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "f8f93f771893a14f292d12f7bebbcb421200d6d45e899f286517c9ce0dfc6ad0"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "72466d95eca41d7a623bac479b11dc177b3a1d12707b2f6ac9e7eadbedaf71d4"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "3033ed947fee1aaa6c354536c7fa4a1bcb1341b8c2b40cfaf289a680f72f3018"
+      }
+     ]
+    },
+    {
+     "name": "PedalHat_v1_3",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "74d825486860e570f3a636bbd513dabd6939e42e63c1c94e20a06dcf7396be80"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "cf96977f338f41c538898cdc2111f526bec8b5dc653c4e5cbdb7eb2ae3c6b1fa"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "4b6addd52dca623f3696ee053d3dfb82c36342381198ec3d43857adeb8c372ce"
+      }
+     ]
+    },
+    {
+     "name": "PedalHat_v2_1",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "8e7cf653e07bb6773e835e3fa7502bc199c23ee6e94d44cf3b6fda783ac309b0"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "73515fac4850ffed2c0fa404da2359f5e10b2b7b4f3a6cbc48b0848f65052820"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "38391396ee6ffb1c692744c2d558878deeda7b51d47a2a733a208a0153d7f919"
+      }
+     ]
+    },
+    {
+     "name": "PedalHat_v2_2",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "78cc168c52d8b81caa447078dd3976476794fbf6b1073b9ab0aacfe0c55299e6"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "7b573f11a862980b4f054f749ebe5d7eb2078da4f74a122e806ce2942efacc7b"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "a18e7067198a6bb5776cfe1a2ab393a939293a4f56bc03ee85c057824e9d5446"
+      }
+     ]
+    },
+    {
+     "name": "PedalHat_v2_3",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "e853d62b7fac1fcbf0581c76a2dc5c4ddefb84ebb9f3725d6b6efe64d5f27705"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "d0e776d5a19d4c5569ac10a981dfe7afda22f3b8bb17b5624ed10868d915a47e"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "5393b1653830775ec27a28b85de2dc6c368ee840e07e10c7bbbe0ec8fb2a63b4"
+      }
+     ]
+    },
+    {
+     "name": "PedalHat_v3_1",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "5311c752a8852e48a05be2d5841bbccb5dedce5b606f49ad8168cc8c52b22235"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "7a80fca0c30d1bdf896b2d6d7d1057e4b2b0d6362ca129bc10cfcc5c9b18bbe2"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "83c2e2810faf0baf971e552e890559eb95bde2b20d00a7cbc3ee78368fc98193"
+      }
+     ]
+    },
+    {
+     "name": "PedalHat_v3_2",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "ef8cb0f9ff9e9f6368a138c95a2e59a9b85e4a2eae661ae73c9500f61ca6a43b"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "d7a85061f890611efc1a8887e5c17e5141297584a08773f038e7e95e07872ae1"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "f04244ea6c49f4ef791a711a3005f48b84edcbc0a4a982ca45bcae0aaef0dacd"
+      }
+     ]
+    },
+    {
+     "name": "PedalHat_v3_3",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_pedal_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "55ff139b9bbeecdb7ed98fa65762ab6c10944db57a79065d5d4ccb30525f6815"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_pedal_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "4fbaa45bcecc119b03072817c2c04f3aee40bc13952970d907d7f5983f8d0069"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_pedal_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7519f5967ec0018e205ea026f831bbede7cfbf79e09b4e05f65e3dfef5fa99cd"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Open hat.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 3.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "OpenHat_v1_1",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "bce174c48b9ab905bb48e36ecd5023f6f507d5210d220c7f2a00c21dca670121"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "62b6d49fd321dc730ad4b95448e3f129655606e9958c1e30587aa7cca221cd9b"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "1f44b5b61fa8cb09fa60a0b743b03035fbfccfe8b500a346f1adfd780fb2b1c8"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v1_2",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "15bef7db238fddb5675c1d294613970a739da9fe2346c53d0732ad4a6889cfa7"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "01923636b2865dc88ea796fd0c1c7fc5ee438b4bd2f69ee6ffadee14af717056"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "fc3a108536a7c91826ff88f5113ad045e8c4ba8af9ee43de360b40f27102a307"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v1_3",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "4d7b560847125a530a4dc37be7922c10ef44e7ce519b37a4f379159b1db57d57"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "2c2cd7766da90c4b458f3a47103300aa994625317c44024d77a77d99500c635b"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "936bf875a019b2908dc9170ba130e79da39345e2f6fa38f9ffefdb35b43a4835"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v2_1",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "70974258a4b6b702b4d9ce3ef0f6668d0b0d211e0481253d4408d9acf848d012"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "b2ab26c09f890523c054a262993cb4f80f9de0b7272b8eb14e4770ccdb3d053a"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "17430d1ebf4b2d8b6e05aec2e2cd4d4d7f791216043f5af70e3f7c1abd77bd59"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v2_2",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "73cb8823ceb31e7ddbab0a8830b58a02af9e11ad78087712f8ac3b7578cfac45"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "38ab2fc7e4da6d93d5cbac6e6e5a80b4c660c4d1cb6848dbb7bc4529ed64725c"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "6ca68f95b09f0d15a18dfb391e745e4c71993d6b64624d76cffc648bc0cc2bb3"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v2_3",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "ae63abe552d268e45d2ffa6b1081c18a7f0dfca9c068d3a2c1ff083a80cf4966"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "885cfd40c19fe64df50ea0da391890368b264e5c4ba2c6f45bfd702661133cdd"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "c3b3c129807e51be17141451cd97cf765aeb18c166ae7e0811e8ffccd585a7ff"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v3_1",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "046d72bfece4891ba114e090961cde55c7a42e9805a5a2a1b8f5f57e76a190fc"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "58302f8eabd04050ddb00d0f6ba907edb7996a7d36ce437e98494eec3ae9da69"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "6a00b6edf6508b0962ea3ca18739477451eeea8e090f3bdda87d61b1fe05aa85"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v3_2",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "35135cc9079b7810c95cd490208a6fdbfb540784e28dc270e7a90d16b3271f75"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "1e0a8a27ca3d93d07285b23eacc271ed720fc63efb980ee06e871ff7ffb4b66c"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "2a5b2891425325332716bdd2fe6bb2b67728e674a5991ae4f1569681cc178f04"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v3_3",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "506d4778172e857a3c410fbd86be790205d2cf209c3fe85b7f29fdb2c4f01122"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0f53562496f19753eed2184f8bdc8fd961ef60acafa83d880ab8d7852358b0a5"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "33f5c2fe4bfae9c50225a560611b4a1cbc3aeda8424c0d7db3a98e32b2647bbc"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v4_1",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl4_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "784687e70ed0adf17229a38f4347674ac4283a0dd85def26c556a5e9be3b1ffc"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl4_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "006556df13c01419b77fc0c734f9b5db79ad2a007610225ff56c9e12b1b5fd70"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl4_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "79563c6c6e707bed32ccc564cbea87333738d121ab4fa8b27412d47fbf758c28"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v4_2",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl4_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "29613222ea16060da00e33dc20624974e6a2812a397da316986d89b5b750d8d3"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl4_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "27cad3cbd3aa85a09f01f35c256a01a8fe782485748e682509befd6086aa68ab"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl4_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "0a5f19a2373d05a30b6c526c349a1bc66a91fbe27c88ce4904c844561de2f376"
+      }
+     ]
+    },
+    {
+     "name": "OpenHat_v4_3",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_open_vl4_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "292b45749113f9e7db301aa239f09c4a9d6e1792cbd0ff38e218141cce69293a"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_open_vl4_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "402f656b3007cf7cb8a7bd88ba8abdbfc32af6cf681de331ff05e55973e13a83"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_open_vl4_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7c9f0d72179e544786ac5bb0e08209cfe60f5c9efe6fdd0ee1d469d2875718ff"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Half-open hat.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "HalfOpenHat_v1_1",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "1cd96c1d9f3702d19cb546a5f1fe59640ceb8c147f9665227040e10184b228ee"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "671a2ad3d94ceb48451f3fdf0cab9a1200c75bed456228891f2faa14272d5f9d"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7b2f258bcde489b3e25a002ae08a32cc6e477bafff7bdc90f50df5d0c6a44c78"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v1_2",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "2cbdf785a991047b01ac8bc65ce646697beb6c06483c81a0d20a81b2fde093be"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "e53f5f2363cde8c8807356fac5fd59992af2e15667e925082fab918eb5c2bc2f"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "5e8eed488e18c8da8dfd74acf8124e34d58313b46e2758948376b97cbe375f9d"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v1_3",
+     "lovel": 0,
+     "hivel": 31,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "162fd4204209c3b824d3f4f35a007ce93cd08ec8c6eb717947dc094fd953499b"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "74e0b8af9dcf459963773068fadd91f48d2817c1b8b51d64bc7e22d7eb1a4313"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "d3966e61187ca624e8eb3ead3d30a2baed07ff38e61ecd1023de7b71f03ea219"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v2_1",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "b2d0d4a0a270fe2c94ad56d776e464982b16c1564fc14b3abb750dd03616d833"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "78bcfea3190d1e6f6310e7548eeb62325057fe7f55f1afad8d0f6c020438cee7"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "19459a456943537c518859aad48e378625439fc9c28bce9626e35d269fe4725f"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v2_2",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "cca64d3c3afc0e0d75d47d0dbedec3560f9dc9f5eb40f8124cb9e6c3f91a7d15"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "09700b61e761f6fc39304be2380a3525c1fcf80aab72822956b5d01372b4107a"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "a3895c3d5e825f20c677659fa13dbd759e12cec2557ca2fc0d0cbc9e4415b458"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v2_3",
+     "lovel": 32,
+     "hivel": 63,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "b3a57f1242257506d174307f0627b8e105c340711b873961547d2ebd4548ed30"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "cbd04abdfa31d53a2b5d0dacc6ae5b3b195af05c522febad58ca49f026199140"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "fbe88c933b9faa96aaa489e02aaca1bc2c985a6d8edf2f906db9f5af9dd1e2a0"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v3_1",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "34de5087e14ef8f9d2acaa907dfa5581c1976c0a7311f89df71b7f7bcc874a7f"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0c7eb972ce0cb443773c2c13614defb66dbeef9248529b6a2bac4fd0830ec94c"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "03623d16f88b2f2d81b95e27a491d9696d8dac6f9f0462c418144abc02ccbf1b"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v3_2",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "687b44df66a4799a0035a4a220d0521bed061d8b9509a398af4527ea83a313f9"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "848c10cdc7e3b3c0b1d28c7403c89279959297460e5300a77e3205ea68313a76"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "b25eda3fcb9ccb5c8411bc1eb88bd7624f84b8320dad41b6f98a2e290591e9af"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v3_3",
+     "lovel": 64,
+     "hivel": 95,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "cd2ec324cb63dd0923ba0ad9454d2e953a665da49af2bac62b6866da41eb92d2"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "54f193a99dc9e4a5e2e4672bac309a92c70f6a256851ab32ebf92097019665aa"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "0ebb2eb4404b0f8df186ec93becbf011d808f58001d02bf9cbedd37a409c040f"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v4_1",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl4_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "8fcf0a7e727f374bb838a7490e18fa45eb7549eba526a3cc7911f11b4376a45d"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl4_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "f4d342728d9f84cb0046eb428a5b5188970aa9b323ba49fabeb89d164c6bb2b8"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl4_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "799da2390376778b12fcc87e509261213d845ff59f3c6ddc5f51b410a0facb46"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v4_2",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl4_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "422d68769631c44241069569da946d7818c5366374ab4578de3829300298d32d"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl4_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "321956a484a33d523314b3be6dde99b5d8e891a10b177537f52bf7120c19e19c"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl4_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "0863cbeaaecd447847a65c78775132f146aa8cadfff6a03df97d7033689e815f"
+      }
+     ]
+    },
+    {
+     "name": "HalfOpenHat_v4_3",
+     "lovel": 96,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/hh/oh_hh_half_vl4_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "736d7f3f6c0c25611de775bf44e651ed827e4a884e474b5e96bc83e793da341d"
+      },
+      {
+       "file": "Samples/mid/hh/mid_hh_half_vl4_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0243f5c5715292bc624ba2a2011e665d904027129228011f2a7c27883c25c475"
+      },
+      {
+       "file": "Samples/room/hh/room_hh_half_vl4_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "734cfca2501446431f236855ea405787910e4b70b5efa430a8bc9bf2f5b6158b"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Crash.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 6.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Crash_v1_1",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "3307ad060004db51990b81b80badc0d26c90dae87e7b0f9b9ebcf099224fd823"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "05d4849408a3ed79aa94a071482905facb948eaf5fc15650afe8b4291f73b816"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7c1b6386b4ea8e3dd09850df0b1246b3479ab147be20d9df10a7e4610e816667"
+      }
+     ]
+    },
+    {
+     "name": "Crash_v1_2",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "5867af63074b0f80318e3c26f0164a13bdc59d56fcc2e6c799bbd5b8a8a36557"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "61e223756a2c767f75e0ecf8ec208fe631973fdb03e6d76dd4fff153dceef1c4"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "9823dfe164d40f6eeca7edc73caceb6f863280c0fa799fccc85480a527473d94"
+      }
+     ]
+    },
+    {
+     "name": "Crash_v1_3",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "c13d4c88444d0c86b06b8ed70d94ca44b756fc82baab9a3cc782ad994bbe659f"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "4f2f1d8d8782ffa7e655487c56e32da77bc599e506144f07c70b89cdb5cb5284"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "0a91ff3f173cb0120755b90622d8cd35ca7076a8d07582bc8ed94d14d5a2366e"
+      }
+     ]
+    },
+    {
+     "name": "Crash_v2_1",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "2eb8c5bddc510bb56a48f325d9cdcc54ea52d926645df9180b206a820638fce1"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "6e51e885a3f0fa3bfbad1349526e3781aefae4063f36691185bc176fad3ce588"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "81d3627408aca7e8ef8fbfd5eb46566d70755d7b57fb543d9ee0549162a0ca9e"
+      }
+     ]
+    },
+    {
+     "name": "Crash_v2_2",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "501b67c566727274f6a9567816dbe94dd66624ee924e82c5fc84df2aa5743980"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "2f1e15ddfb237e257b07bf5ad409a6a664644df5cd95fe11c9811d8d0cc6512b"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "e67d9482f943d1d99ccbd7250d350b3df4d68eb19c42cd27abce4c14c58ca55d"
+      }
+     ]
+    },
+    {
+     "name": "Crash_v2_3",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "7b13e87ff0f7d5eb925e4d452c90198386963ca4fb52b5b62a3cfa9bc43d22f7"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "9f4aac175d883860bf88bf16a5c93dc05428261634b3bf9737ab8fca9bce6b74"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "2efdc5f75f3c040830ce2925c28239786e20eb4086e2ad7f4a1adeb37ec5c4c6"
+      }
+     ]
+    },
+    {
+     "name": "Crash_v3_1",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "28ac4dc5c130175555ef54009f9186e418a664c544c1f996058b5acd3b85ccb9"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0469cb31e5228e084d839e425f76efaea093bc18b23fa3fe405d26705182024d"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "dac4d63573007d3df56b0073f4efe1e59862cad50c42d3fed6afc419144d5a48"
+      }
+     ]
+    },
+    {
+     "name": "Crash_v3_2",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "a9a13b01c169505ade812614fbd5b929006884ac2fa9fc13be2c72028ba1779f"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "69922376a3428e169bc88299e11051e447b1ce150fdc89d9aa2e3ff759178e69"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "6ad3fda040d35c3f94e1d57e15271ce738d20858030c9fcf3a1701304e786b35"
+      }
+     ]
+    },
+    {
+     "name": "Crash_v3_3",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_crash_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "1edb996a8c4bd94407a1f1424945b39167223b11d497411c4026b33e69aa191c"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_crash_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "733e595a945995bd1dcf20729c30daf06d54ec31dfffb077b4763a602936ccfd"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_crash_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "81daf88d7b789e7c0a7fa4a9f2db7982bccd3aacb34a2088b79da68608a18b12"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Ride.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 6.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Ride_v1_1",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "df47cd9bee89a98afa6626e38a7363c36ac6091e9964f113693807d0675fd0ab"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "465995b9f2ee979a0f2f26d0065c06cd11b57fd8b03a978e396abbb8ebe4284d"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "bbd56258b7516c0ebd00d958c0ecebb5dc6066613bed8f160d1ed55a7eea5986"
+      }
+     ]
+    },
+    {
+     "name": "Ride_v1_2",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "b94e95308c3c2c88001426dc57a4f92745a3bad9021171fe6bc0c0f8992c6d7c"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "424828e598a8e2bbb396f1b0606497d914b5f769af773f12a78f8ae9ca99135e"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "95ead108731c98ce616f70246eb57191834c230f64c7eff7f521bddbb5112141"
+      }
+     ]
+    },
+    {
+     "name": "Ride_v1_3",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "0782c66ad47fa8ae88bdb8e451894a6aac329b993c529832deb937fa49195f64"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "b54349a05a81a53bccd05731c9391caa3385944cb4ea9288bc0492e0f6a518d6"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "8d231962326722d7f9ddbbee3f58774c7a55aca7730f1510e4cad5deff278362"
+      }
+     ]
+    },
+    {
+     "name": "Ride_v2_1",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "56481c1109ac7baba9ab4b049cacfbc5050cf29d59951c654e7316595385eeaa"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "b1b52f2f7143917cb9f38dbcab37da645d4109d0795d8cd8563a6a957ab30727"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "4e97594a4df3e65dbc9749ef0f28cc0b3d12dddf9a4e2472b58e61f4c411dc5e"
+      }
+     ]
+    },
+    {
+     "name": "Ride_v2_2",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "5cec02ecdc875cfc5fde8d2cd7f5be23cc8e0b1ad35e4bcdef222328f6fbb6ab"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "878a96721a1a50b4c0f798bb681804ce2c1e84e3675606a75aa241e132e05139"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "3fe2878d15900864656eb2288a51f87dc50cc67a8365f104544660450793dea8"
+      }
+     ]
+    },
+    {
+     "name": "Ride_v2_3",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "266eeb7eb4de6f0a3eba2c038d7d6d8422e995a293de342cfb9f8b72d879b44b"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "339363a26ac4ae81069f7044f76a11ac3aa39db678c01d09e9f1787825e5f421"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7423867a54fa58c3d2aa86c68019ba9f62ae3899c3e2fd82ef43d2b51931ffd2"
+      }
+     ]
+    },
+    {
+     "name": "Ride_v3_1",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "855f22d2408439f7944c056dab306003b8fc172310c92b37b63a6aef21aa4f5c"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "3ba4ca0d97b7a4298d345af6855d4713db73ec4b748209e3857b77dc69fa641a"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "a57744b91cbbda610fffc0b3dee89567dace9c995ebcf1f40a03cf51a0e14fae"
+      }
+     ]
+    },
+    {
+     "name": "Ride_v3_2",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "dc2abfafd76352382f94fe3e011315381ec324837ea2e08117f947bd2bdde694"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "21c96c6ff845378d60ab6ffa7b6d158004a1de49d2f55bbc048479956b20a5b9"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7192c863ce898bbf83cf1e97b58631a6b4c1ad21f56ccbb59d7cfb20bec3d46b"
+      }
+     ]
+    },
+    {
+     "name": "Ride_v3_3",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_ride_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "cec238d203f9f6b6e6204d56a424ea3fec51f353094984efebb361286135da79"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_ride_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "792d0eb7266d4e76ba87d2e9e7ebb0dbfc5b267a86e95dd6233ecd7c29cacd4f"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_ride_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "e74379c01c172642d8da78bde71798d27f4ecde743c6113cf217165ed9082e1e"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Flat ride.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 6.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "FlatRide_v1_1",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "5886cdb0cfcbad9ecfec7c2f0bddfc84984812400cd324593bc1a94ff2ee2cf3"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "201c9b368ee58d4c7ba87a967bcbc5a9d398c921ca09b46e920e82715533ced9"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "143a1acc008d8edb7b0e45bef131c168e9f3902ab343db4e6f64102068a55cbc"
+      }
+     ]
+    },
+    {
+     "name": "FlatRide_v1_2",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "391b5b1e42a0a235b5ad505bfbc83232ece4f2d9316ca4860559fbc698a844c1"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "65745d4e82a5e8a9a7aad8836a2540d13d6f1a35ae7980fdb39dffc1b99e4074"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "b96f107c18edced2285ad345cf0ba2d37f4ef2b74b712e4e9aa3559b6b6fcadf"
+      }
+     ]
+    },
+    {
+     "name": "FlatRide_v1_3",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "147c2e9235ccfc7e2fa18f225138401a4c1094d31531b17425655ffb4347af4c"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "d2daf729b5104554cbf798d6dfd7d4cf8df3052033f4b47e79103be69e483b18"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7f7cb926aebf23f03eeac5a16349d4fed73aefab84dac883d10ed92707ae8f4f"
+      }
+     ]
+    },
+    {
+     "name": "FlatRide_v2_1",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "0a0ad68cc4c02410068558e260f68f4e2d64c7c736704a2031e2719312ae88a8"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "b6c026cadf52b703b4870f9d7c8b0921305fe0010b016c9570de5febc2f5661e"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "ae8396bf493e5b907cf510db1d483d06f0279cf9b56ec83e79420d060a910bd7"
+      }
+     ]
+    },
+    {
+     "name": "FlatRide_v2_2",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "e64397aaeb4f4ac03b9ccdf9f30ac72881c57f8632f9460bc2be04c7e7d8a12f"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "ac015381f95ce2adf88897900e83fc5410064bbef1d60ecf86eb2c1a3ca1c5f6"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "9027896e020cbc666b51c9b00f33c3745645d74cbe8d60f82b5d8bc637149312"
+      }
+     ]
+    },
+    {
+     "name": "FlatRide_v2_3",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "a2446a0e1c548778126be05400d72fdb6fa5fc79b3eacc23585c971801dddfaa"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "3f8a8b246b0f57015fc2414e83af6a4716e5b93bead32566f6c0dbff0280f6ce"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "71921b87e62c144051bd58b42096719408bee95b679690437f3746ab08abca12"
+      }
+     ]
+    },
+    {
+     "name": "FlatRide_v3_1",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "63d1cff0d5a87a24311acc2e799e6911d8a0b958b6d98958a689fec7471ab89f"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "add851e752463b9cdedef8ecbab49767c781bb3279e9814f87860e767fabf6ff"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "3920ab51b8b806acc3cd8f1855d09c8ad37a2a52d2e1ebda7ed52fdd93d06782"
+      }
+     ]
+    },
+    {
+     "name": "FlatRide_v3_2",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "a76719d4271440d2e9d5a0774302c986ac4cd365d04dc599d683b36e00c42f70"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "9e56ff83fe2f859ca9068978dcf71d067ab8e54d97a11bbc0fd37e7f6658ce81"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "ac6295157d301826ef12f8932c00c675815504692befc10d6099d8ac855749ed"
+      }
+     ]
+    },
+    {
+     "name": "FlatRide_v3_3",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/flatride/oh_flatride_ride_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "fe20df09c7de73ece9ec89de5c1ffdb99fd6a072b04935a081ccae0da77ee0e5"
+      },
+      {
+       "file": "Samples/mid/flatride/mid_flatride_ride_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "144426b4eec9948494a2ca1edd0553a9cfebfb2c6d92058ad5c604624ecb5a27"
+      },
+      {
+       "file": "Samples/room/flatride/room_flatride_ride_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "d1e629e179a2754e43c039c5648d22e97e4197b7201aa4bf0e68e5a4f1aebca0"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Ride bell.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 5.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "RideBell_v1_1",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "c1d4a6d958fe778cda3c534c3343e1072da5a69b2853a2ae0b1805e6643080e0"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "5399f1ae66c38c049ff3e94a5001f1bf23e940ea04086cea271312bff63de292"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "3689bb2f60165701823d1020c2f52cd9b23b6179e035e053591d720bb81e26a7"
+      }
+     ]
+    },
+    {
+     "name": "RideBell_v1_2",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "0995af72e6736f11caa8b6a341b8dcd4e4a0d9b5bfa57b2ca20e4e880e0a9577"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "a12c6d651f0db7cfd643b9eb21c89420125ed98e77dc559bd9207bcd768ed2a3"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "90309900a7d9e305581e53363da1a28deb6ee52aa7af47cce01da1b14bf3e4e4"
+      }
+     ]
+    },
+    {
+     "name": "RideBell_v1_3",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "d0f1e24bd906ee78a52a99fcf36047656cab2104ed2cbaba790e16b075e9704c"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "da9033221d7432b56cfe33d5012a565eb20d63413f0db27cba22ace875a051af"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "b275004dfe89091716f51392b0219cd5acb306c2fe36ea5cbf7dbc7070f73234"
+      }
+     ]
+    },
+    {
+     "name": "RideBell_v2_1",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "36930c1702ff868d84e1bf58fad899c9559b0312b6393bb1b7a4c5d5e91e28aa"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "0adb696d626516bb85a9da6e136dd22084c5e78fb0db9f29b84ca772322c1f7a"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "9f278b938d69752e775c4ce74b672b934b42b17628d94c0e98ad0aa256f5da03"
+      }
+     ]
+    },
+    {
+     "name": "RideBell_v2_2",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "fcd4127cef7484c9f6a647013989844cb622b689795de16ad4777bf76f152cd0"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "35f9323ecf180d0ef68180252c8e850b5dfa341de14f7b47fb781169eb67c02b"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "49138cc2a5d62166a9621ba18683dbcdc3173bf9c53126c488f0c36ad0e83fbd"
+      }
+     ]
+    },
+    {
+     "name": "RideBell_v2_3",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "591aa4be5bd0f753c70d7b537d5d21b3c4c445c3f6c9086dbc50f17b7acabd54"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "8d9b14c7f02b3a15031b29984aceb5b977984bebd698bec41102d8dd4717cd03"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "085e251fb1475e4d9de3d4908b31ccdd5d07776c853d2df66802b4c49b3bfb10"
+      }
+     ]
+    },
+    {
+     "name": "RideBell_v3_1",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "e9d367cb70b15377fcec2299a15b6590a93e2b8b0d789511616bcb7b8345281d"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "6311a95441142bca55a2e97c0670e72ebf16a25e4b17706362ea4f00de33aac1"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "0062ad85fd56339cc29e75288ba7fc174b2dde7b8f40c2b83c31b8eccc1dc6cb"
+      }
+     ]
+    },
+    {
+     "name": "RideBell_v3_2",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "89f73fcf2c149f89c4cee3d904ad37d4e2d47aad6a5693f8386977009584e4dd"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "ff94034e26383d14290f7a0855c63ac720ca680bc43f01c28801ff6a921fb3e1"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "8a8d23591a747aaa4b1c7380c3d37c92b89a911e901ec0e9b80cb89842229274"
+      }
+     ]
+    },
+    {
+     "name": "RideBell_v3_3",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/ride/oh_ride_bell_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "edd9e99771d5dbfdfd49ceacb0c922d2a3575deeda7956328260ef5ad6dfd202"
+      },
+      {
+       "file": "Samples/mid/ride/mid_ride_bell_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "6c990d0788ca4d5666c25d25c6b4d22bc7d82ee1157d66538f4d14df211ba5eb"
+      },
+      {
+       "file": "Samples/room/ride/room_ride_bell_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "ab2b83d02552dbaff430c0f950421a2ea8c0a6e01488a41584d4f21833929698"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Jazz kit/Sizzle crash.sfz",
+   "source": "virtuosity",
+   "maxSeconds": 6.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "SizzleCrash_v1_1",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl1_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "10094bc2b8637cfc2af60b8422eb7f1dee38836a8290baf3283eae9e85b5490b"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl1_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "408fd02a990baf8d0ed3c16304d5dc1c4647d05e639300f36fcebed20e30f2ce"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl1_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "ae8792e243db33fb41e7fd4ba7c31a1ec643d984de229d73ff329970f2810409"
+      }
+     ]
+    },
+    {
+     "name": "SizzleCrash_v1_2",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl1_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "ab5cde8ddb4c1316999d0a313368103ac330995cfdfc40e7f8d76323ac242a0b"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl1_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "8652919f300b66ce12e086515d829953bb86c5387f6ccc7391b3c6b3cbe2bbbf"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl1_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "608aa3a9c775aed757b54c6bd8751a62a4aa9d96abf94dd6e9cf97b3110a6db5"
+      }
+     ]
+    },
+    {
+     "name": "SizzleCrash_v1_3",
+     "lovel": 0,
+     "hivel": 42,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl1_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "d03531ea41292920af808a6381c86b5b844ee7d933bea94def11f7f18f7bd0fc"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl1_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "c5e7ca5bb14bc2a18843ef137c46b4624417bd029af3690f1aa6782da52453e4"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl1_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "771b1e30bacb69b4206d9b6852ed95ec9f4c973df26a2f19dae77881bc0f1db6"
+      }
+     ]
+    },
+    {
+     "name": "SizzleCrash_v2_1",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl2_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "839e9e359b3a14b9d90b95cac5fb370a1b0db82685fda9c69de3df8f7ab21500"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl2_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "7d76342799904599c595b70c356bb044b1fac36fec6e3a4e4aa8158f86f9e6f7"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl2_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "fcaaf5f973ee857d7f28b63929a101d19efcec215c300c1b51f2c12dc62d0eb1"
+      }
+     ]
+    },
+    {
+     "name": "SizzleCrash_v2_2",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl2_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "9035b5f388b5b8369c0de7338e096351311c0a48aef7e16c36f06f446dd9a8af"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl2_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "c602b36d98382332a821c32e6e942db193231d20bde6a8214241ddf9f41c5838"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl2_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "11e96295ca9f445fa0588a020a8f4d364259e1cd4ded87dc931ef51ba585ce66"
+      }
+     ]
+    },
+    {
+     "name": "SizzleCrash_v2_3",
+     "lovel": 43,
+     "hivel": 85,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl2_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "3693ca4429ec5b89a9555f9835a13a9d32946df406358daef7e0badcd4c87edd"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl2_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "533ef2e8152f053cef266bf56a47483503b44919f94bde92640902cac9283d93"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl2_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "1b1ca984392f14524a1ac0f0ecbf8bd4bfe41362a46f2febb1d50712b9025a8f"
+      }
+     ]
+    },
+    {
+     "name": "SizzleCrash_v3_1",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      1
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl3_rr1.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "d49368ec3eae95879274f9dac6a1e93f64279f3bcc1c26deb04b3d0bb682bdf1"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl3_rr1.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "b36b1cb6ce21c77685ec952826ec83ad9dfcc66eafd523b362da73bf0f809c40"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl3_rr1.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "7d54f19ea14e00629b62c840a12a16452826ae6be4388a2f7066582840a996c6"
+      }
+     ]
+    },
+    {
+     "name": "SizzleCrash_v3_2",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      2
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl3_rr2.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "24f23ae8fc0920046135297c73754e3a722dc0b4b90ac28543fce9bb8a0df2c7"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl3_rr2.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "76c885e93173aab0066a4ac8d96bc2d34ac6b92fc758b472bd2341d913fac89c"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl3_rr2.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "c17784158b3c5e677b89c2da4367d1715bba6fa21f2e4483ddd5a5686f306324"
+      }
+     ]
+    },
+    {
+     "name": "SizzleCrash_v3_3",
+     "lovel": 86,
+     "hivel": 127,
+     "seq": [
+      3,
+      3
+     ],
+     "mix": [
+      {
+       "file": "Samples/oh/crash/oh_crash_sizzle_vl3_rr3.flac",
+       "gain": 0.0,
+       "pan": 0.0,
+       "sha256": "6046df4af58e503507331f05f6211fbc12c264940fa451295e359f1c961fe7d2"
+      },
+      {
+       "file": "Samples/mid/crash/mid_crash_sizzle_vl3_rr3.flac",
+       "gain": -4.0,
+       "pan": 0.0,
+       "sha256": "18a3d5643ebac6ff4f3913d8256b51085d9411c6d9af08bfc00a7bb09fc93203"
+      },
+      {
+       "file": "Samples/room/crash/room_crash_sizzle_vl3_rr3.flac",
+       "gain": -6.0,
+       "pan": 0.0,
+       "sha256": "c4a56fd737afe3b12ddb9ccf7c10c36b796c17cce26ccf5f7971b7c9751702a5"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Stomp.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Stomp_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/stomp_l_vl1_rr1.wav",
+     "sha256": "5eac08cc1ceed491ae3f6802256a6a5e2965a996d6295e3253d13dbf8c03ee6f"
+    },
+    {
+     "name": "Stomp_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/stomp_l_vl1_rr2.wav",
+     "sha256": "ae6917f26ed899576dab78bd45a4fd29e0ee6287f8f9019baddc23578d86267b"
+    },
+    {
+     "name": "Stomp_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/stomp_l_vl1_rr3.wav",
+     "sha256": "711f9b17c335a543bc3bdf400032624e60e7cde952cf4141f46ef119c977be12"
+    },
+    {
+     "name": "Stomp_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/stomp_l_vl1_rr4.wav",
+     "sha256": "977f4cc9d7391167902fde3c8c5fca5a746e621e9bf8e7daac8f90324e370443"
+    },
+    {
+     "name": "Stomp_v1_5",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/stomp_l_vl1_rr1.wav",
+     "sha256": "5eac08cc1ceed491ae3f6802256a6a5e2965a996d6295e3253d13dbf8c03ee6f"
+    },
+    {
+     "name": "Stomp_v1_6",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/stomp_l_vl1_rr2.wav",
+     "sha256": "ae6917f26ed899576dab78bd45a4fd29e0ee6287f8f9019baddc23578d86267b"
+    },
+    {
+     "name": "Stomp_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/stomp_l_vl2_rr1.wav",
+     "sha256": "d051837d64d378aa0bdd892140decdc205a4b593b038cecbbab56d05a44f5b66"
+    },
+    {
+     "name": "Stomp_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/stomp_l_vl2_rr2.wav",
+     "sha256": "4d1faa6b6a315481c8fff6f84dc08bd64578e43f3d92615811343a12a7232b41"
+    },
+    {
+     "name": "Stomp_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/stomp_l_vl2_rr3.wav",
+     "sha256": "e45e5e99d89b66cef2bf83cfc705e7f6b2282c2c2eade3ba9bcb89a6dc6696bc"
+    },
+    {
+     "name": "Stomp_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/stomp_l_vl2_rr4.wav",
+     "sha256": "894ba15f9662abf5af23b8141d3db63c7df8d5c8006ab48c8d924d730b4b70e8"
+    },
+    {
+     "name": "Stomp_v2_5",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/stomp_l_vl2_rr5.wav",
+     "sha256": "e2e7071319998ce3efded645e4897a76319ef408f21852c0c203de33d1b1fb93"
+    },
+    {
+     "name": "Stomp_v2_6",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/stomp_l_vl2_rr6.wav",
+     "sha256": "c4988e8edb79db30e7debd86293450a41a82b5f77ecfc92eafbcc7ac379d8b67"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Finger snap.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "FingerSnap_v1_1",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/snap_r_rr1.wav",
+     "sha256": "8ec0819c920c152e950a7ff097b8632b3d7e518d475c4f6b99d7d8a5a7a4cb1f"
+    },
+    {
+     "name": "FingerSnap_v1_2",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/snap_r_rr2.wav",
+     "sha256": "3dc4ef0e759a99c79abc481fc746636abcda495fcfa21e214b2959ce556e1d6a"
+    },
+    {
+     "name": "FingerSnap_v1_3",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/snap_r_rr3.wav",
+     "sha256": "edb7cb7dd81f06b1d2188da621ea9e73412c898aace1b420698245d062a8fa49"
+    },
+    {
+     "name": "FingerSnap_v1_4",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/snap_r_rr4.wav",
+     "sha256": "1d4e1a10b74e6348b7e376c2c4eb1e6c3e00e6532035b95e93afaac2ac7a43f3"
+    },
+    {
+     "name": "FingerSnap_v1_5",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/snap_r_rr5.wav",
+     "sha256": "216612d7332f6e3308a12e91b6ff794e07bd29f36cb3761606896a4d11ad77b4"
+    },
+    {
+     "name": "FingerSnap_v1_6",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/snap_r_rr6.wav",
+     "sha256": "69c2c5aefe6fae074105b1d2027bf29baaa84ef71d37a0c9d149999058605721"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Handclap.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Handclap_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/handclap_vl1_rr1.wav",
+     "sha256": "fb8438edc2baf00aeae71023166a5f4d97499bea37ade8b9741a586dd99c7fac"
+    },
+    {
+     "name": "Handclap_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/handclap_vl1_rr2.wav",
+     "sha256": "afdc913718980e9e1e7e354e89d414b9fd204587fb64236137170352c9c3cb5b"
+    },
+    {
+     "name": "Handclap_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/handclap_vl1_rr3.wav",
+     "sha256": "d2b648819731874597996d45f0b0d0dbf239705b697482d0813da7103ecabedb"
+    },
+    {
+     "name": "Handclap_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/handclap_vl1_rr4.wav",
+     "sha256": "8fb6ade333014f9ad2cef710e68c090121034f18254721ebff8367bb32ef94ae"
+    },
+    {
+     "name": "Handclap_v1_5",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/handclap_vl1_rr1.wav",
+     "sha256": "fb8438edc2baf00aeae71023166a5f4d97499bea37ade8b9741a586dd99c7fac"
+    },
+    {
+     "name": "Handclap_v1_6",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/handclap_vl1_rr2.wav",
+     "sha256": "afdc913718980e9e1e7e354e89d414b9fd204587fb64236137170352c9c3cb5b"
+    },
+    {
+     "name": "Handclap_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/handclap_vl2_rr1.wav",
+     "sha256": "7dd4e67b8061cebffd4d606979c7cac6bf4fcb79ab8f1e0d5cd7e0e31792bbf4"
+    },
+    {
+     "name": "Handclap_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/handclap_vl2_rr2.wav",
+     "sha256": "2a063946e8ea5680b4d3da807439e33653bc1c4a04e161d8734b85637172ef75"
+    },
+    {
+     "name": "Handclap_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/handclap_vl2_rr3.wav",
+     "sha256": "7855a2cfacdc7e7149dbee7ed0c58c90037fd75d0b6a524ad4d65e254955c8e5"
+    },
+    {
+     "name": "Handclap_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/handclap_vl2_rr4.wav",
+     "sha256": "fe7d5d78365a76968352eca824ed23482d39146c66261af5d0b0eb2b0b4d2523"
+    },
+    {
+     "name": "Handclap_v2_5",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/handclap_vl2_rr5.wav",
+     "sha256": "cca4299b24b7a75c90f5c936de8252164c957c80590e741605ecd4157eeda91d"
+    },
+    {
+     "name": "Handclap_v2_6",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/handclap_vl2_rr6.wav",
+     "sha256": "8068faa65ca3fc0597b836154fdd6e527b737588ae491be3f4c0ab88761787d5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Finger clap.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "FingerClap_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/fingerclap_vl1_rr1.wav",
+     "sha256": "81eb2e49d6fa330f20bb922538a9573d131b041808c7602315ba5dec9c5f649f"
+    },
+    {
+     "name": "FingerClap_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/fingerclap_vl1_rr2.wav",
+     "sha256": "cbdf96c6b374d55004e0f02b4d4e93b726439a9f38168ce4c724ca8332f7f4c4"
+    },
+    {
+     "name": "FingerClap_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/fingerclap_vl1_rr3.wav",
+     "sha256": "2ffb0d9f2558d9f7eec8446d74b19c1eb19da1119cb1c23eb2a1732d9116c95d"
+    },
+    {
+     "name": "FingerClap_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/fingerclap_vl1_rr4.wav",
+     "sha256": "b9b8695f3da3f325c533b574acf7e00db7ad08fcd1c53433e936a36f4c899e9a"
+    },
+    {
+     "name": "FingerClap_v1_5",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/fingerclap_vl1_rr1.wav",
+     "sha256": "81eb2e49d6fa330f20bb922538a9573d131b041808c7602315ba5dec9c5f649f"
+    },
+    {
+     "name": "FingerClap_v1_6",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/fingerclap_vl1_rr2.wav",
+     "sha256": "cbdf96c6b374d55004e0f02b4d4e93b726439a9f38168ce4c724ca8332f7f4c4"
+    },
+    {
+     "name": "FingerClap_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/fingerclap_vl2_rr1.wav",
+     "sha256": "911cbfa9fd643d3af7b4cd65724202799689d6d748d5eccc0cef2193db85d4e7"
+    },
+    {
+     "name": "FingerClap_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/fingerclap_vl2_rr2.wav",
+     "sha256": "126176d992955a0043b1e3a4ae05302fea2e45a490a4d6159dbebe9542408b4c"
+    },
+    {
+     "name": "FingerClap_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/fingerclap_vl2_rr3.wav",
+     "sha256": "be936f79c3f6f651eec85f7181ad621738734af7b1b48f9bb118a875b92e3a11"
+    },
+    {
+     "name": "FingerClap_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/fingerclap_vl2_rr4.wav",
+     "sha256": "173758872f7d0aa3ba6cdb3bea2b662b802855b2f5ceff38a823ca70a41d2b36"
+    },
+    {
+     "name": "FingerClap_v2_5",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/fingerclap_vl2_rr5.wav",
+     "sha256": "9b5e2bc8b526d9e6ce89cc9eab3bc12a8c49232fe04304c5e202c4ee5e97a9d6"
+    },
+    {
+     "name": "FingerClap_v2_6",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/fingerclap_vl2_rr6.wav",
+     "sha256": "26bfa47947af3dbf57095f3a0c4775171c77a0f7476c7ca8fec7de40e8377e3d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Chest.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Chest_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/chestthump_l_vl1_rr1.wav",
+     "sha256": "35199a1cd2fb87ec7865ef654e51a40234dad0ad29ff28c9cdce074d3b8f2934"
+    },
+    {
+     "name": "Chest_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/chestthump_l_vl1_rr2.wav",
+     "sha256": "fb2ea3d9ba81eb24f4f777650605c32064cb354246ab9a9e6d1164f8c86351d2"
+    },
+    {
+     "name": "Chest_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/chestthump_l_vl1_rr3.wav",
+     "sha256": "b9a93363a84014ea9be4c4d29ef18fb412f92f451a8d9704d268cc9e537b99ec"
+    },
+    {
+     "name": "Chest_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/chestthump_l_vl1_rr4.wav",
+     "sha256": "14eca4611068f11fee8f583a2c4eaf9d23c795f024fbb994bcfca77e4717cbba"
+    },
+    {
+     "name": "Chest_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/chestthump_l_vl2_rr1.wav",
+     "sha256": "90ba9bec5684eec3a4de34177e256dae0b226a2bd9a2b3b152b1994eb6d13b40"
+    },
+    {
+     "name": "Chest_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/chestthump_l_vl2_rr2.wav",
+     "sha256": "9789ac238c50f1a64313b6d50c6971f9c761cb011dfd880dd2ea79ae4bdf34a7"
+    },
+    {
+     "name": "Chest_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/chestthump_l_vl2_rr3.wav",
+     "sha256": "ad699fc569dfc39eff322620480abb5e149e68de296dd81aabc84d439ca1b2b3"
+    },
+    {
+     "name": "Chest_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/chestthump_l_vl2_rr4.wav",
+     "sha256": "07ea9eb15fde2abc4280640dfad694527b9279f21fe5462073346fb89f894630"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Belly.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Belly_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/bellycenter_l_vl1_rr1.wav",
+     "sha256": "314b92a92b678119af817757cecb11674d588804bcbec217dcdc879e9929f4f8"
+    },
+    {
+     "name": "Belly_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/bellycenter_l_vl1_rr2.wav",
+     "sha256": "e5b7cde22edafe9d5b7010d68d9fc0956d9aa437b07e87a246f031ab6c925d74"
+    },
+    {
+     "name": "Belly_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/bellycenter_l_vl1_rr3.wav",
+     "sha256": "13bbf6576038b740e2bc5b8bed8cdd2b333cfb39dcd243db2abb3919a9761816"
+    },
+    {
+     "name": "Belly_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/bellycenter_l_vl1_rr4.wav",
+     "sha256": "4e84a81459b3bcf51da295b9a1f1a688d974fdc43deaa4670fb851c62c0e84ca"
+    },
+    {
+     "name": "Belly_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/bellycenter_l_vl2_rr1.wav",
+     "sha256": "0d6f2b2595f2f79b327a23b0974527d0153e76b5c5c139a46d8e6d51f4c4907d"
+    },
+    {
+     "name": "Belly_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/bellycenter_l_vl2_rr2.wav",
+     "sha256": "cabc1095f9613f74ed7ba4c6abbd64bd872ad2f6480e278cceba43a674c0f1a2"
+    },
+    {
+     "name": "Belly_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/bellycenter_l_vl2_rr3.wav",
+     "sha256": "c6a513694e7a324478d8a720166ec386fa2b7c5538f31c77a13bfeb76a186912"
+    },
+    {
+     "name": "Belly_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/bellycenter_l_vl2_rr4.wav",
+     "sha256": "bd9aef7eb5f224482dbf87087e5869c6f040439755987396b0447812f891e561"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Pinky snap.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "PinkySnap_v1_1",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/pinkysnap_r_rr1.wav",
+     "sha256": "2893e5d93ac2ad521912bcd55ee6a6ed69bf25ada4461a3a51953e8d6fe376c5"
+    },
+    {
+     "name": "PinkySnap_v1_2",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/pinkysnap_r_rr2.wav",
+     "sha256": "cf4a53ec045cb449d9f073782d853c15755a8a1aecae6bb3097e67161561ca6e"
+    },
+    {
+     "name": "PinkySnap_v1_3",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/pinkysnap_r_rr3.wav",
+     "sha256": "ebac0f0779a1f268665a11c35aa30fd2c12e0534eddec1bc36b0ffb9b2683137"
+    },
+    {
+     "name": "PinkySnap_v1_4",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/pinkysnap_r_rr4.wav",
+     "sha256": "95f0d781999e3d01ebbbdf3de41d9f02d91e4c1bb83c54074e21911483b7bbfb"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Belly side.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "BellySide_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/bellyside_r_vl1_rr1.wav",
+     "sha256": "0b78181f53ae257ab0c65157ec49b52e799d9b21a2d416a7eb53258b16e17f07"
+    },
+    {
+     "name": "BellySide_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/bellyside_r_vl1_rr2.wav",
+     "sha256": "2545d6b9e728080fd3de960ed8c6856991a62f5891a463d7ffe162e56e221253"
+    },
+    {
+     "name": "BellySide_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/bellyside_r_vl1_rr3.wav",
+     "sha256": "1395c76b5e28bb9c766608d79559b86307eacbc5c3625a2a0a3cf229079fa4ab"
+    },
+    {
+     "name": "BellySide_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/bellyside_r_vl1_rr4.wav",
+     "sha256": "bc7d3b14d2388eb78f39a8c42139da0fed3329bb9ad1c89e0770fe1477c84fb4"
+    },
+    {
+     "name": "BellySide_v1_5",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/bellyside_r_vl1_rr1.wav",
+     "sha256": "0b78181f53ae257ab0c65157ec49b52e799d9b21a2d416a7eb53258b16e17f07"
+    },
+    {
+     "name": "BellySide_v1_6",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/bellyside_r_vl1_rr2.wav",
+     "sha256": "2545d6b9e728080fd3de960ed8c6856991a62f5891a463d7ffe162e56e221253"
+    },
+    {
+     "name": "BellySide_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/bellyside_r_vl2_rr1.wav",
+     "sha256": "fe506a93213fed4170151a9c905a9a21009cff6e843761062207a771a3fcc2b8"
+    },
+    {
+     "name": "BellySide_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/bellyside_r_vl2_rr2.wav",
+     "sha256": "0ed35e0b9c7ebc4a411585c34daa2e110c1c6298012633fe28037067cca0acf8"
+    },
+    {
+     "name": "BellySide_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/bellyside_r_vl2_rr3.wav",
+     "sha256": "ad40b984d35b1478cb7f0d849321e516f87e1182d1574b5dde096e1b71b6108b"
+    },
+    {
+     "name": "BellySide_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/bellyside_r_vl2_rr4.wav",
+     "sha256": "660d7a51bdf5247434279eb32a43a0beb675b2947ce56a997230b2cb9eafdbd4"
+    },
+    {
+     "name": "BellySide_v2_5",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/bellyside_r_vl2_rr5.wav",
+     "sha256": "23f23b1050635a9ab079a45f3c694d7b4f970623c0301646caf61429d88461fe"
+    },
+    {
+     "name": "BellySide_v2_6",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/bellyside_r_vl2_rr6.wav",
+     "sha256": "8b9998349edb25767793e137ebdb42e97efb84f065374bf890f1861a69d24692"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Heel.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Heel_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/heel_l_vl1_rr1.wav",
+     "sha256": "e172ba5074468293d4a4c2e679928fcb0a0b90c8f1dd71dce51a4587558ed8f8"
+    },
+    {
+     "name": "Heel_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/heel_l_vl1_rr2.wav",
+     "sha256": "ae056439b72c453943d71cd2a7846dbf740add950562bab52c24a02755d04e2e"
+    },
+    {
+     "name": "Heel_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/heel_l_vl1_rr3.wav",
+     "sha256": "6f283375ab1d471afa248adce2d418c8d9882cc43393cbe1a11d95723cd78b2e"
+    },
+    {
+     "name": "Heel_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/heel_l_vl1_rr4.wav",
+     "sha256": "0be8d12137fbfb8bd1c15cb3900bdca1404c70371c2b94d23df501dab1704c99"
+    },
+    {
+     "name": "Heel_v1_5",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/heel_l_vl1_rr1.wav",
+     "sha256": "e172ba5074468293d4a4c2e679928fcb0a0b90c8f1dd71dce51a4587558ed8f8"
+    },
+    {
+     "name": "Heel_v1_6",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/heel_l_vl1_rr2.wav",
+     "sha256": "ae056439b72c453943d71cd2a7846dbf740add950562bab52c24a02755d04e2e"
+    },
+    {
+     "name": "Heel_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/heel_l_vl2_rr1.wav",
+     "sha256": "295cd2a08f05e340110fa68eb0cdb72510b2515ce6e3287d5f916a9dcbc13ebc"
+    },
+    {
+     "name": "Heel_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/heel_l_vl2_rr2.wav",
+     "sha256": "3773eb2749c828dc4d20bae337eb5f5f3d43a16787e7e5bb08b5f2096afee1bd"
+    },
+    {
+     "name": "Heel_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/heel_l_vl2_rr3.wav",
+     "sha256": "f78ee30b67adbf47f1f100050af86efeae29c6634a2b54251282407cf6dae86a"
+    },
+    {
+     "name": "Heel_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/heel_l_vl2_rr4.wav",
+     "sha256": "aa2a58495b71c71e1a4a70fec13b3069e9d4b613da354995f22420bb695c1076"
+    },
+    {
+     "name": "Heel_v2_5",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/heel_l_vl2_rr5.wav",
+     "sha256": "f05394276f57fb57ad01b8a098c86eed03dd019c8cb72b8f2a413803251d9c93"
+    },
+    {
+     "name": "Heel_v2_6",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/heel_l_vl2_rr6.wav",
+     "sha256": "d0ed7f6ff5c242988bf2fec5ad481e65e88b01184f27b18f32899b9a8195faa2"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Chest side.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "ChestSide_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/chestside_r_vl1_rr1.wav",
+     "sha256": "bdf64427fc6e47002976c801ed9d98948732c0f0ee4aa52654a7735169377596"
+    },
+    {
+     "name": "ChestSide_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/chestside_r_vl1_rr2.wav",
+     "sha256": "4f807ba3b17327f6521b8895db6e2484484e5f4ad6d7b42fb1c9c203592c47a1"
+    },
+    {
+     "name": "ChestSide_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/chestside_r_vl1_rr3.wav",
+     "sha256": "110c31afe71b4151fff7fce2e8d114261f78f0522019a3bc55a584e3504f6617"
+    },
+    {
+     "name": "ChestSide_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/chestside_r_vl1_rr4.wav",
+     "sha256": "591892e4e79082e4d28fd8ac3ed8b18419c7dd629395d7e7fd1ac63109b68595"
+    },
+    {
+     "name": "ChestSide_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/chestside_r_vl2_rr1.wav",
+     "sha256": "7994421f3514da29f9c46a4c8baab76302e8fa2851ff23d7aaa7becc1cd8f5f2"
+    },
+    {
+     "name": "ChestSide_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/chestside_r_vl2_rr2.wav",
+     "sha256": "143dd5f0191964d56b1d26b3d4201e7326157e57023004617207825b51571054"
+    },
+    {
+     "name": "ChestSide_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/chestside_r_vl2_rr3.wav",
+     "sha256": "1d51076c67da343fa285804ad65e441967752d17c5dd8dc80b971e4bd5eaea49"
+    },
+    {
+     "name": "ChestSide_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/chestside_r_vl2_rr4.wav",
+     "sha256": "95a412c0ccfe437c2809b72a242973128b8dc5845badd691854ebc246589a964"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Snap left.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "SnapLeft_v1_1",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/snap_l_rr1.wav",
+     "sha256": "d940055cd35f044ae4025138eed728f70d26ceacc8ab3ac4849a758f7d9877e1"
+    },
+    {
+     "name": "SnapLeft_v1_2",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/snap_l_rr2.wav",
+     "sha256": "551728da587072daf45fb6da389d795aefc16af682ec4422a53f0cf9613797b8"
+    },
+    {
+     "name": "SnapLeft_v1_3",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/snap_l_rr3.wav",
+     "sha256": "dfcea3f257af7617ccaa33cdd4af9da267256d9e86450b0110864976ed0dd401"
+    },
+    {
+     "name": "SnapLeft_v1_4",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/snap_l_rr4.wav",
+     "sha256": "2ce783ebedbc8fde9c82f697f31d876699e4fc5027c3249262d0420816b77f1c"
+    },
+    {
+     "name": "SnapLeft_v1_5",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/snap_l_rr5.wav",
+     "sha256": "d62432e796da00c9c45172a8a1b029eec0a6c203415b0790ae24a9cdf6bb82cb"
+    },
+    {
+     "name": "SnapLeft_v1_6",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/snap_l_rr6.wav",
+     "sha256": "63389a451108cc867d74804b7ef9ce0c2cdb0d501186c3c17feca77715cc8641"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Half stomp.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "HalfStomp_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/halfstomp_r_vl1_rr1.wav",
+     "sha256": "83593ad559d58bc405192c341d8e268c4991351566c57b00c6a991bf7567244b"
+    },
+    {
+     "name": "HalfStomp_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/halfstomp_r_vl1_rr2.wav",
+     "sha256": "c94464b6cab6b686f8aa5849e6f6699187940f2290f9ef23c329c3e3bc2211f9"
+    },
+    {
+     "name": "HalfStomp_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/halfstomp_r_vl1_rr3.wav",
+     "sha256": "9769039bb22addb8e438043ee15dddab73feb877a3ca6e71755025a0ea8104bf"
+    },
+    {
+     "name": "HalfStomp_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/halfstomp_r_vl1_rr4.wav",
+     "sha256": "99c61f15b87ae76707a493710b433118fcafe957739653438ff9f3062767c026"
+    },
+    {
+     "name": "HalfStomp_v1_5",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/halfstomp_r_vl1_rr1.wav",
+     "sha256": "83593ad559d58bc405192c341d8e268c4991351566c57b00c6a991bf7567244b"
+    },
+    {
+     "name": "HalfStomp_v1_6",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/halfstomp_r_vl1_rr2.wav",
+     "sha256": "c94464b6cab6b686f8aa5849e6f6699187940f2290f9ef23c329c3e3bc2211f9"
+    },
+    {
+     "name": "HalfStomp_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/halfstomp_r_vl2_rr1.wav",
+     "sha256": "8e3cb77b2f42f9920fe28fe7fb08b2c02ea9c2431005ef8ac4e93dd7308dd324"
+    },
+    {
+     "name": "HalfStomp_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/halfstomp_r_vl2_rr2.wav",
+     "sha256": "34d4ed3cdbad0b046244c2f4500559045c14a0f3f38e787bb74bac67f4f5ce17"
+    },
+    {
+     "name": "HalfStomp_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/halfstomp_r_vl2_rr3.wav",
+     "sha256": "b37545097c1dab224f1bdcffadea1aa1342aa6eae36fc013c4e528ea3b6c0f71"
+    },
+    {
+     "name": "HalfStomp_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/halfstomp_r_vl2_rr4.wav",
+     "sha256": "3a7bfb0e1d6db5430181309564ce3a3f3905a6dd4fd49338147cee0633a95ac4"
+    },
+    {
+     "name": "HalfStomp_v2_5",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/halfstomp_r_vl2_rr5.wav",
+     "sha256": "5ea77fb2c2bc92bcc549ac735b9cc5ba61a53406bccd2fbdf4a0a9f0aec5535b"
+    },
+    {
+     "name": "HalfStomp_v2_6",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/halfstomp_r_vl2_rr6.wav",
+     "sha256": "02885d3cea57c80eb85832d0dce67b2feef4f2ac322a9086103ce21164b1a62a"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Cheek.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Cheek_v1_1",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/cheek_rout_rr1.wav",
+     "sha256": "2d80ed63ed325144413360105f9a9564385956380425ff10a34180be8a4de1cd"
+    },
+    {
+     "name": "Cheek_v1_2",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/cheek_rout_rr2.wav",
+     "sha256": "18e0f3227cbf04b5e39e5f4ecb1956b0dc1b3cbb5a1bfcd7c435f4b5d5702b4a"
+    },
+    {
+     "name": "Cheek_v1_3",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/cheek_rout_rr3.wav",
+     "sha256": "cc013c7c06212cdd6db10642e6e663aa95bd92f5120b68dbe3ad9e53d0b3fb89"
+    },
+    {
+     "name": "Cheek_v1_4",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/cheek_rout_rr4.wav",
+     "sha256": "b2814cbd47751fda0a0d23ffb1802601064cb26299cb154a9d0afafb1a4eb54d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Head.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Head_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/head_vl1_rr1.wav",
+     "sha256": "b799952a4900198957cc852b3ec3c11697fdf493aadd2246400f92d76b6bc685"
+    },
+    {
+     "name": "Head_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/head_vl1_rr2.wav",
+     "sha256": "17153d1aa93f5b031042847b52ef976d13a3069c1dc87ffd48fe0416a914ba37"
+    },
+    {
+     "name": "Head_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/head_vl1_rr3.wav",
+     "sha256": "4fdf0fe4e9ece66a91e653f2fbcb45039bd42b6dc0615afb50e4ef602a0d6874"
+    },
+    {
+     "name": "Head_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/head_vl1_rr4.wav",
+     "sha256": "6d99f3d49ef3d15989f1ec83a5f5862492180ffe6d08de2ea6dd80e604baab90"
+    },
+    {
+     "name": "Head_v1_5",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/head_vl1_rr1.wav",
+     "sha256": "b799952a4900198957cc852b3ec3c11697fdf493aadd2246400f92d76b6bc685"
+    },
+    {
+     "name": "Head_v1_6",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/head_vl1_rr2.wav",
+     "sha256": "17153d1aa93f5b031042847b52ef976d13a3069c1dc87ffd48fe0416a914ba37"
+    },
+    {
+     "name": "Head_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      1
+     ],
+     "file": "Samples/body/head_vl2_rr1.wav",
+     "sha256": "560055bbd6848cc11ea8340f204b74927b77e5b497b8491d5befaf848be0248f"
+    },
+    {
+     "name": "Head_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      2
+     ],
+     "file": "Samples/body/head_vl2_rr2.wav",
+     "sha256": "5a79c26bc009c7dca3b69c4eac7cdf1b91afba72a1af2fad35d08640ff908b8a"
+    },
+    {
+     "name": "Head_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      3
+     ],
+     "file": "Samples/body/head_vl2_rr3.wav",
+     "sha256": "ea3464f55d6a7e61e1f5189562536ef2961afc4a35bf3553678c68ac7a8fb42b"
+    },
+    {
+     "name": "Head_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      4
+     ],
+     "file": "Samples/body/head_vl2_rr4.wav",
+     "sha256": "8b0f1a586dd995ccdfb6412a7f89ad8f6d16f5e65b0767c3e405c47adacbe2e7"
+    },
+    {
+     "name": "Head_v2_5",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      5
+     ],
+     "file": "Samples/body/head_vl2_rr5.wav",
+     "sha256": "3aac1023c5d941d48526e512a2464e7697fd5d283c53686645e76f09be1c7661"
+    },
+    {
+     "name": "Head_v2_6",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      6,
+      6
+     ],
+     "file": "Samples/body/head_vl2_rr6.wav",
+     "sha256": "3642edb7c0933b9b9936bf333c9e8887a4cfe2f7b0914962a7b79d9fa9e8d9f3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Shoulder.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Shoulder_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/shoulderout_r_vl1_rr1.wav",
+     "sha256": "ee5b3e7df3e9733df2dd577c3bdab47fcc6c13a6524fef206ba5f87b1ec1e632"
+    },
+    {
+     "name": "Shoulder_v1_2",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/shoulderout_r_vl1_rr2.wav",
+     "sha256": "e95a105a92b71e417da1e2dc3ee0b84e52851f13190fc496bc3bf90f2be00ce8"
+    },
+    {
+     "name": "Shoulder_v1_3",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/shoulderout_r_vl1_rr3.wav",
+     "sha256": "0739a9890dc8aebe278a96a6ee00effbfa1392c7241670247805c14434e8fa1f"
+    },
+    {
+     "name": "Shoulder_v1_4",
+     "lovel": 0,
+     "hivel": 63,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/shoulderout_r_vl1_rr4.wav",
+     "sha256": "4e4cadd6fd566a96149f39ee0279e1119a4cdbc3e48ae5b2db6b640ddd0e9efe"
+    },
+    {
+     "name": "Shoulder_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/shoulderout_r_vl2_rr1.wav",
+     "sha256": "45979bdebee0ac2f34841c9f6df716068718f2dfdbeafda22fe3b1d8aec560d7"
+    },
+    {
+     "name": "Shoulder_v2_2",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/shoulderout_r_vl2_rr2.wav",
+     "sha256": "980eeaa725fd9c0119c2f265e180d246d75b7003c9a22d28ecbb7e2fe94ef84e"
+    },
+    {
+     "name": "Shoulder_v2_3",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/shoulderout_r_vl2_rr3.wav",
+     "sha256": "bd5c3d9552ebc9ce05e36ba9595b37925f934e87cdbfbd4d150089c4e309d0d5"
+    },
+    {
+     "name": "Shoulder_v2_4",
+     "lovel": 64,
+     "hivel": 127,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/shoulderout_r_vl2_rr4.wav",
+     "sha256": "0d5af71485bc661a17b59f152d7c3b4eab53ba9d0ace17ff3422a70643dd656a"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Body/Cheek pop.sfz",
+   "source": "bodyperc",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "CheekPop_v1_1",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      1
+     ],
+     "file": "Samples/body/cheek_lin_rr1.wav",
+     "sha256": "0b28246ba1f54dc8b77dcffba48569f332322dd5363e163be426988245f35079"
+    },
+    {
+     "name": "CheekPop_v1_2",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      2
+     ],
+     "file": "Samples/body/cheek_lin_rr2.wav",
+     "sha256": "0413326cb1ac885fc20a8ab9fa5fa60be087b0bebf8da498e73b5026f3924761"
+    },
+    {
+     "name": "CheekPop_v1_3",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      3
+     ],
+     "file": "Samples/body/cheek_lin_rr3.wav",
+     "sha256": "8fd5c0407d580a41c56c0997bc64a4ff170345658533b92a53e0a07543606b9b"
+    },
+    {
+     "name": "CheekPop_v1_4",
+     "lovel": 0,
+     "hivel": 127,
+     "seq": [
+      4,
+      4
+     ],
+     "file": "Samples/body/cheek_lin_rr4.wav",
+     "sha256": "0009101cae282a16c76d39ed4bb9638f9f7ed658658e7ee657757e746f41f190"
     }
    ]
   }

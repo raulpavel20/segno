@@ -210,3 +210,117 @@ TEST_CASE("library build: an instrument built into the Library, its SFZ played b
     REQUIRE(lb::buildInstruments(recipe, cache, library, log));
     CHECK_FALSE(fs::exists(library / "Samples/Family/Instrument/samples/Inst_A3.flac"));
 }
+
+TEST_CASE("library build: a drum's microphones mixed into one stereo sample, its layers levelled as one "
+          "(drum-kit.md §27.3)",
+          "[fast]")
+{
+    TempDir dir("fd-library-build-mix");
+    const auto cache = dir.path / "sources";
+    const auto library = dir.path / "Library";
+    const lb::Source source{"kit", "A kit", "https://example.org/kit", "fedcba9876543210", "CC0-1.0"};
+    const auto folder = cache / "kit" / source.commit;
+    fs::create_directories(folder);
+    // Two layers, each a mono close microphone and a stereo overhead at half its level.
+    const auto write = [&](const std::string& name, double level, int channels)
+    {
+        auto audio = tone(100.0, 0.5, 20.0, channels, 16);
+        for (auto& ch : audio.channels)
+            for (auto& x : ch)
+                x = static_cast<float>(x * level);
+        REQUIRE(fd::audiofile::writeWav((folder / name).string(), audio.channels, audio.sampleRate));
+    };
+    write("close_v1.wav", 0.25, 1);
+    write("oh_v1.wav", 0.125, 2);
+    write("close_v2.wav", 1.0, 1);
+    write("oh_v2.wav", 0.5, 2);
+
+    lb::Recipe recipe;
+    recipe.version = "1.0.0";
+    recipe.sources.push_back(source);
+    lb::Instrument inst;
+    inst.sfz = "Samples/Drums/Kit/Kick.sfz";
+    inst.source = "kit";
+    inst.pitched = false;
+    inst.normalize = -6.0;
+    for (int v : {1, 2})
+    {
+        lb::Zone z{
+            .name = "Kick_v" + std::to_string(v), .loVel = v == 1 ? 0 : 64, .hiVel = v == 1 ? 63 : 127};
+        z.mix = {{"close_v" + std::to_string(v) + ".wav", "c" + std::to_string(v), 0.0, 0.0},
+                 {"oh_v" + std::to_string(v) + ".wav", "o" + std::to_string(v), -6.0, 0.0}};
+        z.file = z.mix.front().file;
+        z.sha256 = z.mix.front().sha256;
+        inst.zones.push_back(z);
+    }
+    recipe.instruments.push_back(inst);
+
+    // A zone's sound: the close mic in both channels, the overhead's 6 dB down added.
+    std::string error;
+    const auto mixed = lb::zoneAudio(inst.zones[1], source, cache, 1.0, &error);
+    REQUIRE(mixed);
+    CHECK(mixed->numChannels() == 2);
+    CHECK(mixed->bitsPerSample == 0); // dithered when made 16-bit
+    const auto close = fd::audiofile::decode((folder / "close_v2.wav").string(), &error);
+    REQUIRE(close);
+    float peak = 0.0f, closePeak = 0.0f;
+    for (const float x : mixed->channels[0])
+        peak = std::max(peak, std::abs(x));
+    for (const float x : close->channels[0])
+        closePeak = std::max(closePeak, std::abs(x));
+    CHECK(peak ==
+          Approx(closePeak * 1.25f).margin(0.01f)); // the overhead at half the close's level, 6 dB down
+
+    std::ostringstream log;
+    REQUIRE(lb::buildInstruments(recipe, cache, library, log));
+    CHECK(log.str().find("2 samples to make") != std::string::npos);
+    const auto loud =
+        fd::audiofile::decode((library / "Samples/Drums/Kit/samples/Kick_v2.flac").string(), &error);
+    const auto soft =
+        fd::audiofile::decode((library / "Samples/Drums/Kit/samples/Kick_v1.flac").string(), &error);
+    REQUIRE(loud);
+    REQUIRE(soft);
+    const auto peakOf = [](const fd::audiofile::DecodedAudio& a)
+    {
+        float p = 0.0f;
+        for (const auto& ch : a.channels)
+            for (const float x : ch)
+                p = std::max(p, std::abs(x));
+        return p;
+    };
+    // The loudest layer at -6 dBFS, the softer one as far below it as it was recorded.
+    CHECK(peakOf(*loud) == Approx(0.5f).margin(0.01f));
+    CHECK(peakOf(*soft) == Approx(0.125f).margin(0.01f));
+    CHECK(loud->numChannels() == 2);
+
+    // Built again: the level kept, nothing made. The soft layer's overhead turned down: that layer
+    // made again; the loud one, which sets the level, left alone.
+    log.str({});
+    REQUIRE(lb::buildInstruments(recipe, cache, library, log));
+    CHECK(log.str().find("0 samples to make") != std::string::npos);
+    recipe.instruments[0].zones[0].mix[1].gainDb = -12.0;
+    log.str({});
+    REQUIRE(lb::buildInstruments(recipe, cache, library, log));
+    CHECK(log.str().find("1 samples to make") != std::string::npos);
+    // The loud layer's close mic turned down: the level found again, both made again.
+    recipe.instruments[0].zones[1].mix[0].gainDb = -3.0;
+    log.str({});
+    REQUIRE(lb::buildInstruments(recipe, cache, library, log));
+    CHECK(log.str().find("2 samples to make") != std::string::npos);
+}
+
+TEST_CASE("library build: a drum starts at its onset, a millisecond before it, faded in", "[fast]")
+{
+    auto audio = tone(200.0, 0.5, 20.0, 1, 24);
+    // 30 ms of near silence ahead of the hit, as some recordings have.
+    const auto lead = static_cast<size_t>(0.03 * audio.sampleRate);
+    for (auto& ch : audio.channels)
+        ch.insert(ch.begin(), lead, 0.0001f);
+    // The tone's first sample is its zero crossing: it starts a sample later.
+    CHECK(std::abs(lb::onsetOf(audio) - static_cast<int>(lead)) <= 1);
+    const auto kept = lb::prepare(audio, 8.0, 1);
+    const auto trimmed = lb::prepare(audio, 8.0, 1, true);
+    CHECK(std::abs(kept.frames - trimmed.frames -
+                   (static_cast<int>(lead) - static_cast<int>(0.001 * audio.sampleRate))) <= 1);
+    CHECK(trimmed.interleaved.front() == 0); // faded in from silence
+}

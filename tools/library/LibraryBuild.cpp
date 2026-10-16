@@ -23,6 +23,26 @@ namespace fs = std::filesystem;
 /// Bumped when what the tool makes of a sample changes, so every sample is made again.
 constexpr const char* kMaker = "fd-library 1";
 
+/// Runs `work(i)` for i in [0, count) on every core; false once any returns false.
+template <typename Work> bool forEach(size_t count, Work work)
+{
+    std::atomic<size_t> next{0};
+    std::atomic<bool> failed{false};
+    const auto run = [&]
+    {
+        for (size_t i = next++; i < count && !failed; i = next++)
+            if (!work(i))
+                failed = true;
+    };
+    std::vector<std::thread> pool;
+    for (unsigned t = 1; t < std::max(1u, std::thread::hardware_concurrency()); ++t)
+        pool.emplace_back(run);
+    run();
+    for (auto& t : pool)
+        t.join();
+    return !failed;
+}
+
 /// FNV-1a: the dither's seed from a file's name, the same on every machine.
 std::uint32_t seedOf(const std::string& text)
 {
@@ -42,8 +62,41 @@ std::string number(double v)
 
 // ---- a sample ------------------------------------------------------------------------------
 
-Prepared prepare(const audiofile::DecodedAudio& audio, double maxSeconds, std::uint32_t seed)
+int onsetOf(const audiofile::DecodedAudio& audio)
 {
+    float peak = 0.0f;
+    for (const auto& ch : audio.channels)
+        for (const float x : ch)
+            peak = std::max(peak, std::abs(x));
+    int onset = audio.numFrames();
+    for (const auto& ch : audio.channels)
+        for (int i = 0; i < onset; ++i)
+            if (std::abs(ch[static_cast<size_t>(i)]) > peak * 0.01f)
+            {
+                onset = i;
+                break;
+            }
+    return peak > 0.0f ? onset : 0;
+}
+
+Prepared prepare(const audiofile::DecodedAudio& audio, double maxSeconds, std::uint32_t seed, bool trimStart)
+{
+    if (trimStart)
+        if (const int cut = std::max(0, onsetOf(audio) - static_cast<int>(0.001 * audio.sampleRate)); cut > 0)
+        {
+            auto from = audio;
+            for (auto& ch : from.channels)
+                ch.erase(ch.begin(), ch.begin() + cut);
+            from.bitsPerSample = 0; // its first sample faded in: dithered
+            for (auto& ch : from.channels)
+            {
+                const int fade =
+                    std::min(static_cast<int>(ch.size()), static_cast<int>(0.001 * audio.sampleRate));
+                for (int i = 0; i < fade; ++i)
+                    ch[static_cast<size_t>(i)] *= static_cast<float>(i) / static_cast<float>(fade);
+            }
+            return prepare(from, maxSeconds, seed, false);
+        }
     Prepared p;
     p.channels = std::min(2, audio.numChannels());
     p.sampleRate = audio.sampleRate;
@@ -238,7 +291,8 @@ std::optional<Recipe> readRecipe(const fs::path& path, std::string* error)
         r.version = j.at("version").get<std::string>();
         for (const auto& [id, s] : j.at("sources").items())
             r.sources.push_back({id, s.at("name").get<std::string>(), s.at("url").get<std::string>(),
-                                 s.at("commit").get<std::string>(), s.at("license").get<std::string>()});
+                                 s.at("commit").get<std::string>(), s.at("license").get<std::string>(),
+                                 s.value("raw", std::string())});
         for (const auto& i : j.at("instruments"))
         {
             Instrument inst;
@@ -246,6 +300,8 @@ std::optional<Recipe> readRecipe(const fs::path& path, std::string* error)
             inst.source = i.at("source").get<std::string>();
             inst.maxSeconds = i.value("maxSeconds", 8.0);
             inst.pitched = i.value("pitched", true);
+            if (i.contains("normalize"))
+                inst.normalize = i["normalize"].get<double>();
             if (i.contains("global"))
                 for (const auto& [k, v] : i["global"].items())
                     inst.global.emplace_back(k,
@@ -253,8 +309,10 @@ std::optional<Recipe> readRecipe(const fs::path& path, std::string* error)
             for (const auto& z : i.at("zones"))
             {
                 Zone zone;
-                zone.file = z.at("file").get<std::string>();
-                zone.sha256 = z.at("sha256").get<std::string>();
+                // A mix's file is its first part's.
+                const auto& first = z.contains("mix") ? z["mix"].at(0) : z;
+                zone.file = first.at("file").get<std::string>();
+                zone.sha256 = first.at("sha256").get<std::string>();
                 zone.name = z.value("name", std::string());
                 zone.loKey = z.value("lokey", 0);
                 zone.hiKey = z.value("hikey", 127);
@@ -273,6 +331,11 @@ std::optional<Recipe> readRecipe(const fs::path& path, std::string* error)
                     zone.loRand = z["rand"].at(0).get<double>();
                     zone.hiRand = z["rand"].at(1).get<double>();
                 }
+                if (z.contains("mix"))
+                    for (const auto& m : z["mix"])
+                        zone.mix.push_back({m.at("file").get<std::string>(),
+                                            m.at("sha256").get<std::string>(), m.value("gain", 0.0),
+                                            m.value("pan", 0.0)});
                 inst.zones.push_back(std::move(zone));
             }
             if (r.source(inst.source) == nullptr)
@@ -285,6 +348,26 @@ std::optional<Recipe> readRecipe(const fs::path& path, std::string* error)
     {
         return fail(path.string() + ": " + e.what());
     }
+}
+
+std::vector<SourceFile> sourceFiles(const Recipe& recipe)
+{
+    std::vector<SourceFile> out;
+    std::set<std::pair<std::string, std::string>> seen;
+    const auto add = [&](const Source* source, const std::string& file, const std::string& sha256)
+    {
+        if (seen.insert({source->id, file}).second)
+            out.push_back({source, file, sha256});
+    };
+    for (const auto& inst : recipe.instruments)
+        for (const auto& z : inst.zones)
+        {
+            if (z.mix.empty())
+                add(recipe.source(inst.source), z.file, z.sha256);
+            for (const auto& m : z.mix)
+                add(recipe.source(inst.source), m.file, m.sha256);
+        }
+    return out;
 }
 
 fs::path sourceFile(const fs::path& cache, const Source& source, const std::string& file)
@@ -329,6 +412,63 @@ std::string sfzText(const Instrument& instrument, const Source& source)
     return s.str();
 }
 
+std::optional<audiofile::DecodedAudio> zoneAudio(const Zone& zone, const Source& source,
+                                                 const fs::path& cache, double gain, std::string* error)
+{
+    if (zone.mix.empty())
+    {
+        auto audio = audiofile::decode(sourceFile(cache, source, zone.file).string(), error);
+        if (audio && gain != 1.0)
+        {
+            for (auto& ch : audio->channels)
+                for (auto& x : ch)
+                    x = static_cast<float>(x * gain);
+            audio->bitsPerSample = 0;
+        }
+        return audio;
+    }
+    std::vector<audiofile::DecodedAudio> parts;
+    bool stereo = false;
+    for (const auto& part : zone.mix)
+    {
+        auto audio = audiofile::decode(sourceFile(cache, source, part.file).string(), error);
+        if (!audio)
+            return std::nullopt;
+        if (!parts.empty() && audio->sampleRate != parts.front().sampleRate)
+        {
+            if (error != nullptr)
+                *error = part.file + ": another sample rate than " + zone.mix.front().file;
+            return std::nullopt;
+        }
+        stereo = stereo || audio->numChannels() > 1 || part.pan != 0.0;
+        parts.push_back(std::move(*audio));
+    }
+    audiofile::DecodedAudio out;
+    out.sampleRate = parts.front().sampleRate;
+    int frames = 0;
+    for (const auto& p : parts)
+        frames = std::max(frames, p.numFrames());
+    out.channels.assign(stereo ? 2 : 1, std::vector<float>(static_cast<size_t>(frames), 0.0f));
+    for (size_t k = 0; k < parts.size(); ++k)
+    {
+        const auto& p = parts[k];
+        const double level = gain * std::pow(10.0, zone.mix[k].gainDb / 20.0);
+        const double pan = std::clamp(zone.mix[k].pan, -1.0, 1.0);
+        // A balance: the side it leans away from comes down, the centre keeps both at full level.
+        const double left = level * (pan > 0.0 ? 1.0 - pan : 1.0),
+                     right = level * (pan < 0.0 ? 1.0 + pan : 1.0);
+        for (size_t c = 0; c < out.channels.size(); ++c)
+        {
+            const auto& from = p.channels[std::min(c, p.channels.size() - 1)];
+            const double g = out.channels.size() == 1 ? level : c == 0 ? left : right;
+            auto& to = out.channels[c];
+            for (size_t i = 0; i < from.size(); ++i)
+                to[i] += static_cast<float>(from[i] * g);
+        }
+    }
+    return out; // bitsPerSample 0: dithered
+}
+
 // ---- building --------------------------------------------------------------------------------
 
 bool buildInstruments(const Recipe& recipe, const fs::path& cache, const fs::path& library, std::ostream& log)
@@ -340,12 +480,90 @@ bool buildInstruments(const Recipe& recipe, const fs::path& cache, const fs::pat
         made = nlohmann::json::parse(in, nullptr, false);
     if (!made.is_object())
         made = nlohmann::json::object();
+    std::mutex mutex;
+
+    // A zone made the same way: its files, its mix, its instrument's cap and the maker.
+    const auto zoneStamp = [](const Instrument& inst, const Zone& z)
+    {
+        std::string stamp = z.sha256;
+        for (const auto& m : z.mix)
+            stamp += " " + m.sha256 + "@" + number(m.gainDb) + "/" + number(m.pan);
+        return stamp + " " + number(inst.maxSeconds) + (inst.normalize ? " onset" : "") + " " + kMaker;
+    };
+
+    // Instruments levelled as one (drums): their gain, found from their zones' loudest peak once,
+    // kept until any of their zones changes.
+    std::map<const Instrument*, double> gains;
+    {
+        struct Level
+        {
+            const Instrument* instrument;
+            std::string key, stamp;
+        };
+        std::vector<Level> levels;
+        for (const auto& inst : recipe.instruments)
+        {
+            if (!inst.normalize)
+            {
+                gains[&inst] = 1.0;
+                continue;
+            }
+            std::string stamp = number(*inst.normalize);
+            for (const auto& z : inst.zones)
+                stamp += "|" + zoneStamp(inst, z);
+            const auto key = "level:" + inst.sfz;
+            if (made.contains(key) && made[key].is_object() && made[key].value("stamp", "") == stamp)
+                gains[&inst] = made[key].value("gain", 1.0);
+            else
+                levels.push_back({&inst, key, stamp});
+        }
+        // Every zone of those still to level, decoded and mixed, for its peak.
+        struct Peak
+        {
+            size_t level;
+            const Zone* zone;
+        };
+        std::vector<Peak> peaks;
+        for (size_t l = 0; l < levels.size(); ++l)
+            for (const auto& z : levels[l].instrument->zones)
+                peaks.push_back({l, &z});
+        std::vector<float> loudest(levels.size(), 0.0f);
+        const bool read = forEach(peaks.size(),
+                                  [&](size_t i)
+                                  {
+                                      const auto& [l, zone] = peaks[i];
+                                      const auto& inst = *levels[l].instrument;
+                                      std::string error;
+                                      const auto audio =
+                                          zoneAudio(*zone, *recipe.source(inst.source), cache, 1.0, &error);
+                                      const std::scoped_lock lock(mutex);
+                                      if (!audio)
+                                      {
+                                          log << "error: " << zone->file << ": " << error << "\n";
+                                          return false;
+                                      }
+                                      for (const auto& ch : audio->channels)
+                                          for (const float x : ch)
+                                              loudest[l] = std::max(loudest[l], std::abs(x));
+                                      return true;
+                                  });
+        if (!read)
+            return false;
+        for (size_t l = 0; l < levels.size(); ++l)
+        {
+            const double gain = loudest[l] > 0.0f
+                                    ? std::pow(10.0, *levels[l].instrument->normalize / 20.0) / loudest[l]
+                                    : 1.0;
+            gains[levels[l].instrument] = gain;
+            made[levels[l].key] = {{"stamp", levels[l].stamp}, {"gain", gain}};
+        }
+    }
 
     struct Job
     {
         const Instrument* instrument;
         const Zone* zone;
-        fs::path from, to;
+        fs::path to;
         std::string stamp;
     };
     std::vector<Job> jobs;
@@ -363,64 +581,57 @@ bool buildInstruments(const Recipe& recipe, const fs::path& cache, const fs::pat
             if (!names.insert(sampleName(z)).second)
                 continue; // a file two zones play
             kept.insert(to);
-            const auto stamp = z.sha256 + " " + number(inst.maxSeconds) + " " + kMaker;
+            auto stamp = zoneStamp(inst, z);
+            if (inst.normalize)
+                stamp += " x" + number(gains[&inst]);
             const auto key = fs::relative(to, library).generic_string();
             if (made.contains(key) && made[key] == stamp && fs::exists(to))
                 continue;
-            jobs.push_back({&inst, &z, sourceFile(cache, source, z.file), to, stamp});
+            jobs.push_back({&inst, &z, to, stamp});
         }
         std::ofstream(library / inst.sfz) << sfzText(inst, source);
     }
 
     log << jobs.size() << " samples to make\n";
-    std::mutex mutex;
-    std::atomic<size_t> next{0};
-    std::atomic<bool> failed{false};
-    const auto work = [&]
-    {
-        for (size_t i = next++; i < jobs.size() && !failed; i = next++)
-        {
-            const auto& job = jobs[i];
-            std::string error;
-            const auto audio = audiofile::decode(job.from.string(), &error);
-            if (!audio)
-            {
-                const std::scoped_lock lock(mutex);
-                log << "error: " << job.from.string() << ": " << error << "\n";
-                failed = true;
-                return;
-            }
-            std::string warning;
-            if (job.instrument->pitched)
-                if (const auto pitch = detectPitch(*audio))
+    const bool ok =
+        forEach(jobs.size(),
+                [&](size_t i)
                 {
-                    const double expected = job.zone->root - job.zone->tune / 100.0;
-                    if (std::abs(*pitch - expected) > 0.75)
-                        warning = "sounds at " + number(std::round(*pitch * 10.0) / 10.0) + ", mapped at " +
-                                  std::to_string(job.zone->root);
-                }
-            const auto prepared = prepare(*audio, job.instrument->maxSeconds, seedOf(job.zone->file));
-            if (!writeFlac(job.to, prepared, &error))
-            {
-                const std::scoped_lock lock(mutex);
-                log << "error: " << job.to.string() << ": " << error << "\n";
-                failed = true;
-                return;
-            }
-            const std::scoped_lock lock(mutex);
-            made[fs::relative(job.to, library).generic_string()] = job.stamp;
-            if (!warning.empty())
-                log << "warning: " << job.zone->file << " " << warning << "\n";
-        }
-    };
-    std::vector<std::thread> pool;
-    for (unsigned t = 1; t < std::max(1u, std::thread::hardware_concurrency()); ++t)
-        pool.emplace_back(work);
-    work();
-    for (auto& t : pool)
-        t.join();
+                    const auto& job = jobs[i];
+                    std::string error;
+                    const auto audio = zoneAudio(*job.zone, *recipe.source(job.instrument->source), cache,
+                                                 gains[job.instrument], &error);
+                    if (!audio)
+                    {
+                        const std::scoped_lock lock(mutex);
+                        log << "error: " << job.zone->file << ": " << error << "\n";
+                        return false;
+                    }
+                    std::string warning;
+                    if (job.instrument->pitched)
+                        if (const auto pitch = detectPitch(*audio))
+                        {
+                            const double expected = job.zone->root - job.zone->tune / 100.0;
+                            if (std::abs(*pitch - expected) > 0.75)
+                                warning = "sounds at " + number(std::round(*pitch * 10.0) / 10.0) +
+                                          ", mapped at " + std::to_string(job.zone->root);
+                        }
+                    const auto prepared = prepare(*audio, job.instrument->maxSeconds, seedOf(job.zone->file),
+                                                  job.instrument->normalize.has_value());
+                    if (!writeFlac(job.to, prepared, &error))
+                    {
+                        const std::scoped_lock lock(mutex);
+                        log << "error: " << job.to.string() << ": " << error << "\n";
+                        return false;
+                    }
+                    const std::scoped_lock lock(mutex);
+                    made[fs::relative(job.to, library).generic_string()] = job.stamp;
+                    if (!warning.empty())
+                        log << "warning: " << job.zone->file << " " << warning << "\n";
+                    return true;
+                });
     std::ofstream(madeFile) << made.dump(1) << "\n";
-    if (failed)
+    if (!ok)
         return false;
 
     // What the recipe no longer makes goes: samples and maps.

@@ -10,9 +10,11 @@ add_executable(fd-library main.cpp)
 target_link_libraries(fd-library PRIVATE fd_library_build fd_device_wavetable_dsp fd::warnings)
 
 fd_add_test(NAME fd_library_tests
-    SOURCES LibraryBuildTests.cpp RackRecipesTests.cpp
+    SOURCES LibraryBuildTests.cpp RackRecipesTests.cpp KitRecipesTests.cpp
     LIBS fd_library_build fd_device_sampler_dsp)
-target_compile_definitions(fd_library_tests PRIVATE FD_RACK_RECIPES="${CMAKE_CURRENT_SOURCE_DIR}/racks.json")
+target_compile_definitions(fd_library_tests PRIVATE FD_RACK_RECIPES="${CMAKE_CURRENT_SOURCE_DIR}/racks.json"
+    FD_LIBRARY_RECIPE="${CMAKE_CURRENT_SOURCE_DIR}/recipe.json" FD_KIT_RECIPES="${CMAKE_CURRENT_SOURCE_DIR}/kits.json"
+    FD_KIT_PRESETS="${PROJECT_SOURCE_DIR}/app/presets/drum-kit")
 
 # The recipe names every source file with its SHA-256; they're fetched once into the CPM cache.
 set(recipe "${CMAKE_CURRENT_SOURCE_DIR}/recipe.json")
@@ -22,7 +24,7 @@ else()
     set(sources "${CMAKE_BINARY_DIR}/_deps/segno-library")
 endif()
 add_custom_target(segno-library
-    COMMAND "${CMAKE_COMMAND}" "-DRECIPE=${recipe}" "-DSOURCES=${sources}"
+    COMMAND "${CMAKE_COMMAND}" "-DTOOL=$<TARGET_FILE:fd-library>" "-DRECIPE=${recipe}" "-DSOURCES=${sources}"
             -P "${PROJECT_SOURCE_DIR}/cmake/FdLibrarySources.cmake"
     COMMAND fd-library build "${PROJECT_SOURCE_DIR}/.cache/library" --recipe "${recipe}" --sources "${sources}"
             --racks "${CMAKE_CURRENT_SOURCE_DIR}/racks.json"

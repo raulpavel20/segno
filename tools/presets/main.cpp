@@ -3,6 +3,9 @@
 //
 //   fd-presets describe <device>   its parameters: ids, ranges, defaults, units, choices
 //   fd-presets make <recipes.json> one .segnopreset per recipe, beside the recipes
+//   fd-presets defaults <device>   its state with every parameter at its default, as a preset holds
+//                                  it (JSON): what the factory kits' pads start from
+//                                  (tools/library/make_kits.py)
 //
 // The recipes (devices/<name>/presets/recipes.json) are the source; the conformance suite checks
 // that the preset files are what they make (fd::presetsFromRecipes).
@@ -64,6 +67,18 @@ int describe(const std::string& id)
     return 0;
 }
 
+int defaults(const std::string& id)
+{
+    const auto* factory = findDevice(id);
+    if (factory == nullptr)
+    {
+        std::cerr << "no device " << id << "\n";
+        return 1;
+    }
+    std::cout << toJson(defaultState(factory->info())).dump(1) << "\n";
+    return 0;
+}
+
 int make(const fs::path& recipesFile)
 {
     std::ifstream in(recipesFile);
@@ -107,7 +122,9 @@ int main(int argc, char** argv)
         return describe(args[1]);
     if (args.size() == 2 && args[0] == "make")
         return make(args[1]);
+    if (args.size() == 2 && args[0] == "defaults")
+        return defaults(args[1]);
     std::cerr << "usage: fd-presets describe <device>\n       fd-presets make "
-                 "<devices/<name>/presets/recipes.json>\n";
+                 "<devices/<name>/presets/recipes.json>\n       fd-presets defaults <device>\n";
     return 2;
 }
