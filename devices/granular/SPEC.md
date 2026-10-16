@@ -1,6 +1,6 @@
 # Granular: device spec
 
-- **Status:** Approved by the product owner (2026-10-16, with every recommendation of G1–G24); IDs are permanent. [ADR 0065](../../docs/decisions/0065-granular-goes-beyond-live.md) accepted with it: the product owner asked for Granulator III plus extras, extensive and full-featured, so that for granular work most people won't reach for another plugin; open to experimental workflows; and with CPU optimisation even more of a focus than usual ("optimise everything where possible"). Next: the visual mockup, drawn in every state with the real panel kit, for approval before step 1 (G18).
+- **Status:** Approved by the product owner (2026-10-16, with every recommendation of G1–G24); IDs are permanent. [ADR 0065](../../docs/decisions/0065-granular-goes-beyond-live.md) accepted with it: the product owner asked for Granulator III plus extras, extensive and full-featured, so that for granular work most people won't reach for another plugin; open to experimental workflows; and with CPU optimisation even more of a focus than usual ("optimise everything where possible"). The visual mockup ("Drawn") approved by the product owner (2026-10-16), with the grey waveform behind the grains kept; step 1 (the instrument) next.
 - **Type:** Instrument
 - **Tier / milestone:** Tier 2, moved up from M5 into M3 as P8 by the product owner (2026-10-16), on its own branch ([next-synth.md](../../docs/devices/next-synth.md), chosen by the product owner on 2026-10-16).
 - **Live target:** Granulator III (Live 12 Suite). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)); this device goes well beyond it (G1).
@@ -601,7 +601,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 | G23 | **Where in the plan** | P8 of M3, on the `synth` branch, beside main's work |
 | G24 | **The experiments** | All in, since the product owner asked for room to experiment, and each is cheap: Rhythm with Chance, Repeats and Swing; Fire; Random Per Grain; Grain Glide; Position Key; the Song playhead; Hold and Feedback on the live input; Both sources on every grain; colour; Spectral's Smear. Any to drop? |
 
-## Drawn (the visual mockup, 2026-10-16; for the product owner's review)
+## Drawn (the visual mockup, 2026-10-16; approved by the product owner the same day, the grey waveform kept)
 
 Every state drawn with the real panel kit: Granular's own panel, from its approved parameters and a stand-in for the engine (the grains, the CPU and the playhead published as the engine will publish them). Each state passes the module panel lint on every page (`tests/panels/GranularPanelTests.cpp`, `FD_DUMP_DIR`):
 - **Grains:** Classic, Loop, Cloud (a cloud on octaves and fifths), Pitched, Rhythm, Spectral; Source 2 beside Source 1; an empty source; a source on Live, with the Input picker on a track; the routes' rings on Position, Density and Pitch Spray.
