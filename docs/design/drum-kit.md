@@ -648,3 +648,54 @@ The drawings approved by the product owner (§25), the rest built. Tested by `Dr
 **For the product owner's hands-on check** (§23.7): write a four-bar beat on a kit with eight pads, move hits between pads, flam the snare and roll the hats, and turn the clip to the whole roll and back.
 
 **Signed off by the product owner (2026-10-16),** with step 2a.
+
+## 27. Step 3: the factory kits (2026-10-16)
+
+The product owner (2026-10-16): CC0 sources exclusively, a very wide range of styles, curated rather than pulled in whole. Each kit is cohesive: drawn from one pool of samples, one machine, one recorded kit, one recordist. There is no catch-all "percussion" kit of fifty samples.
+
+### 27.1 The sources
+
+Research of three families (drum machines, acoustic kits, percussion and world) checked each source's license from its rights holder. The decisions are in [ADR 0068](../decisions/0068-the-factory-kits-sources.md): CC0 only; Fischer's 808 and recordings of sample-playback machines accepted; Freesound waits; Segno renders its own voices where nothing else exists. Every source below is a git repository, fetched file by file at a pinned commit, as VSCO's and VCSL's are.
+
+| Source | What it gives | License evidence |
+|---|---|---|
+| Virtuosity Drums (Versilian, Karoryfer) | A jazz kit with six microphones, deep velocity layers; Latin percussion with three microphones | CC0 LICENSE; "released under a Creative Commons 0 (CC0) license" |
+| Karoryfer's drum libraries (Big Rusty, Swirly, Unruly, Frankensnare, Gogodze Phu I and II, The Hat With The Phat) | An early-80s kit with sticks, brushes and mallets; a brushed kit with rendered rooms; an indie kit with snare wires on every drum; snares; a 1973-style kit; Ghanaian bobobo drums and a cajón | CC0 LICENSE in each; "All our free sample libraries are under a Creative Commons Zero license" |
+| Zamenhof (Karoryfer) | Glitch one-shots | CC0 LICENSE |
+| VCSL, VSCO 2 CE (Versilian) | Orchestral and hand percussion, metal and found sounds | CC0 LICENSE (already the Library's) |
+| body_percussion (sfzinstruments) | Claps, snaps, stomps, chest and belly hits, 2 layers × 4–6 takes | CC0 LICENSE |
+| FreePats World Percussion, Synthesizer Percussion | Cajón flamenco, castanets, palmas, darbuka; a synth-made kit | "Creative Commons CC0 public domain dedication" |
+| Fischer's 808 (TidalCycles' repackaging) | The real machine, every knob at five positions | CC0 by the repackager (ADR 0068) |
+| MckSamplePacks | An analog 606-style machine; a digital machine's 808, 909, 707, 727 and 606 voices; an 80s digital machine; a 90s groove box | CC0 LICENSE by the recordist |
+| LMMS assets | Electronic kicks, snares, claps and hats by genre | CC0 LICENSE; files of unclear origin left out |
+| Sonic Pi samples | Electronic and glitch hits, tabla bols | "placed in the public domain via the Creative Commons 0 License"; its Amen loops left out |
+
+### 27.2 The kits
+
+About 35 kits, each 8–16 pads on the General MIDI notes (kick C1, snare D1, closed hat F♯1, open hat A♯1 and so on), so a kit swapped under a clip plays the same parts. Hats choke each other. Folders are their first tag.
+
+| Folder | Kits (from one pool each) |
+|---|---|
+| **Acoustic** | Jazz sticks, Funk studio, Dusty (Virtuosity); Rock (Big Rusty, sticks); Mallets (Big Rusty, mallets); Brushes (Swirly); Indie (Unruly); 70s soul (Gogodze Phu II) |
+| **Electronic** | 808 classic, 808 boom, 808 trap (Fischer); 909 house, 909 techno, 707 dance, 606 voices (the digital machine's); Analog 606 (the analog machine); 80s digital (the 80s machine); 90s club, 90s studio (the groove box); Synth percussion (FreePats); Drum & bass, Hardstyle, Hip-hop (LMMS by genre); Electro lab (Sonic Pi) |
+| **Segno** | Chip (pulse and noise drums), Analog lab (analog-style voices), Sub 808 (tuned 808s), rendered by the Library build |
+| **Percussion** | Latin (Virtuosity's percussion and its timbales and cuíca); Machine percussion (the 727 voices); Cajón (Gogodze Phu I); Bobobo (Gogodze Phu I, with VCSL's agogo as its bell); Flamenco (FreePats: cajón, castanets, palmas); Middle Eastern (FreePats darbuka, VCSL frame drums and tambourines); Tabla (Sonic Pi); Body (body_percussion); Orchestral (VCSL and VSCO); Junkyard (VSCO's found metal and glass, VCSL's anvil and brake drums); Glitch (Zamenhof) |
+
+Names follow ADR 0067: 808, 909, 707 and 606 are allowed; makers' and model names never appear.
+
+### 27.3 How they're made
+
+- **The Library's samples:** each kit piece is an SFZ in `Library/Samples/Drums/<pool>/`, its zones the source's own velocity layers and round robins:
+  - read from the source's mapping files where it has them;
+  - otherwise from its file names.
+
+  Large sets are thinned (at most 8 layers × 4 takes), so the drums add a few hundred MB, not gigabytes.
+- **Microphones are mixed** into one stereo sample per hit by the Library build: a close microphone with the overheads and the room, at gains set per kit pool, so a pad sounds like a kit, not a mic.
+- **Levels:** every piece's loudest layer is set to a common peak in the Library; the kit's pad volumes then balance kick, snare, hats and cymbals as a mix would.
+- **Segno's own voices** are rendered by `fd-library` from recipes: analog-style models and chip voices, deterministic, into the same folders.
+- **The kits** are recipes (`tools/library/kits.json`), each pad a piece, its note, name, choke group, volume and pan, and the Sampler's settings. They're written as `.segnopreset` files into `app/presets/drum-kit/`, built into the DAW with the modulators' presets.
+- **Checked by tests:**
+  - every kit's pieces exist in the Library's recipe, and its names pass ADR 0067;
+  - every preset is what its recipe makes;
+  - with the Library built, every kit renders its preview beat without silence or clipping.
+- **Signed off by ear,** kit by kit, by the product owner.
