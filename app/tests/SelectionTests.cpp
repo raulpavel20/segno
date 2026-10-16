@@ -76,13 +76,14 @@ TEST_CASE("selection: the rule table for the arrangement", "[fast]")
         CHECK(c.midiInputTarget == 1u);
         CHECK(c.inspector == std::vector{Section::Clip, Section::Track, Section::Input, Section::Mix, Section::Sends});
     }
-    SECTION("one audio clip shows the modules")
+    SECTION("one audio clip opens the clip view too, the audio editor (audio-editor.md §4)")
     {
         const auto c = in({.channel = 2, .clips = {21}});
         CHECK(c.subject == Subject::Clip);
         CHECK(!c.midiClip);
-        CHECK(!c.opensClipView);
-        CHECK(c.inspector == std::vector{Section::Clip, Section::Track, Section::Input, Section::Mix, Section::Sends});
+        CHECK(c.opensClipView);
+        CHECK(c.inspector == std::vector{Section::Clip, Section::Audio, Section::Track, Section::Input,
+                                         Section::Mix, Section::Sends});
     }
     SECTION("several clips")
     {

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "engine/ClipChance.h"
+#include "engine/ClipFades.h"
 #include "engine/ClipNotes.h"
+#include "engine/FileAnalyser.h"
 #include "engine/FileIndexer.h"
 #include "engine/MidiMapper.h"
 #include "engine/MidiTap.h"
@@ -9,6 +11,7 @@
 #include "engine/PreviewPlayer.h"
 #include "engine/RoundTrip.h"
 #include "engine/Session.h"
+#include "engine/WarpPlayer.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
 #include "model/TrackEdits.h"
@@ -54,6 +57,8 @@ inline te::AuxSendPlugin* sendIn(te::PluginList& list, int bus)
 void writeLoop(te::Clip& clip, const model::ClipLoop& loop, juce::UndoManager* um);
 /// Places a clip; while it loops, its offset (the phase) is wrapped into the loop.
 void placeClip(te::Clip& clip, double start, double length, double offset);
+/// The clip as the snapshot shows it, now (the snapshot itself is rebuilt later).
+[[nodiscard]] model::ClipInfo clipInfoOf(te::Clip& clip);
 
 /// The aux bus a return track listens to (-1 if none).
 inline int busOf(te::AudioTrack& returnTrack)
@@ -120,6 +125,23 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     // The browser (C2, ADR 0046): the index of the places, the preview, and every file a clip or
     // take has used since the project opened (Remove unused files leaves those).
     FileIndexer indexer;
+    // What's found in clips' files (P6b, audio-editor.md §7): transients, how percussive, tempo.
+    FileAnalyser analyser;
+    /// A clip's transients (seconds of its file as recorded): none while its file is analysed.
+    [[nodiscard]] std::vector<double> transientsOf(te::AudioClipBase& clip);
+    /// A file's analysis arrived: clips that play it are shown again, and Beats ones played again.
+    void analysisFound(const std::string& path);
+    /// What follows the tempo when it's placed or made (Settings › Audio, audio-editor.md §7.2).
+    bool loopsFollowTempo = true, recordingsFollowTempo = true, loopsFollowKey = false;
+    /// A file placed that's a loop: the tempo it warps at, and the mode its sound chooses.
+    [[nodiscard]] std::optional<std::pair<double, model::WarpMode>> loopTempo(te::AudioClipBase& clip);
+    /// A clip recorded, bounced or comped: Warp on at the song's tempo (with the setting).
+    void followSongTempo(te::AudioClipBase& clip);
+    /// A clip placed keeps the tempo Warp would use (§7.1) from the start, so what the editor shows
+    /// and what Warp does agree.
+    void keepFirstTempo(te::AudioClipBase& clip);
+    /// A WarpChange's key and Follow key on one clip (§8.2, §8.3), in the current undo step.
+    void changeKey(te::AudioClipBase& clip, const Session::WarpChange& change);
     PreviewPlayer preview;
     /// Measuring the round trip (recording.md §22.2), while it runs and after, until the next.
     std::unique_ptr<RoundTrip> roundTrip;
@@ -344,6 +366,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     std::array<std::string, 2> gridSteps;
     struct Render;
     std::vector<std::shared_ptr<Render>> renders; // offline renders in flight (each on an Edit copy)
+    /// Normalise's measurements (audio-editor.md §6.4), by file, content and sound: files don't change.
+    std::map<std::string, model::ClipLevels> levelCache;
     /// Renders a copy of the project offline (the render tool, bounces; ADR 0021, 0035): `setup`
     /// sets the copy and the renderer up (32-bit float WAV, plugins on, silence allowed) and may
     /// refuse (false: null returned). `done` runs on the message thread, with why it failed or
@@ -790,10 +814,11 @@ private:
                 return;
         if (!inTransport(t) && id != te::IDs::solo) // solo is a listening aid (ADR 0026)
             dirty = true; // includes device parameters
-        // What a clip plays depends on its fades and its neighbours (ADR 0036), and its notes'
-        // chance on its seed (piano-roll.md §10): playback is rebuilt.
-        if (affectsFades(t, id) || id == noteIds::seed || id == chanceIds::keptRoll ||
-            id == chanceIds::keptLap)
+        // What a clip plays depends on its fades and its neighbours (ADR 0036), its sound and its
+        // warping (ADR 0063), and its notes' chance on its seed (piano-roll.md §10, §26):
+        // playback is rebuilt.
+        if (affectsFades(t, id) || affectsSound(t, id) || affectsWarp(t, id) || id == noteIds::seed ||
+            id == chanceIds::keptRoll || id == chanceIds::keptLap)
             restartPending = true;
         // A lane's points.
         for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())
@@ -826,7 +851,8 @@ private:
     {
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return; // routing, rebuilt from the tracks' inputs
-        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
+        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) ||
+                         child.hasType(soundIds::line) || child.hasType(warpIds::markers);
         morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }
@@ -834,7 +860,8 @@ private:
     {
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return;
-        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
+        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) ||
+                         child.hasType(soundIds::line) || child.hasType(warpIds::markers);
         morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }

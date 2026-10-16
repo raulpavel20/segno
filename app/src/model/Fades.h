@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/ClipLoops.h"
+#include "model/Warp.h"
 
 #include <cstdint>
 #include <optional>
@@ -85,9 +86,13 @@ struct FadeClip
     ClipLoop loop;             // ADR 0048: what it plays again and again (length 0: none)
     std::string source;
     bool muted = false;
-    bool canExtend = true; // false: it can't play past its edges (stretched, synced, looped)
+    bool canExtend = true; // false: it can't play past its edges (stretched, looped)
+    bool reversed = false; // it reads its file backwards (audio-editor.md §6.3)
     Fade in, out;
     std::optional<Crossfade> crossOut; // stored on it, into the clip that starts where it ends
+    /// Where its content plays its file (audio-editor.md §7): its content counts the song's time
+    /// while it warps, and `sourceLength` is then its file's length as it plays.
+    ContentMap map;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
@@ -99,9 +104,9 @@ struct FadeClip
 
 /// Whether two clips meet: the first ends where the second starts.
 [[nodiscard]] bool meet(const FadeClip& first, const FadeClip& second) noexcept;
-/// Whether `next` runs on seamlessly from `prev`: they meet, play the same file (with the same loop),
-/// and `next` starts in it where `prev` ends (a split, a bounce run, comp parts from one take). A
-/// loop starting again isn't seamless: it's a seam (ADR 0048).
+/// Whether `next` runs on seamlessly from `prev`: they meet, play the same file the same way round
+/// (with the same loop), and `next` starts in it where `prev` ends (a split, a bounce run, comp parts from
+/// one take). A loop starting again isn't seamless: it's a seam (ADR 0048).
 [[nodiscard]] bool seamless(const FadeClip& prev, const FadeClip& next) noexcept;
 
 /// The crossfade that fits between two clips that meet, as near as their spare audio allows to

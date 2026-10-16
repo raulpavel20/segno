@@ -187,9 +187,6 @@ TEST_CASE("clip loops: what can't loop says why", "[fast]")
     CHECK(whyCantLoop(c, track).empty());
     CHECK(whyCantLoop(midi(0.0, 1.0, 0.0), track).empty());
 
-    auto synced = c;
-    synced.synced = true;
-    CHECK(whyCantLoop(synced, track).find("tempo") != std::string::npos);
     auto missing = c;
     missing.sourceLength = 0.0;
     CHECK(whyCantLoop(missing, track).find("missing") != std::string::npos);

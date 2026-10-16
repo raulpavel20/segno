@@ -36,10 +36,12 @@ std::vector<FadeClip> fadeClips(const TrackInfo& track)
                            .loop = c.loop,
                            .source = c.sourcePath,
                            .muted = c.muted,
-                           .canExtend = !c.synced, // as the engine plays it (engine/ClipFades.cpp)
+                           .canExtend = true, // as the engine plays it (engine/ClipFades.cpp)
+                           .reversed = c.sound.reversed,
                            .in = c.fadeIn,
                            .out = c.fadeOut,
-                           .crossOut = c.crossfadeOut});
+                           .crossOut = c.crossfadeOut,
+                           .map = contentMap(c)});
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
     return out;
 }
@@ -88,6 +90,15 @@ std::vector<FadeHandle> fadeHandles(const TrackInfo& track)
             const double from = c.end() + crossOut->from;
             out.push_back({.kind = K::CrossStart, .clip = c.id, .time = from});
             out.push_back({.kind = K::CrossEnd, .clip = c.id, .time = from + crossOut->length});
+        }
+        // Its gain (audio-editor.md §10): one handle in its middle; a clip with takes, one for all
+        // its parts, in the middle of them.
+        if (!(i > 0 && inner(i - 1, i)))
+        {
+            size_t last = i;
+            while (last + 1 < clips.size() && inner(last, last + 1))
+                ++last;
+            out.push_back({.kind = K::Gain, .clip = c.id, .time = (c.start + clips[last].end()) * 0.5});
         }
     }
     return out;
@@ -159,7 +170,9 @@ FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double secon
         return edit;
     }
     case K::BendIn:
-    case K::BendOut: return {};
+    case K::BendOut:
+    case K::Gain:
+        return {};
     }
     return {};
 }

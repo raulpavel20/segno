@@ -78,6 +78,19 @@ const std::vector<SettingInfo>& settingsCatalogue()
         {"audio.load", S::Audio, "Load",
          "How busy the audio is, and how often it has dropped out since you opened Settings.",
          "cpu dropouts xruns"},
+        {"audioClips.loopsFollowTempo", S::Audio, "Loops follow the tempo",
+         "A loop you place plays in time with the song: its tempo from its file, its name or its sound, and "
+         "Warp on.",
+         "warp stretch sync bpm tempo loops"},
+        {"audioClips.recordingsFollowTempo", S::Audio, "Recordings follow the tempo",
+         "Recordings, bounces and comps follow the song's tempo if it changes: Warp on, at the tempo they "
+         "were made at.",
+         "warp stretch sync bpm tempo recording bounce"},
+        {"audioClips.loopsFollowKey", S::Audio, "Loops follow the key",
+         "A loop you place plays in the song's key, moved by the smallest step, if a key is found in it. "
+         "Each "
+         "clip's Follow key turns it on or off.",
+         "key transpose pitch scale harmonic loops"},
         {"midi.inputs", S::Midi, "MIDI inputs",
          "Which keyboards and controllers Segno listens to; one turned off is ignored everywhere.",
          "keyboard controller devices"},

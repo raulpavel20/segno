@@ -188,6 +188,23 @@ public:
     [[nodiscard]] bool midiMappingsShown() const noexcept { return midiShown_; }
     void updateMidiMappings();
     [[nodiscard]] MidiMappingList& midiMappings() noexcept { return midiList_; }
+    /// CLIP's Loop (tests).
+    [[nodiscard]] ui::Toggle& clipLoop() noexcept { return clipLoop_; }
+    /// The AUDIO section's fields (tests).
+    [[nodiscard]] ui::NumberField& audioGain() noexcept { return audioGain_; }
+    [[nodiscard]] ui::Toggle& audioReverse() noexcept { return audioReverse_; }
+    [[nodiscard]] ui::Toggle& audioPolarity() noexcept { return audioPolarity_; }
+    [[nodiscard]] juce::ComboBox& audioChannels() noexcept { return audioChannels_; }
+    [[nodiscard]] ui::NumberField& audioTranspose() noexcept { return audioTranspose_; }
+    [[nodiscard]] ui::NumberField& audioFine() noexcept { return audioFine_; }
+    [[nodiscard]] ui::Toggle& audioWarp() noexcept { return audioWarp_; }
+    [[nodiscard]] juce::ComboBox& audioMode() noexcept { return audioMode_; }
+    [[nodiscard]] ui::NumberField& audioTempo() noexcept { return audioTempo_; }
+    [[nodiscard]] juce::ComboBox& audioTails() noexcept { return audioTails_; }
+    [[nodiscard]] ui::Toggle& audioFormants() noexcept { return audioFormants_; }
+    [[nodiscard]] ui::NumberField& audioSensitivity() noexcept { return audioSensitivity_; }
+    [[nodiscard]] juce::ComboBox& audioKey() noexcept { return audioKey_; }
+    [[nodiscard]] ui::Toggle& audioFollow() noexcept { return audioFollow_; }
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -298,6 +315,29 @@ private:
     void setCrossfadeShape(const std::optional<Join>& join, int id);
     void setCrossfadePlace(const std::optional<Join>& join, int id);
     std::optional<engine::Session::EditGroup> fadeGesture_;
+    /// An audio clip's sound (audio-editor.md §12): its gain dragged or typed, Reverse, Polarity,
+    /// and for a stereo file how its channels play. One undo step each.
+    ui::NumberField audioGain_;
+    ui::Toggle audioReverse_{"On"}, audioPolarity_{"Invert"};
+    juce::ComboBox audioChannels_;
+    /// Its warping and transposition (§7, §8.1, §12): Transpose with Fine beside it; Warp with the
+    /// mode beside it; while it warps its tempo with ×2 and ÷2, and the mode's setting (Beats'
+    /// tails, Tones' formants); the transients' sensitivity.
+    ui::NumberField audioTranspose_, audioFine_, audioTempo_, audioSensitivity_;
+    ui::Toggle audioWarp_{"On"}, audioFormants_{"Keep"};
+    ui::Toggle audioDouble_{juce::String::fromUTF8("\xC3\x97"
+                                                   "2")},
+        audioHalve_{juce::String::fromUTF8("\xC3\xB7"
+                                           "2")};
+    juce::ComboBox audioMode_, audioTails_;
+    /// Its key, found or set, with Follow key beside it (§8.2, §8.3). The list is made again when
+    /// what it offers changes (`keyItems_`).
+    juce::ComboBox audioKey_;
+    ui::Toggle audioFollow_{"Follow"};
+    juce::String keyItems_;
+    std::optional<music::Key> otherKey_; // a set key of another scale, listed as its own item
+    void refreshKey();
+    std::optional<engine::Session::EditGroup> audioGesture_;
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
     /// The selected section (arranger.md §10): its name typed, its colour, and its marks (Start,
@@ -372,8 +412,33 @@ public:
     /// Opens the Tools pane on `tab`, or closes it (none); view state, kept with the project.
     void showTools(std::optional<model::ToolKind> tab);
     [[nodiscard]] bool toolsShown(model::ToolKind tab) const;
-    /// Opens the pane at a tool ("strum"; "makeChords") and chooses it.
+    /// Opens the pane at a tool ("strum"; "makeChords"; for an audio clip, "normalise") and
+    /// chooses it.
     void showTool(std::string_view id);
+    /// Over an audio clip: the pane open or closed (audio-editor.md §11); view state, kept with the
+    /// project.
+    void showAudioTools(bool open);
+    /// The Audio menu (audio-editor.md §13): the menu bar's, built by the same function, opened
+    /// from the bar's Audio button and the waveform's right-click.
+    std::function<juce::PopupMenu()> audioMenu;
+    /// The audio editor's bar (audio-editor.md §4, §20), for tests and the layout lint.
+    [[nodiscard]] ui::MenuButton& audioButton() noexcept { return audioButton_; }
+    [[nodiscard]] ui::Toggle& normaliseButton() noexcept { return normalise_; }
+    [[nodiscard]] ui::BarField& gainField() noexcept { return gain_; }
+    [[nodiscard]] ui::Toggle& reverseButton() noexcept { return reverse_; }
+    // Its warping (§4, §7, §8.1): Quantise, the Tempo tool, Transpose, Warp, and while the clip
+    // warps its mode, its tempo, ×2 and ÷2.
+    [[nodiscard]] ui::Toggle& audioQuantiseButton() noexcept { return quantiseAudio_; }
+    [[nodiscard]] ui::Toggle& tempoButton() noexcept { return tempoTool_; }
+    [[nodiscard]] ui::Toggle& sliceButton() noexcept { return slice_; }
+    [[nodiscard]] ui::BarField& transposeField() noexcept { return transpose_; }
+    [[nodiscard]] ui::Toggle& warpButton() noexcept { return warp_; }
+    [[nodiscard]] ui::MenuButton& warpModeButton() noexcept { return warpMode_; }
+    [[nodiscard]] ui::BarField& tempoField() noexcept { return warpTempo_; }
+    [[nodiscard]] ui::Toggle& doubleButton() noexcept { return tempoDouble_; }
+    [[nodiscard]] ui::Toggle& halveButton() noexcept { return tempoHalf_; }
+    /// A range command's button (Split, Crop, Silence, Fade, Loop): shown while a range is selected.
+    [[nodiscard]] ui::Toggle& rangeButton(engine::Session::RangeAction action) noexcept;
     [[nodiscard]] ui::ViewChoice& drawChoice() noexcept { return draw_; }
     [[nodiscard]] ui::Segments& drawKind() noexcept { return drawKind_; }
     [[nodiscard]] ui::ViewChoice& drawVoicing() noexcept { return drawVoicing_; }
@@ -391,9 +456,12 @@ private:
     void updateOptions();
     /// Modules, Clip where it's available, the editor's while one is open.
     void updateTabs();
+    /// The audio editor's bar as its clip and range are now.
+    void updateAudioBar();
 
     ui::PanelHeader header_;
     std::vector<Mode> tabModes_; // what each tab shows
+    engine::Session& session_;
     const ActionRegistry& actions_;
     /// Notes and Quantise, in the clip view's header while it shows notes (menu-bar.md §15,
     /// piano-roll.md §4).
@@ -409,6 +477,23 @@ private:
     /// The piano roll's Snap and grid step (ADR 0047), on the right while it shows a clip.
     ui::ViewOption snap_{"Snap"};
     ui::ViewChoice grid_;
+    /// The audio editor's bar (audio-editor.md §4, §20): a range's commands while one is selected;
+    /// the Audio menu; its tools; the clip's gain and Reverse.
+    ui::Toggle split_{"Split"}, crop_{"Crop"}, silence_{"Silence"}, fadeRange_{"Fade"}, loopRange_{"Loop"};
+    ui::MenuButton audioButton_{"Audio"};
+    ui::Toggle quantiseAudio_{"Quantise"}, tempoTool_{"Tempo"}, slice_{"Slice"};
+    ui::Toggle normalise_{"Normalise"};
+    ui::BarField gain_{"Gain"}, transpose_{"Transpose"};
+    ui::Toggle reverse_{"Reverse"};
+    ui::Toggle warp_{"Warp"};
+    ui::MenuButton warpMode_{"Tones"};
+    ui::BarField warpTempo_{""};
+    ui::Toggle tempoDouble_{juce::String::fromUTF8("\xC3\x97"
+                                                   "2")},
+        tempoHalf_{juce::String::fromUTF8("\xC3\xB7"
+                                          "2")};
+    // A drag of a field: one undo step.
+    std::optional<engine::Session::EditGroup> gainGesture_, transposeGesture_, tempoGesture_;
     Mode mode_ = Mode::Devices;
     bool clipViewAvailable_ = true;
     std::optional<model::TrackInfo> track_;

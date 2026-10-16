@@ -184,9 +184,8 @@ std::string whyCantLoop(const ClipInfo& clip, const TrackInfo& track)
 {
     if (clip.stack != 0)
         if (const auto* stack = track.stack(clip.stack); stack != nullptr && hasTakesToShow(*stack))
-            return "A clip with takes can't loop: keep only the take you want first (Clip > Takes > Keep only this take).";
-    if (clip.kind == ClipInfo::Kind::Audio && clip.synced)
-        return "This clip is stretched to the song's tempo: looping it comes with warping.";
+            return "A clip with takes can't loop: keep only the take you want first (Clip > Takes > Keep "
+                   "only this take).";
     if (clip.kind == ClipInfo::Kind::Audio && clip.sourceLength <= 0.0)
         return "This clip's audio file is missing.";
     return {};

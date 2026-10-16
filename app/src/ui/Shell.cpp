@@ -110,6 +110,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     registerNotesActions();
     registerModulatorActions();
     registerMidiActions();
+    registerAudioActions();
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
     browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };
@@ -169,8 +170,9 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return sectionColourMenu();
         if (list == "otherTracks") // the clip view's Others, track by track (piano-roll.md §8)
             return detail_.pianoRoll().othersMenu();
-        if (list == "clipLane") // the clip view's bottom lane (§11)
-            return detail_.pianoRoll().laneMenu();
+        if (list == "clipLane") // the clip view's bottom lane (§11; the audio editor's: audio-editor.md §4)
+            return detail_.showsAudioClip() ? detail_.audioClipView().laneMenu()
+                                            : detail_.pianoRoll().laneMenu();
         return juce::PopupMenu();
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
@@ -683,6 +685,12 @@ void Shell::registerActions()
                   {
                       if (notesActive() && (roll.hasSelection() || roll.hasPointSelection()))
                           roll.deleteSelection(); // or its controller lane's points (piano-roll.md §11)
+                      else if (audioActive() && detail_.audioClipView().hasMarkerSelection())
+                          detail_.audioClipView().removeMarkers(); // warp markers (audio-editor.md §7.5)
+                      else if (audioActive() && detail_.audioClipView().hasPointSelection())
+                          detail_.audioClipView().deletePoints(); // the gain line's (audio-editor.md §6.2)
+                      else if (audioActive() && detail_.audioClipView().range())
+                          detail_.audioClipView().editRange(engine::Session::RangeAction::Delete); // §5
                       else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
                           detail_.chain().deleteSelected();
                       else if (sectionsActive()) // with their music (arranger.md §9)
@@ -700,6 +708,9 @@ void Shell::registerActions()
                       [this, &roll, clipsShown]
                   {
                       return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) ||
+                             (audioActive() && (detail_.audioClipView().hasMarkerSelection() ||
+                                                detail_.audioClipView().hasPointSelection() ||
+                                                detail_.audioClipView().range())) ||
                              (lastArea_ == Area::Detail && detail_.chain().hasSelection()) ||
                              sectionsActive() || laneActive() || trackHeaderActive() ||
                              (clipsShown() &&
@@ -796,39 +807,67 @@ void Shell::registerActions()
                                                     : juce::String();
                   }});
     // Split at playhead: the notes crossing it when the clip view was used last (piano-roll.md §9.1).
-    actions_.add({.id = "edit.split",
-                  .name = "Split at playhead",
-                  .category = "Edit",
-                  .keys = {key('e', kCmd)},
-                  .perform =
-                      [this, &roll]
-                  {
-                      if (notesActive())
-                          roll.splitAtPlayhead();
-                      else
-                          arrangement_.splitAtPlayhead();
-                  },
-                  .isEnabled = [this, &roll, clipsShown]
-                  { return notesActive() ? !roll.notes().empty() : clipsShown(); }});
-    actions_.add({.id = "edit.selectAll", .name = "Select all", .category = "Edit", .keys = {key('a', kCmd)},
-                  .perform = [this, &roll, clipsShown] {
-                      if (notesActive())
-                          roll.selectAll();
-                      else if (laneActive())
-                          arrangement_.selectAllPoints();
-                      else if (clipsShown())
-                          arrangement_.selectAllClips();
-                  },
-                  .isEnabled = [this, clipsShown] { return notesActive() || clipsShown(); }});
+    actions_.add(
+        {.id = "edit.split",
+         .name = "Split at playhead",
+         .category = "Edit",
+         .keys = {key('e', kCmd)},
+         .perform =
+             [this, &roll]
+         {
+             if (notesActive())
+                 roll.splitAtPlayhead();
+             else if (audioActive() && detail_.audioClipView().range()) // its edges (audio-editor.md §5)
+                 detail_.audioClipView().editRange(engine::Session::RangeAction::Split);
+             else
+                 arrangement_.splitAtPlayhead();
+         },
+         .isEnabled = [this, &roll, clipsShown]
+         { return notesActive() ? !roll.notes().empty() : clipsShown(); },
+         .label =
+             [this]
+         {
+             return juce::String(audioActive() && detail_.audioClipView().range() ? "Split at range"
+                                                                                  : "Split at playhead");
+         }});
+    actions_.add(
+        {.id = "edit.selectAll",
+         .name = "Select all",
+         .category = "Edit",
+         .keys = {key('a', kCmd)},
+         .perform =
+             [this, &roll, clipsShown]
+         {
+             if (notesActive())
+                 roll.selectAll();
+             else if (audioActive()) // the whole clip as the range (audio-editor.md §5)
+                 detail_.audioClipView().selectAll();
+             else if (laneActive())
+                 arrangement_.selectAllPoints();
+             else if (clipsShown())
+                 arrangement_.selectAllClips();
+         },
+         .isEnabled = [this, clipsShown] { return notesActive() || audioActive() || clipsShown(); }});
 
-    // The arrows: the piano roll's notes (C2), or a lane's points (C4), whichever was used last.
+    // The arrows: the piano roll's notes (C2), or a lane's points (C4), whichever was used last; the
+    // audio editor's markers (← →) and clip (Shift ↑ ↓: an octave) while it shows one (audio-editor.md
+    // §7.5, §13).
     auto notesSelected = [this, &roll] { return (notesActive() && roll.hasSelection()) || pointsActive(); };
-    auto arrow = [this, &roll](int semitones, int steps, float value) {
-        return [this, &roll, semitones, steps, value] {
+    auto audioMarkers = [this] { return audioActive() && detail_.audioClipView().hasMarkerSelection(); };
+    auto audioOctave = [this, &roll]
+    { return !(notesActive() && roll.hasSelection()) && actions_.isEnabled("audio.octaveUp"); };
+    auto arrow = [this, &roll, audioMarkers](int semitones, int steps, float value)
+    {
+        return [this, &roll, audioMarkers, semitones, steps, value]
+        {
             if (pointsActive())
                 arrangement_.nudgePoints(steps, value);
+            else if (semitones != 0 && !(notesActive() && roll.hasSelection()))
+                actions_.perform(semitones > 0 ? "audio.octaveUp" : "audio.octaveDown");
             else if (semitones != 0)
                 roll.transpose(semitones);
+            else if (audioMarkers())
+                detail_.audioClipView().nudgeMarkers(steps);
             else
                 roll.nudge(steps);
         };
@@ -866,22 +905,46 @@ void Shell::registerActions()
                   .category = "Notes",
                   .keys = {key(juce::KeyPress::upKey, kShift)},
                   .perform = arrow(12, 0, 0.001f),
-                  .isEnabled = notesSelected,
+                  .isEnabled = [notesSelected, audioOctave] { return notesSelected() || audioOctave(); },
                   .label = pointsLabel("Up an octave", "Raise points a little")});
     actions_.add({.id = "notes.octaveDown",
                   .name = "Down an octave / lower points a little",
                   .category = "Notes",
                   .keys = {key(juce::KeyPress::downKey, kShift)},
                   .perform = arrow(-12, 0, -0.001f),
-                  .isEnabled = notesSelected,
+                  .isEnabled = [notesSelected, audioOctave] { return notesSelected() || audioOctave(); },
                   .label = pointsLabel("Down an octave", "Lower points a little")});
-    actions_.add({.id = "notes.later", .name = "Nudge later", .category = "Notes", .keys = {key(juce::KeyPress::rightKey)},
-                  .perform = arrow(0, 1, 0.0f), .isEnabled = notesSelected});
-    actions_.add({.id = "notes.earlier", .name = "Nudge earlier", .category = "Notes", .keys = {key(juce::KeyPress::leftKey)},
-                  .perform = arrow(0, -1, 0.0f), .isEnabled = notesSelected});
-    actions_.add({.id = "notes.quantise", .name = "Quantise", .category = "Notes", .keys = {key('u', kCmd)},
-                  .perform = [&roll] { roll.quantise(); },
-                  .isEnabled = [this, &roll] { return detail_.showsPianoRoll() && !roll.notes().empty(); }});
+    actions_.add({.id = "notes.later",
+                  .name = "Nudge later",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::rightKey)},
+                  .perform = arrow(0, 1, 0.0f),
+                  .isEnabled = [notesSelected, audioMarkers] { return notesSelected() || audioMarkers(); }});
+    actions_.add({.id = "notes.earlier",
+                  .name = "Nudge earlier",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::leftKey)},
+                  .perform = arrow(0, -1, 0.0f),
+                  .isEnabled = [notesSelected, audioMarkers] { return notesSelected() || audioMarkers(); }});
+    // Ctrl+U quantises what the clip view shows: notes, or an audio clip (audio-editor.md §13).
+    actions_.add({.id = "notes.quantise",
+                  .name = "Quantise",
+                  .category = "Notes",
+                  .keys = {key('u', kCmd)},
+                  .perform =
+                      [this, &roll]
+                  {
+                      if (detail_.showsAudioClip())
+                          actions_.perform("audio.quantise");
+                      else
+                          roll.quantise();
+                  },
+                  .isEnabled =
+                      [this, &roll]
+                  {
+                      return (detail_.showsPianoRoll() && !roll.notes().empty()) ||
+                             (detail_.showsAudioClip() && actions_.isEnabled("audio.quantise"));
+                  }});
     actions_.add({.id = "clip.newMidi", .name = "New MIDI clip", .category = "Clip", .keys = {key('m', kCmd | kShift)},
                   .perform = [this] { arrangement_.createMidiClipAtPlayhead(); },
                   .isEnabled = [this] { return !mixerShown_ && !session_.snapshot()->tracks.empty(); }});
@@ -1821,6 +1884,11 @@ void Shell::registerActions()
 bool Shell::notesActive() const
 {
     return lastArea_ == Area::Clip && detail_.showsPianoRoll();
+}
+
+bool Shell::audioActive() const
+{
+    return lastArea_ == Area::Clip && detail_.showsAudioClip();
 }
 
 bool Shell::laneActive() const

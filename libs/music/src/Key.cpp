@@ -277,6 +277,27 @@ int nearestInKey(const Key& key, int pitch, bool preferUp) noexcept
     return pitch;
 }
 
+int stepsToKey(const Key& from, const Key& to) noexcept
+{
+    const PitchSet a = notes(from), b = notes(to);
+    if (a == 0 || b == 0)
+        return 0;
+    int best = 0, most = -1;
+    for (int distance = 0; distance <= 6; ++distance)
+        for (const int step : {-distance, distance})
+        {
+            const int m = mod12(step);
+            const auto moved = static_cast<PitchSet>(
+                ((static_cast<unsigned>(a) << m) | (static_cast<unsigned>(a) >> (12 - m))) & 0xfff);
+            if (const int shared = noteCount(static_cast<PitchSet>(moved & b)); shared > most)
+            {
+                most = shared;
+                best = step;
+            }
+        }
+    return best;
+}
+
 std::optional<int> parsePitchClass(std::string_view name) noexcept
 {
     auto trim = [](std::string_view s)

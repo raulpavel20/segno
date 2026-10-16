@@ -910,6 +910,159 @@ public:
     /// reason if it can't loop (nothing changes), else empty.
     std::string setClipLoop(std::uint64_t clip, const model::ClipLoop& loop, const std::string& undoName = "Loop");
 
+    // ---- an audio clip's sound and ranges (P6, ADR 0063, docs/design/audio-editor.md) -----------
+    // Settings of the clip, never of its file: gain, the gain line, reverse, polarity, channels.
+
+    /// Changes to audio clips' sound: each field given changes on every clip (MIDI clips are left
+    /// alone). `gainBy` moves each clip's gain by that much (several clips move together).
+    struct SoundChange
+    {
+        std::optional<float> gainDb, gainBy;
+        std::optional<bool> reversed, inverted;
+        std::optional<model::ChannelMode> channels;
+    };
+    /// One undo step named `undoName`; false if no audio clip changed.
+    bool setSound(const std::vector<std::uint64_t>& clips, const SoundChange& change,
+                  const std::string& undoName = "Clip sound");
+    /// Replaces an audio clip's gain line (times in its file as recorded, values on the volume
+    /// taper; empty: none). One undo step named `undoName`, unless an EditGroup names it.
+    bool setGainLine(std::uint64_t clip, const model::AutomationPoints& line,
+                     const std::string& undoName = "Gain line");
+
+    /// What the audio editor does to a range of a clip (§5), [from, to) on the timeline within it.
+    enum class RangeAction
+    {
+        Split,   // at the range's edges: the range becomes a clip of its own
+        Delete,  // that part goes; what's either side stays where it is
+        Crop,    // the clip keeps only the range
+        Silence, // the gain line falls to silence over it
+        Gain,    // the gain line over it moves by `db`
+        Fade,    // a range at the clip's start is its fade-in, at its end its fade-out
+        Loop,    // the clip loops it
+    };
+    struct RangeResult
+    {
+        /// What's left of the clip, in time order; after Split, the range's clip first.
+        std::vector<std::uint64_t> clips;
+        std::string why; // why it couldn't be done (nothing changed)
+    };
+    /// One undo step named for the action ("Split", "Delete", "Crop", "Silence", "Gain", "Fade",
+    /// "Loop").
+    RangeResult editRange(std::uint64_t clip, double from, double to, RangeAction action, double db = 0.0);
+    /// Why `action` can't be done on that range, or empty.
+    [[nodiscard]] std::string rangeRefusal(std::uint64_t clip, double from, double to,
+                                           RangeAction action) const;
+
+    // ---- warping (P6b, ADR 0063, audio-editor.md §7, §8.1) ----------------------------------------
+    // While an audio clip warps it follows the song's tempo, its file laid out in beats, and warp
+    // markers pin moments of it to beats. Transposition keeps a clip's speed, warped or not.
+
+    /// Changes to audio clips' warping and transposition: each field given changes on every clip.
+    struct WarpChange
+    {
+        std::optional<bool> on; // Warp: each clip keeps its start and the audio it plays
+        std::optional<model::WarpMode> mode;
+        std::optional<model::WarpTails> tails;
+        std::optional<bool> formants;
+        /// The clip's tempo (its file's), or the tempo times this (×2, ÷2): the clip plays the same
+        /// audio at it, its markers scaled with it.
+        std::optional<double> tempo, tempoTimes;
+        std::optional<double> sensitivity;  // 0 … 1
+        std::optional<int> transpose, fine; // semitones, cents
+        std::optional<int> transposeBy;     // semitones up or down from where each clip is
+        /// The clip's key (P6c, §8.2): a key, or none, set by hand; `keyFound` puts back what's
+        /// found in its file.
+        std::optional<std::optional<music::Key>> key;
+        bool keyFound = false;
+        /// Follow key (§8.3): turned on, the clip's key (what's found, unless it's set) is pinned,
+        /// and it plays moved onto the song's by the smallest step. A clip with no key can't.
+        std::optional<bool> followKey;
+    };
+    /// One undo step named `undoName`; false if no audio clip changed.
+    bool setWarp(const std::vector<std::uint64_t>& clips, const WarpChange& change,
+                 const std::string& undoName = "Warp");
+    /// Replaces an audio clip's warp markers (seconds of its file as recorded, beats of its
+    /// content; model/Warp.h), turning Warp on if it's off. The clip keeps its place in beats.
+    /// Refused (false) unless each is later than the one before, in the file and in beats, and
+    /// each piece within ×0.25 … ×4 of the clip's tempo. One undo step named `undoName`, unless an
+    /// EditGroup names it.
+    bool setWarpMarkers(std::uint64_t clip, const std::vector<model::WarpMarker>& markers,
+                        const std::string& undoName = "Warp markers");
+
+    /// Starts finding what's in a clip's file (§7.4), in the background, if it isn't known: the
+    /// snapshot has it once it's found (the audio editor asks for the clip it shows).
+    void requestAnalysis(std::uint64_t clip);
+    /// A clip's transients (seconds of its file as recorded, §7.4), found now if they weren't.
+    [[nodiscard]] std::vector<double> clipTransients(std::uint64_t clip);
+    /// The tempo found in a clip's file (§7.8), found now if it wasn't: its first downbeat in
+    /// seconds of the file, and how sure it is (0 … 1). Nullopt with no beat to find.
+    struct FoundTempo
+    {
+        double bpm = 120.0, downbeat = 0.0, confidence = 0.0;
+    };
+    [[nodiscard]] std::optional<FoundTempo> foundTempo(std::uint64_t clip);
+    /// Quantise (§7.7): the clip's transients within `range` of the timeline (all without one)
+    /// towards the song's grid through warp markers, Warp on; `sensitivity` set first if given.
+    /// One undo step, "Quantise". Why not, or empty.
+    struct QuantiseAudio
+    {
+        model::WarpQuantise grid;
+        std::optional<double> sensitivity;
+        std::optional<std::pair<double, double>> range;
+    };
+    std::string quantiseAudio(std::uint64_t clip, const QuantiseAudio& settings);
+    /// The Tempo tool's Apply (§7.8): the clip warps at `bpm` and starts at its downbeat (seconds of
+    /// its file) where it starts now; with `songTempo`, the song's tempo is set from it too. One
+    /// undo step, "Tempo".
+    void applyTempo(std::uint64_t clip, double bpm, double downbeat, bool songTempo);
+
+    /// What follows the tempo when it's placed or made (§7.2, Settings › Audio): loops placed (with
+    /// a tempo of their own or found, a whole number of bars at it), and recordings, bounces and
+    /// comps (at the song's tempo). Both on until set. And whether loops placed follow the song's
+    /// key too (§8.3), those with a key: off until set.
+    void setWarpDefaults(bool loopsFollowTempo, bool recordingsFollowTempo, bool loopsFollowKey = false);
+    /// The key found in a clip's file (§8.2: its metadata, its name, else its sound), found now if
+    /// it wasn't: what the clip's key is unless one is set. Nullopt with no clear key.
+    [[nodiscard]] std::optional<music::Key> foundKey(std::uint64_t clip);
+    /// Slice (P6c, §9): cuts an audio clip into clips on its track at `times` on the timeline
+    /// (model::sliceTimes), each playing on as before: they meet seamlessly, so they get no edge
+    /// fades between them. One undo step, "Slice". The parts in time order, the clip itself first;
+    /// empty when nothing was cut or the clip can't be (model::whyCantSlice).
+    std::vector<std::uint64_t> sliceAudio(std::uint64_t clip, std::vector<double> times);
+    /// Slice's Apply (§9, the Slice tool): cuts the clip at its transients (at `sensitivity`, set
+    /// on the clip too), its warp markers, every `gridBeats` of the song or every bar, within
+    /// `range` of the timeline (the whole clip without one). One undo step, "Slice". Its parts, the
+    /// clip first; empty with `why` saying why nothing was cut.
+    struct SliceAudio
+    {
+        model::SliceAt at = model::SliceAt::Transients;
+        std::optional<double> sensitivity;
+        double gridBeats = 0.25;
+        std::optional<std::pair<double, double>> range;
+    };
+    std::vector<std::uint64_t> slice(std::uint64_t clip, const SliceAudio& settings,
+                                     std::string* why = nullptr);
+    /// Why a clip can't be sliced (model::whyCantSlice), or empty.
+    [[nodiscard]] std::string sliceRefusal(std::uint64_t clip) const;
+    /// Adds a transient by hand at `file` (seconds of the clip's file as recorded), or removes the
+    /// one there (§7.4): one undo step, "Add transient" or "Remove transient".
+    bool editTransients(std::uint64_t clip, double file, bool add);
+
+    /// Normalise (§6.4): each audio clip's gain set so it reaches `targetDb` (dBFS, or LUFS), or
+    /// all moved together so the loudest does. Measured from their files (streamed; not real-time).
+    /// One undo step, "Normalise". Returns the clips that changed; silent ones keep their gain.
+    struct NormaliseSettings
+    {
+        model::NormaliseTo to = model::NormaliseTo::Peak;
+        double targetDb = -1.0;
+        bool together = false;
+    };
+    std::vector<std::uint64_t> normalise(const std::vector<std::uint64_t>& clips,
+                                         const NormaliseSettings& settings);
+    /// The gains Normalise would give (the Tools pane's preview): each clip's, or nullopt to keep.
+    [[nodiscard]] std::vector<std::pair<std::uint64_t, std::optional<float>>>
+    normaliseGains(const std::vector<std::uint64_t>& clips, const NormaliseSettings& settings) const;
+
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;
@@ -1213,8 +1366,9 @@ public:
     private:
         Session& session_;
     };
-    /// Keys that fit the notes of `clips` (MIDI clips; none given: every MIDI clip that plays),
-    /// best first, at most `count` (key-and-scale.md §11). Empty with too few notes to judge.
+    /// Keys that fit the notes of `clips` (none given: every clip that plays), best first, at most
+    /// `count` (key-and-scale.md §11): MIDI clips' notes, and audio clips' keys (audio-editor.md
+    /// §8.2). Empty with too few notes to judge and no audio clip with a key.
     [[nodiscard]] std::vector<music::KeyCandidate> detectKeys(const std::vector<std::uint64_t>& clips = {},
                                                               int count = 3) const;
 

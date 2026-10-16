@@ -26,12 +26,13 @@ bool Shell::sectionsActive() const
 
 void Shell::openKeyPopover()
 {
-    // The keys found from the selected MIDI clips, or from every one (key-and-scale.md §11).
+    // The keys found from the selected clips, or from every one (key-and-scale.md §11): MIDI
+    // clips' notes and audio clips' keys (audio-editor.md §8.2).
     std::vector<std::uint64_t> clips;
     const auto snapshot = session_.snapshot();
     for (const auto& track : snapshot->tracks)
         for (const auto& clip : track.clips)
-            if (clip.kind == model::ClipInfo::Kind::Midi && arrangement_.selectedClips().contains(clip.id))
+            if (arrangement_.selectedClips().contains(clip.id))
                 clips.push_back(clip.id);
     auto& field = transport_->keyField();
     // Under the bar, not over its edge, as the Assistants popover opens.

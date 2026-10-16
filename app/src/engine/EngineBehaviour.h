@@ -1,9 +1,9 @@
 #pragma once
 
-#include <tracktion_engine/tracktion_engine.h>
-
 #include <functional>
 #include <memory>
+#include <tracktion_engine/tracktion_engine.h>
+#include <vector>
 
 namespace fd::engine
 {
@@ -15,6 +15,7 @@ namespace fd::engine
 ///   project's Recordings folder, ADR 0030);
 /// - audio clips play their fades and crossfades through Segno's fade node, and a crossfade's
 ///   spare audio past their edges (ADR 0036, the clip-playback patch);
+/// - warped audio clips play through Segno's piece player (ADR 0063, the warped-clips patch);
 /// - a MIDI clip's notes left to chance play or not, and their velocity spreads, rolled again
 ///   each pass and each lap of the loop, or as kept: the same in playback, a bounce and an export
 ///   then (piano-roll.md §26, ClipChance.h);
@@ -44,4 +45,10 @@ inline const juce::Identifier sendsWhileMutedId{"fdSendsWhileMuted"};
 /// tracktion choose. One per engine: the last one set wins.
 using RecordingFiles = std::function<juce::File(tracktion::Track& track, const juce::String& extension)>;
 void setRecordingFiles(tracktion::Engine& engine, RecordingFiles files);
+
+/// A clip's transients (seconds of its file as recorded, audio-editor.md §7.4), where the piece
+/// player starts Beats' pieces; none while they're being found. One per engine: the last one set
+/// wins.
+using TransientSource = std::function<std::vector<double>(tracktion::AudioClipBase& clip)>;
+void setTransientSource(tracktion::Engine& engine, TransientSource source);
 } // namespace fd::engine

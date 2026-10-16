@@ -67,14 +67,15 @@ What the context panels show follows from the selection:
 | Subject | Arrangement | Mixer view |
 |---|---|---|
 | One MIDI clip | **Clip** view: the piano roll | **Modules** of its track |
+| One audio clip | **Clip** view: the audio editor (M3 P6a, [audio-editor.md](audio-editor.md) §4) | **Modules** of its track |
 | A lane (C4) | **Modules** of its first assignment's channel, that module selected (none without an assignment) | the same |
-| One audio clip, several clips, a take | **Modules** of the selected track | **Modules** of the selected track |
+| Several clips, a take | **Modules** of the selected track | **Modules** of the selected track |
 | A channel | **Modules** of that channel (a return's or the master's chain too) | **Modules** of that channel |
 | Nothing | "Select a track to see its modules" | the same |
 
 - **Arrangement:** the header has two tabs, **Modules** and **Clip**, with "Tab switches" on the right. A change of subject picks the tab from the table; Tab (or a click on a tab) switches until the subject changes again. The header's context names what the tab shows: the track in Modules, the clip in Clip.
 - **Mixer view:** clips aren't on screen, so neither is the clip view. The header shows a plain **Modules** title with no tabs, and Tab does nothing. A module-name click in a strip opens the panel if it's closed and selects that module; selecting another strip shows that channel's modules.
-- **Switching views** keeps each view's own state: back in the arrangement, the panel shows what it showed before (the clip view, if a MIDI clip is still selected and you didn't Tab away from it).
+- **Switching views** keeps each view's own state: back in the arrangement, the panel shows what it showed before (the clip view, if a clip is still selected and you didn't Tab away from it).
 
 ## 5. The inspector
 

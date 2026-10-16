@@ -8,10 +8,10 @@ of such a track's own chain while it's monitored, without touching their enabled
 whose instances are all left out isn't built meanwhile, so its latency doesn't delay what it's
 summed with. Renders never ask. With neither overridden, nothing changes.
 
-diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
---- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-16 00:08:27.578001493 +0300
-+++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-16 01:21:57.736437462 +0300
-@@ -1523,6 +1523,12 @@
+diff -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-16 02:52:01.928449204 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-16 02:52:01.904257487 +0300
+@@ -1547,6 +1547,12 @@
          if (! params.forRendering && p->isFrozen())
              continue;
  
@@ -24,7 +24,7 @@ diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_Edit
          if (auto meterPlugin = dynamic_cast<LevelMeterPlugin*> (p))
          {
              node = makeNode<LevelMeasurerProcessingNode> (std::move (node), *meterPlugin);
-@@ -1751,7 +1757,12 @@
+@@ -1775,7 +1781,12 @@
          node = std::move (sumNode);
      }
  
@@ -38,7 +38,7 @@ diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_Edit
  
      if (isSidechainSource (at))
          node = makeNode<SendNode> (std::move (node), getSidechainBusID (at.itemID));
-@@ -1898,9 +1909,27 @@
+@@ -1922,9 +1933,27 @@
      std::vector<std::unique_ptr<Node>> nodes;
  
      for (auto rackType : rackTypeList.getTypes())
@@ -67,7 +67,7 @@ diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_Edit
  
      return nodes;
  }
-@@ -2104,6 +2133,11 @@
+@@ -2128,6 +2157,11 @@
                  }
                  else if (auto node = createNodeForTrack (*t, params))
                  {
@@ -79,9 +79,9 @@ diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_Edit
                      deviceNodes[device].push_back (std::move (node));
                  }
              }
-diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h
---- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h	2026-10-16 00:08:27.572479028 +0300
-+++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h	2026-10-16 01:21:57.731275324 +0300
+diff -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h	2026-10-16 02:52:01.928596591 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h	2026-10-16 02:52:01.912608352 +0300
 @@ -34,6 +34,7 @@
      juce::Array<EditItemID> tracksToProcessWhileMuted = {};  /**< Tracks whose contents keep processing while the track is muted, so they can feed sidechains, aux buses and racks without being heard. Used by stem renders. @see Renderer::Parameters::tracksToProcessWhileMuted */
      bool allowClipSlots = true;                         /**< If true, track's clip slots will be included, set to false to disable these (which will use a slightly more efficient Node). */
@@ -90,12 +90,12 @@ diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_Edit
  
      /** If set, this will be called for each output device to give an opportunity to add an
          additional final Node. Unlike EditNodeBuilder::insertOptionalLastStageNode this is
-diff '--color=auto' -ru a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h
---- a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-16 00:08:27.565941616 +0300
-+++ b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-16 01:21:57.726280181 +0300
-@@ -191,6 +191,16 @@
-                                                                              std::unique_ptr<tracktion::graph::Node>& /*input*/,
-                                                                              ProcessState&)  { return {}; }
+diff -ru a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h
+--- a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-16 02:52:01.928650763 +0300
++++ b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-16 02:52:01.919905175 +0300
+@@ -197,6 +197,16 @@
+     virtual std::unique_ptr<tracktion::graph::Node> createAudioClipSourceNode (AudioClipBase&, TimeRange /*played*/,
+                                                                                ProcessState&, bool /*forRendering*/)  { return {}; }
  
 +    /// Lets the behaviour have a monitored track heard sooner: its output isn't delayed to
 +    /// line up with the rest of the edit's latency compensation (and its own latency doesn't
@@ -110,9 +110,9 @@ diff '--color=auto' -ru a/modules/tracktion_engine/utilities/tracktion_EngineBeh
      /// If implemented, this lets the behaviour determine exactly which file a new
      /// auto recording for the given track should be made to.
      virtual juce::File getFileForNewAudioRecording (Track&, const juce::String& fileExtension)  { (void) fileExtension; return {}; }
-diff '--color=auto' -ru a/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h b/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h
---- a/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h	2026-10-16 00:08:27.560933749 +0300
-+++ b/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h	2026-10-16 01:21:57.720699967 +0300
+diff -ru a/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h b/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h
+--- a/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h	2026-10-16 02:52:01.928717688 +0300
++++ b/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h	2026-10-16 02:52:01.927398868 +0300
 @@ -15,8 +15,57 @@
  //==============================================================================
  //==============================================================================

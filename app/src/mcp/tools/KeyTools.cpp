@@ -2,6 +2,7 @@
 // find keys that fit the notes. set_key is one undo step.
 
 #include "mcp/tools/Tools.h"
+#include "model/Browser.h"
 
 #include <cmath>
 #include <fd/music/Scales.h>
@@ -24,6 +25,27 @@ Json keyJson(const std::optional<music::Key>& key)
             {"scale", key->scale},
             {"name", music::keyName(*key, Accidentals::Ascii)},
             {"notes", std::move(notes)}};
+}
+
+ClipKeyArg clipKeyArg(const Json& value)
+{
+    const Problem problem{"Give the clip's key as a root and a scale (\"A minor\", \"F#m\", \"D dorian\"), "
+                          "\"none\", or \"found\" for what's found in its file."};
+    if (!value.is_string())
+        throw problem;
+    const auto text = juce::String(value.get<std::string>()).trim();
+    if (text.equalsIgnoreCase("none"))
+        return {};
+    if (text.equalsIgnoreCase("found"))
+        return {.found = true};
+    if (const auto named = model::keyFromName(text.toStdString()))
+        return {.key = named};
+    // A root, then a scale's ID or name.
+    const auto root = music::parsePitchClass(text.upToFirstOccurrenceOf(" ", false, false).toStdString());
+    const auto* scale = music::findScale(text.fromFirstOccurrenceOf(" ", false, false).trim().toStdString());
+    if (!root || scale == nullptr || !text.containsChar(' '))
+        throw problem;
+    return {.key = music::Key{*root, std::string(scale->id)}};
 }
 
 Json keyResultSchema()
@@ -73,9 +95,9 @@ void addKeyTools(Registry& registry, ToolEnv& env)
         {"set_key", "Set the song's key",
          "Sets the song's key: a root and a scale (list_scales lists them), or none. One key for the whole "
          "song. It "
-         "describes the song: it moves no note and changes no sound, but the piano roll shows it and modules "
-         "that "
-         "follow the key play in it. One undo step.",
+         "describes the song: it moves no note, but the piano roll shows it, modules that follow the key "
+         "play "
+         "in it, and audio clips that follow it (set_audio's followKey) move into it. One undo step.",
          object({{"root",
                   {{"type", {"string", "integer"}},
                    {"description",
@@ -137,13 +159,13 @@ void addKeyTools(Registry& registry, ToolEnv& env)
 
     registry.tools.push_back(make(
         env,
-        {"detect_key", "Find the key from the notes",
-         "Up to three major or minor keys that fit the song's MIDI notes (or those of the clips given), best "
-         "first, each "
-         "with how well it fits (0 to 1). None when there are too few notes to judge (8 notes, 5 different "
-         "ones). It "
-         "only suggests: set_key sets one.",
-         object({{"clips", ids(IdKind::Clip, "MIDI clips to judge (default: every MIDI clip that plays)")}}),
+        {"detect_key", "Find the key from the notes and the audio",
+         "Up to three major or minor keys that fit the song's clips (or the clips given), best first, each "
+         "with how well it fits (0 to 1): MIDI clips' notes, and audio clips' keys (each found in its file "
+         "now if it wasn't: its metadata, its name, else its sound; a clip that follows the song's key "
+         "says nothing of its own). None when there are too few notes to judge (8 notes, 5 different ones) "
+         "and no audio clip has a key. It only suggests: set_key sets the song's, set_audio a clip's.",
+         object({{"clips", ids(IdKind::Clip, "Clips to judge (default: every clip that plays)")}}),
          result({{"keys", arrayOf(result({{"name", string("")}, {"fit", number("")}}), "Best first", 0)}},
                 {"keys"}),
          reading},
@@ -152,13 +174,14 @@ void addKeyTools(Registry& registry, ToolEnv& env)
             std::vector<std::uint64_t> clips;
             if (args.contains("clips"))
                 for (const auto& c : args["clips"].is_array() ? args["clips"] : Json::array({args["clips"]}))
-                {
-                    const auto info = clip(env, c);
-                    if (info.kind != model::ClipInfo::Kind::Midi)
-                        throw Problem{"Key detection reads MIDI clips; " + formatId(IdKind::Clip, info.id) +
-                                      " is audio."};
-                    clips.push_back(info.id);
-                }
+                    clips.push_back(clip(env, c).id);
+            // Audio clips' keys found now, where they weren't.
+            for (const auto& t : env.session.snapshot()->tracks)
+                for (const auto& c : t.clips)
+                    if (c.kind == model::ClipInfo::Kind::Audio &&
+                        (clips.empty() || std::find(clips.begin(), clips.end(), c.id) != clips.end()))
+                        (void)env.session.foundKey(c.id);
+            env.session.flushSnapshot();
             Json keys = Json::array();
             for (const auto& c : env.session.detectKeys(clips))
             {
@@ -168,7 +191,9 @@ void addKeyTools(Registry& registry, ToolEnv& env)
             }
             Json out{{"keys", keys}};
             if (keys.empty())
-                out["note"] = "Too few notes to judge: at least 8 notes, 5 of them different.";
+                out["note"] =
+                    "Too few notes to judge (at least 8 notes, 5 of them different), and no audio clip "
+                    "with a key.";
             return ToolResult::ok(out);
         }));
 }

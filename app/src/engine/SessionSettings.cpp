@@ -132,6 +132,8 @@ void Session::setExportDefaults(const model::ExportSettings& defaults)
 void applySettings(Session& session, const model::AppSettings& settings)
 {
     session.setRecordingFormat(settings.recording.format, settings.recording.bitDepth);
+    session.setWarpDefaults(settings.audioClips.loopsFollowTempo, settings.audioClips.recordingsFollowTempo,
+                            settings.audioClips.loopsFollowKey);
     // The Segno folder: its Unsaved and Presets (by default Documents/Segno; the presets' default
     // also honours SEGNO_PRESETS_FOLDER, the tests' own).
     const bool moved = !settings.library.folder.empty();

@@ -17,6 +17,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addReadTools(registry, env);
     addTransportTools(registry, env);
     addClipTools(registry, env);
+    addAudioTools(registry, env);
     addNoteTools(registry, env);
     addModuleTools(registry, env);
     addWavetableTools(registry, env);
@@ -485,6 +486,34 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
         j["source"] = c.sourcePath;
         j["sourceOffsetSeconds"] = roundTime(c.offset);
         j["sourceSeconds"] = roundTime(c.sourceLength);
+        // Its sound (audio-editor.md §6; set_audio, get_gain_line) and its file's format.
+        j["sound"] = {
+            {"gain", db(c.sound.gainDb <= model::minusInfinityDb ? -INFINITY : c.sound.gainDb)},
+            {"reverse", c.sound.reversed},
+            {"inverted", c.sound.inverted},
+            {"channels", juce::String(model::channelModeName(c.sound.channels)).toLowerCase().toStdString()},
+            {"gainLinePoints", c.sound.line.size()}};
+        j["file"] = {{"channels", c.fileChannels},
+                     {"sampleRate", c.fileSampleRate},
+                     {"bitDepth", c.fileBitDepth},
+                     {"seconds", roundTime(c.fileLength)}};
+        // Its warping and transposition (audio-editor.md §7, §8.1; set_audio, set_warp_markers).
+        Json markers = Json::array();
+        for (const auto& m : c.warp.markers)
+            markers.push_back({{"file", roundTime(m.file)}, {"beat", std::round(m.beat * 1e6) / 1e6}});
+        j["warp"] = {{"on", c.warp.on},
+                     {"mode", juce::String(model::warpModeName(c.warp.mode)).toLowerCase().toStdString()},
+                     {"tails", juce::String(model::tailsName(c.warp.tails)).toLowerCase().toStdString()},
+                     {"formants", c.warp.formants},
+                     {"tempo", std::round(c.warp.tempo * 1e4) / 1e4},
+                     {"sensitivity", std::round(c.warp.sensitivity * 1e3) / 1e3},
+                     {"markers", std::move(markers)}};
+        j["pitch"] = {{"transpose", c.pitch.transpose}, {"fine", c.pitch.fine}};
+        // Its key (§8.2, §8.3; set_audio, detect_key): set, or found in its file (null while it's
+        // being found, or with no clear key), and Follow key with the semitones it adds.
+        j["key"] = keyJson(c.key);
+        j["keyFound"] = c.keyFound;
+        j["followKey"] = {{"on", c.followKey}, {"steps", c.followSteps}};
     }
     else
     {

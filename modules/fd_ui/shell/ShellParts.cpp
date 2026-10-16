@@ -251,6 +251,14 @@ void PanelHeader::setDropOrder(juce::Component& option, int order)
     resized();
 }
 
+void PanelHeader::setCommandGroup(juce::Component& command)
+{
+    for (auto& c : commands_)
+        if (c.component == &command)
+            c.groupStart = true;
+    resized();
+}
+
 bool PanelHeader::isDropped(const juce::Component& option) const
 {
     for (const auto& o : options_)
@@ -286,31 +294,29 @@ void PanelHeader::resized()
         int commandWidth = 0, commandCount = 0;
         for (const auto& c : commands_)
             if (c.component->isVisible() && !c.dropped)
-                commandWidth += c.shownWidth() + (commandCount++ > 0 ? s.itemGap : 0);
+                commandWidth +=
+                    c.shownWidth() + (commandCount++ > 0 ? (c.groupStart ? s.groupGap : s.itemGap) : 0);
         if (commandCount > 0)
             width += commandWidth + (items > 0 ? s.groupGap : s.padding / 2);
         return width;
     };
     while (needed() > getWidth() - left - s.groupGap)
     {
-        // The lowest drop order among the options and commands still shown.
-        bool* next = nullptr;
+        // The lowest drop order among the options and commands still shown: everything with it
+        // gives way together (a pair such as ×2 and ÷2 never shows half).
         int lowest = 0;
-        for (auto& o : options_)
-            if (o.drop > 0 && !o.dropped && o.component->isVisible() && (next == nullptr || o.drop < lowest))
-            {
-                next = &o.dropped;
+        for (const auto& o : options_)
+            if (o.drop > 0 && !o.dropped && o.component->isVisible() && (lowest == 0 || o.drop < lowest))
                 lowest = o.drop;
-            }
-        for (auto& c : commands_)
-            if (c.drop > 0 && !c.dropped && c.component->isVisible() && (next == nullptr || c.drop < lowest))
-            {
-                next = &c.dropped;
+        for (const auto& c : commands_)
+            if (c.drop > 0 && !c.dropped && c.component->isVisible() && (lowest == 0 || c.drop < lowest))
                 lowest = c.drop;
-            }
-        if (next == nullptr)
+        if (lowest == 0)
             break;
-        *next = true;
+        for (auto& o : options_)
+            o.dropped = o.dropped || (o.drop == lowest && o.component->isVisible());
+        for (auto& c : commands_)
+            c.dropped = c.dropped || (c.drop == lowest && c.component->isVisible());
     }
 
     // Right to left, `itemGap` apart. The last one's label ends at the padding, where a caption
@@ -333,6 +339,7 @@ void PanelHeader::resized()
     if (commands)
     {
         right = !options ? getWidth() - s.padding : right + s.itemGap - s.groupGap;
+        const Command* placed = nullptr; // the one placed last: right of the next
         for (auto it = commands_.rbegin(); it != commands_.rend(); ++it)
             if (it->dropped)
             {
@@ -341,12 +348,16 @@ void PanelHeader::resized()
             }
             else if (it->component->isVisible())
             {
+                if (placed != nullptr) // the gap before the one to its right: a group's, or an item's
+                    right -= placed->groupStart ? s.groupGap : s.itemGap;
                 const int w = it->shownWidth(),
                           h = it->component->getHeight() > 0 ? it->component->getHeight() : s.rowHeight;
                 it->width = w;
                 it->component->setBounds(right - w, (getHeight() - h) / 2, w, h);
-                right -= w + s.itemGap;
+                right -= w;
+                placed = &*it;
             }
+        right -= s.itemGap;
     }
     optionsLeft_ = !options && !commands ? getWidth() : right;
     // The tabs' text starts at the padding, where a title's would.
@@ -367,7 +378,8 @@ void PanelHeader::paint(juce::Graphics& g)
     else
         r.setLeft(tabs_.getRight());
     // The caption, a hint, shows only where it fits beside the context, a group apart; the context
-    // takes the rest, cut short with an ellipsis.
+    // takes the rest, cut short with an ellipsis, but never to the ellipsis alone: its first few
+    // letters, or nothing.
     auto rest = r.withTrimmedLeft(t.shell.padding);
     const auto width = [](const juce::Font& f, const juce::String& text)
     {
@@ -384,7 +396,8 @@ void PanelHeader::paint(juce::Graphics& g)
         g.drawText(caption_, rest.removeFromRight(captionWidth), juce::Justification::centredRight, false);
         rest.removeFromRight(t.shell.groupGap);
     }
-    if (context_.isNotEmpty() && rest.getWidth() > 0)
+    const int least = std::min(contextWidth, width(font(TextStyle::Name), context_.substring(0, 3) + "..."));
+    if (context_.isNotEmpty() && rest.getWidth() >= least)
     {
         g.setColour(t.textSecondary);
         g.setFont(font(TextStyle::Name));

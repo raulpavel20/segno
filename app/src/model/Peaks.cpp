@@ -35,8 +35,10 @@ std::size_t Peaks::bytes() const noexcept
     return n;
 }
 
-PeakBuilder::PeakBuilder(double sampleRate, int numChannels)
-    : peaks_(std::make_shared<Peaks>()), channels_(std::max(1, numChannels))
+PeakBuilder::PeakBuilder(double sampleRate, int numChannels, int channel)
+    : peaks_(std::make_shared<Peaks>()), channels_(std::max(1, numChannels)),
+      first_(channel >= 0 ? std::min(channel, channels_ - 1) : 0),
+      last_(channel >= 0 ? first_ + 1 : channels_)
 {
     peaks_->sampleRate = sampleRate;
     peaks_->levels.push_back({.binFrames = Peaks::baseBin});
@@ -47,7 +49,7 @@ void PeakBuilder::add(const float* interleaved, int frames)
     auto& l = peaks_->levels[0];
     for (int i = 0; i < frames; ++i)
     {
-        for (int c = 0; c < channels_; ++c)
+        for (int c = first_; c < last_; ++c)
         {
             const float v = interleaved[i * channels_ + c];
             lo_ = std::min(lo_, v);
@@ -102,5 +104,49 @@ std::shared_ptr<const Peaks> buildPeaks(const std::string& path, std::string* er
     if (!info || !builder)
         return nullptr;
     return builder->finish();
+}
+
+std::shared_ptr<const Peaks> meanPeaks(const Peaks& a, const Peaks& b)
+{
+    auto out = std::make_shared<Peaks>();
+    out->sampleRate = a.sampleRate;
+    out->frames = std::min(a.frames, b.frames);
+    for (size_t l = 0; l < std::min(a.levels.size(), b.levels.size()); ++l)
+    {
+        const auto& la = a.levels[l];
+        const auto& lb = b.levels[l];
+        Peaks::Level level{.binFrames = la.binFrames};
+        const auto n = std::min(la.min.size(), lb.min.size());
+        for (size_t i = 0; i < n; ++i)
+        {
+            level.min.push_back(0.5f * (la.min[i] + lb.min[i]));
+            level.max.push_back(0.5f * (la.max[i] + lb.max[i]));
+        }
+        out->levels.push_back(std::move(level));
+    }
+    return out;
+}
+
+std::vector<std::shared_ptr<const Peaks>> buildChannelPeaks(const std::string& path, std::string* error)
+{
+    std::vector<PeakBuilder> builders;
+    const auto info = audiofile::stream(
+        path, 65536,
+        [&](const audiofile::StreamInfo& format, const float* interleaved, int frames)
+        {
+            if (builders.empty())
+                for (int c = 0; c < std::max(1, format.numChannels); ++c)
+                    builders.emplace_back(format.sampleRate, format.numChannels, c);
+            for (auto& b : builders)
+                b.add(interleaved, frames);
+            return true;
+        },
+        error);
+    std::vector<std::shared_ptr<const Peaks>> out;
+    if (!info)
+        return out;
+    for (auto& b : builders)
+        out.push_back(b.finish());
+    return out;
 }
 } // namespace fd::model

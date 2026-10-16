@@ -69,6 +69,7 @@ void deriveRoles(Theme& t)
     r.automation = t.effectStart;
     r.midiMap = hex(0xEE6FC8); // magenta: apart from every theme's accents (amber, blue, lime)
     r.midiMapFill = r.midiMap.withAlpha(2.0f * r.fillAlpha);
+    r.warpMarkerLine = t.textPrimary.withAlpha(0.5f);
     r.shadow = juce::Colours::black.withAlpha(0.5f);
 }
 

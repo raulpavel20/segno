@@ -83,6 +83,9 @@ public:
     void addCommand(juce::Component& command);
     /// Takes a command away again (a module's editor closing, ADR 0053).
     void removeCommand(juce::Component& command);
+    /// Makes a command the first of a group: a group gap before it rather than an item gap (the
+    /// audio editor's bar, its tools in groups: audio-editor.md §4).
+    void setCommandGroup(juce::Component& command);
     /// At narrow widths, options and commands with a drop order give way, the lowest first, so the
     /// rest never reach the tabs (the clip view's Others, then the voicing, then Draw, then its
     /// Generate and Transform: piano-roll.md §4, §25). Each one dropped is still in the menu bar.
@@ -110,7 +113,8 @@ private:
         juce::Component* component;
         int drop = 0;
         bool dropped = false;
-        int width = 0; // its owner's size, kept while it gives way
+        int width = 0;           // its owner's size, kept while it gives way
+        bool groupStart = false; // a group gap before it (setCommandGroup)
 
         [[nodiscard]] int shownWidth() const
         {

@@ -13,8 +13,9 @@ using Json = nlohmann::json;
 
 /// The keys this build reads; the rest of the file is kept as it is.
 constexpr const char* kKnown[] = {"segnoSettings", "recentProjects", "display",    "midi",
-                                  "recording",     "library",        "plugins",    "export",
-                                  "keys",          "browser",        "assistants", "controllers"};
+                                  "audioClips",    "recording",      "library",    "plugins",
+                                  "export",        "keys",           "browser",    "assistants",
+                                  "controllers"};
 
 std::vector<std::string> strings(const Json& j, const char* key)
 {
@@ -108,6 +109,9 @@ std::string toJson(const AppSettings& s)
     j["recentProjects"] = s.recent.paths;
     j["display"] = {{"interfaceSize", s.display.interfaceSize}, {"systemTitleBar", s.display.systemTitleBar}};
     j["midi"] = {{"computerKeyboard", s.midi.computerKeyboard}};
+    j["audioClips"] = {{"loopsFollowTempo", s.audioClips.loopsFollowTempo},
+                       {"recordingsFollowTempo", s.audioClips.recordingsFollowTempo},
+                       {"loopsFollowKey", s.audioClips.loopsFollowKey}};
     j["recording"] = {{"format", formatKey(s.recording.format)}, {"bitDepth", s.recording.bitDepth}};
     j["library"] = {{"location", s.library.location},
                     {"folder", s.library.folder},
@@ -156,6 +160,12 @@ AppSettings appSettingsFromJson(const std::string& json)
     }
     if (const auto it = j.find("midi"); it != j.end() && it->is_object())
         read(*it, "computerKeyboard", s.midi.computerKeyboard);
+    if (const auto it = j.find("audioClips"); it != j.end() && it->is_object())
+    {
+        read(*it, "loopsFollowTempo", s.audioClips.loopsFollowTempo);
+        read(*it, "recordingsFollowTempo", s.audioClips.recordingsFollowTempo);
+        read(*it, "loopsFollowKey", s.audioClips.loopsFollowKey);
+    }
     if (const auto it = j.find("recording"); it != j.end() && it->is_object())
     {
         std::string format;

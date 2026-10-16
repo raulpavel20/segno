@@ -133,10 +133,9 @@ void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
         g.drawRoundedRectangle(bounds.reduced(0.5f), t.radiusControl, 1.0f);
     }
 
-    // One that can't be used now (Use before there's a result): its label dimmed.
-    const auto ink = !isEnabled() ? t.dimmed(on ? t.onActive : t.textSecondary)
-                     : on         ? t.onActive
-                                  : (highlighted ? t.textPrimary : t.textSecondary);
+    // Disabled: tertiary ink, as a Tile's, its tooltip saying why (ui-foundations.md).
+    const auto ink =
+        on ? t.onActive : (!isEnabled() ? t.textTertiary : (highlighted ? t.textPrimary : t.textSecondary));
     g.setColour(ink);
     g.setFont(font(TextStyle::Control));
     if (icon_)

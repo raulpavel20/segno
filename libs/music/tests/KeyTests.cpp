@@ -209,3 +209,17 @@ TEST_CASE("The key's nearest note", "[fast]")
     CHECK(nearestInKey(key(0, "major-pentatonic"), 66, false) == 67);
     CHECK(nearestInKey(Key{0, "no-such-scale"}, 61) == 61);
 }
+
+TEST_CASE("Follow key: the smallest step onto the song's key; a relative doesn't move", "[fast]")
+{
+    CHECK(stepsToKey(Key{0, "major"}, Key{0, "major"}) == 0);
+    CHECK(stepsToKey(Key{9, "minor"}, Key{0, "major"}) == 0); // A minor in C major: the same notes
+    CHECK(stepsToKey(Key{2, "major"}, Key{0, "major"}) == -2);
+    CHECK(stepsToKey(Key{10, "major"}, Key{0, "major"}) == 2); // B♭ up to C, not down 10
+    CHECK(stepsToKey(Key{0, "major"}, Key{0, "minor"}) == 3);  // C major in C minor: E♭ major's notes
+    CHECK(stepsToKey(Key{4, "minor"}, Key{0, "major"}) == 5);  // E minor to A minor
+    CHECK(stepsToKey(Key{6, "major"}, Key{0, "major"}) == -6); // a tritone either way: down
+    CHECK(stepsToKey(Key{0, "major"}, Key{2, "dorian"}) == 0); // D Dorian has C major's notes
+    CHECK(stepsToKey(Key{0, "major"}, Key{0, "major-pentatonic"}) == 0);
+    CHECK(stepsToKey(Key{0, "major"}, Key{0, "no-such-scale"}) == 0);
+}

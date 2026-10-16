@@ -717,12 +717,34 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "view.clipOthers", "view.toolsTransform", "view.toolsGenerate", "view.drawNote", "view.drawChord",
         "view.drawChordUnder", "view.drawTriads", "view.drawSevenths", "view.drawNinths", "view.drawSus2",
         "view.drawSus4", "view.drawAdd9", "view.voicingSmooth", "view.voicingClose", "view.voicingOpen",
-        "view.voicingDrop2", "view.voicingDrop3", "view.voicingSpread"};
+        "view.voicingDrop2", "view.voicingDrop3", "view.voicingSpread",
+        // The Audio menu (audio-editor.md §13): on the editor's bar, its right-click and the inspector.
+        "audio.gainUp", "audio.gainDown", "audio.silence", "audio.normalise", "audio.reverse",
+        "audio.polarity", "audio.channels.stereo", "audio.channels.left", "audio.channels.right",
+        "audio.channels.mono", "audio.channels.swapped", "audio.crop", "audio.fadeRange", "audio.loopRange",
+        // The waveform's height: its level column dragged, double-clicked (§4).
+        "view.waveformTaller", "view.waveformShorter", "view.waveformReset",
+        // Warping (§7, §13): Warp, its mode, the tempo and ×2 ÷2 are on the bar and in the inspector;
+        // the markers' commands on their right-click; Detect… on the bar's Tempo.
+        "audio.warp", "audio.warpMode.beats", "audio.warpMode.tones", "audio.warpMode.repitch",
+        "audio.tempoDouble", "audio.tempoHalf", "audio.detectTempo", "audio.songTempo",
+        "audio.markersAtTransients", "audio.warpFromHere", "audio.setDownbeat", "audio.removeMarkers",
+        // Follow key and Slice… (§8.3, §9): Follow beside the key in the inspector, Slice on the bar.
+        "audio.followKey", "audio.slice"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
         CHECK_FALSE(a.name.isEmpty());
         CHECK(a.perform != nullptr);
+        // An action that shares another's key (the Audio menu's Quantise and Transpose: the key
+        // goes to whichever clip the clip view shows) shows that key, and has none of its own.
+        if (!a.keysFrom.empty())
+        {
+            CHECK(a.keys.empty());
+            CHECK(actions.shortcut(a.id) == actions.shortcut(a.keysFrom));
+            CHECK(actions.shortcut(a.id).isNotEmpty());
+            continue;
+        }
         CHECK(a.keys.empty() == menuOnly.contains(a.id));
     }
 
@@ -998,7 +1020,8 @@ TEST_CASE("piano roll: the clip's loop brace drawn, clicked and moved; the view 
         dumpPng(dump, "piano-roll-loop@2x.png", roll.createComponentSnapshot(roll.getLocalBounds(), true, 2.0f));
 }
 
-TEST_CASE("audio clip view: a double-click opens an audio clip there; its loop brace drawn and clicked; the playhead wraps (C10)",
+TEST_CASE("audio clip view: a click opens an audio clip there; its loop brace drawn and clicked; the "
+          "playhead wraps (C10, P6a)",
           "[integration]")
 {
     ShellFixture f;
@@ -1030,14 +1053,12 @@ TEST_CASE("audio clip view: a double-click opens an audio clip there; its loop b
         juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     };
 
-    // Selected, it shows its modules; a double-click opens it in the clip view.
+    // Selected, it opens in the clip view, as a MIDI clip does (audio-editor.md §4).
     const auto& tl = view.timeline();
     const juce::Point<float> body(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
                                       static_cast<float>(tl.xForTime(1.0)),
                                   static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 40.0f);
     click(view, body);
-    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Devices);
-    click(view, body, 2);
     CHECK(detail.mode() == fd::app::DetailPanel::Mode::Clip);
     REQUIRE(detail.showsAudioClip());
     CHECK_FALSE(detail.showsPianoRoll());
@@ -2829,7 +2850,9 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     for (auto* field : findAll<fd::ui::NumberField>(f.shell->inspector()))
         if (field->isVisible() && f.shell->inspector().isParentOf(field))
             fields.push_back(field);
-    REQUIRE(fields.size() == 4); // fade in, fade out, then their curves (menu-bar.md §15)
+    // Fade in, fade out, their curves (menu-bar.md §15), then AUDIO's gain, transpose, fine and
+    // sensitivity.
+    REQUIRE(fields.size() == 8);
     fields[0]->setValue(25.0, juce::sendNotification);
     CHECK(clipOf(b).fadeIn.length == Catch::Approx(0.025));
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
@@ -2840,6 +2863,8 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
         f.shell->setSize(1024, 800);
         juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
         dumpPng(dump, "fades-compact.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+        f.shell->setSize(1800, 1000); // back, for the checks after it
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     }
 
     // Edge fades toggle from the palette's action, one undo step.
@@ -3107,8 +3132,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     auto& s = *f.session;
     const auto& actions = f.shell->actions();
     auto& menus = f.shell->menus();
-    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Notes", "Song",
-                                                       "Module", "Transport", "View", "Options", "Help"});
+    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Notes", "Audio",
+                                                       "Song", "Module", "Transport", "View", "Options",
+                                                       "Help"});
 
     // ADR 0040: every action is in the menu bar exactly once, and every item is an action (the
     // assistants' only with a server; the fixture has none).
@@ -3146,9 +3172,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     REQUIRE(named != nullptr);
     CHECK(named->isEnabled);
     CHECK(actions.tooltip("edit.undo").startsWith("Undo Add track ("));
-    CHECK_FALSE(findItem(menus.menu(7), "Loop")->isTicked);
+    CHECK_FALSE(findItem(menus.menu(8), "Loop")->isTicked);
     actions.perform("transport.loop");
-    CHECK(findItem(menus.menu(7), "Loop")->isTicked);
+    CHECK(findItem(menus.menu(8), "Loop")->isTicked);
     actions.perform("transport.loop");
 
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: each menu and submenu
@@ -3168,9 +3194,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->exportPanel().isOpen());
     f.shell->exportPanel().close();
     // The lists the Record button's menu shows, in Transport too: one builder.
-    CHECK(invoke(menus.menu(7), "2 bars", "Count-in length"));
+    CHECK(invoke(menus.menu(8), "2 bars", "Count-in length"));
     CHECK(s.countIn() == fd::model::CountIn::TwoBars);
-    CHECK(invoke(menus.menu(7), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
+    CHECK(invoke(menus.menu(8), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
     CHECK(s.midiOverdub());
     // Back as the other tests expect them: the count-in is kept in the engine's settings file.
     s.setCountIn(fd::model::CountIn::Off);
@@ -3182,7 +3208,7 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK_FALSE(actions.isEnabled("take.copyToTrack"));
     actions.perform("midi.computerKeyboard");
     REQUIRE(actions.isEnabled("midi.octaveUp"));
-    CHECK(invoke(menus.menu(9), "Octave up", "Computer keyboard"));
+    CHECK(invoke(menus.menu(10), "Octave up", "Computer keyboard"));
     CHECK(f.shell->lastWarning().contains("C4"));
     // A key held when the keys stop reaching the shell (a text field elsewhere, another window,
     // the app in the background) ends its note: its release would never arrive.
@@ -3202,15 +3228,17 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::F10Key)));
     CHECK(opened == 0);
     CHECK(f.shell->keyPressed(juce::KeyPress('d', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 6); // Module, after Song
+    CHECK(opened == 7); // Module, after Song
     CHECK(f.shell->keyPressed(juce::KeyPress('n', juce::ModifierKeys::altModifier, 0)));
     CHECK(opened == 4); // Notes (ADR 0058)
+    CHECK(f.shell->keyPressed(juce::KeyPress('a', juce::ModifierKeys::altModifier, 0)));
+    CHECK(opened == 5); // Audio (ADR 0063)
     CHECK(f.shell->keyPressed(juce::KeyPress('g', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 5); // Song (Alt+S solos)
+    CHECK(opened == 6); // Song (Alt+S solos)
     CHECK(f.shell->keyPressed(juce::KeyPress('p', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 7);
+    CHECK(opened == 8);
     CHECK(f.shell->keyPressed(juce::KeyPress('h', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 10);
+    CHECK(opened == 11);
     opened = -1;
     f.shell->keyPressed(juce::KeyPress('r', juce::ModifierKeys::altModifier, 0));
     CHECK(opened == -1);
@@ -3219,7 +3247,7 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->projectName() == "Untitled");
 
     // Help > About Segno: the licence notice, inside the window, nothing touching.
-    CHECK(invoke(menus.menu(10), "About Segno"));
+    CHECK(invoke(menus.menu(11), "About Segno"));
     auto& about = f.shell->about();
     REQUIRE(about.isOpen());
     CHECK(about.paragraphs().joinIntoString(" ").contains("GNU Affero General Public License"));
@@ -3463,7 +3491,8 @@ TEST_CASE("inspector: a clip's fade curves and the crossfades at its ends, set b
     // The first: its fade-in's curve, straightened by typing 0; then its crossfade out removed.
     select(ids[0]);
     const auto fields = shown(static_cast<fd::ui::NumberField*>(nullptr));
-    REQUIRE(fields.size() == 4); // fade in, fade out, then their curves
+    // Fade in, fade out, their curves, then AUDIO's gain, transpose, fine and sensitivity.
+    REQUIRE(fields.size() == 8);
     CHECK(fields[2]->getValue() == Catch::Approx(40.0));
     CHECK_FALSE(fields[3]->isEnabled()); // no fade-out: no curve to set
     fields[2]->setValue(0.0, juce::sendNotificationSync);
@@ -3519,11 +3548,10 @@ TEST_CASE("inspector: a clip's loop: on, its start and length dragged or typed; 
         f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {id}, t0, t0));
         juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     };
-    auto loopToggle = [&]() -> fd::ui::Toggle* {
-        for (auto* t : findAll<fd::ui::Toggle>(inspector))
-            if (t->isVisible() && t->getButtonText() == "On")
-                return t;
-        return nullptr;
+    auto loopToggle = [&]() -> fd::ui::Toggle*
+    {
+        auto& t = inspector.clipLoop();
+        return t.isVisible() ? &t : nullptr;
     };
     auto field = [&](const char* tip) -> fd::ui::NumberField* {
         for (auto* n : findAll<fd::ui::NumberField>(inspector))
@@ -3578,16 +3606,15 @@ TEST_CASE("inspector: a clip's loop: on, its start and length dragged or typed; 
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "inspector-loop@2x.png", inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
 
-    // Off again; then a clip stretched to the tempo (a project from before) can't loop: dimmed, saying why.
+    // Off again; a clip that follows the tempo (warped, ADR 0063) loops as any other.
     loopToggle()->triggerClick();
     juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     CHECK_FALSE(clip().loop.on());
-    dynamic_cast<tracktion::AudioClipBase&>(*s.impl().clip(id)).setAutoTempo(true);
+    REQUIRE(s.setWarp({id}, {.on = true}));
     s.updateSnapshotNow();
     select();
     REQUIRE(loopToggle() != nullptr);
-    CHECK_FALSE(loopToggle()->isEnabled());
-    CHECK(loopToggle()->getTooltip().contains("tempo"));
+    CHECK(loopToggle()->isEnabled());
     root.deleteRecursively();
 }
 
@@ -3683,10 +3710,9 @@ TEST_CASE("snap and quantise where they're used; the take's commands in its insp
     detail.frame(0.0);
     fd::ui::Toggle* quantise = nullptr;
     for (auto* t : findAll<fd::ui::Toggle>(detail))
-        if (t->getButtonText() == "Quantise")
+        if (t->getButtonText() == "Quantise" && t->isVisible()) // the notes' (the audio's shows for audio)
             quantise = t;
     REQUIRE(quantise != nullptr);
-    CHECK(quantise->isVisible());
     CHECK(quantise->getTooltip().contains("Ctrl+U"));
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
     {

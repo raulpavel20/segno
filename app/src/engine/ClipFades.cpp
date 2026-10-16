@@ -1,11 +1,21 @@
 #include "engine/ClipFades.h"
+
 #include "engine/SessionImpl.h"
+#include "engine/WarpPlayer.h"
 
 #include <cmath>
 
 namespace fd::engine
 {
 namespace te = tracktion;
+
+juce::File forwardFileOf(const te::AudioClipBase& clip)
+{
+    auto& c = const_cast<te::AudioClipBase&>(clip);
+    return clip.state.hasProperty(soundIds::forward)
+               ? te::SourceFileReference::findFileFromString(c.edit, clip.state[soundIds::forward].toString())
+               : c.getOriginalFile();
+}
 
 model::FadeClip fadeClipOf(te::AudioClipBase& clip)
 {
@@ -15,13 +25,15 @@ model::FadeClip fadeClipOf(te::AudioClipBase& clip)
     c.start = pos.getStart().inSeconds();
     c.length = pos.getLength().inSeconds();
     c.offset = pos.getOffset().inSeconds();
-    c.sourceLength = clip.getSourceLength().inSeconds();
+    c.map = contentMapOf(clip); // P6b: a warped clip's content counts the song's time
+    c.sourceLength = c.map.fileLength > 0.0 ? c.map.contentLength() : 0.0;
     c.source = clip.getOriginalFile().getFullPathName().toStdString();
     c.muted = clip.isMuted();
     c.loop = loopOf(clip.state, clip.edit.tempoSequence); // ADR 0048
     // A looped clip plays past its edges too: its neighbouring laps (the engine wraps them).
-    c.canExtend = !clip.getAutoTempo() && !clip.getAutoPitch() && std::abs(clip.getSpeedRatio() - 1.0) < 1e-9 &&
-                  !clip.usesTimeStretchedProxy();
+    c.canExtend =
+        !clip.getAutoPitch() && std::abs(clip.getSpeedRatio() - 1.0) < 1e-9 && !clip.usesTimeStretchedProxy();
+    c.reversed = clip.state.hasProperty(soundIds::forward);
     const auto& s = clip.state;
     c.in = {clip.getFadeIn().inSeconds(), static_cast<float>(s.getProperty(fadeIds::inBend, 0.0f))};
     c.out = {clip.getFadeOut().inSeconds(), static_cast<float>(s.getProperty(fadeIds::outBend, 0.0f))};
@@ -55,6 +67,49 @@ std::pair<std::vector<model::FadeClip>, size_t> fadeNeighboursOf(te::AudioClipBa
     return {std::move(clips), prev != nullptr ? 1u : 0u};
 }
 
+model::AudioSound soundOf(const te::AudioClipBase& clip)
+{
+    const auto& s = clip.state;
+    model::AudioSound sound;
+    sound.gainDb = std::clamp(static_cast<float>(s.getProperty(soundIds::gain, 0.0f)), model::minusInfinityDb,
+                              model::kMaxClipGainDb);
+    sound.reversed = s.hasProperty(soundIds::forward);
+    sound.inverted = s.getProperty(soundIds::inverted, false);
+    sound.channels = static_cast<model::ChannelMode>(
+        std::clamp(static_cast<int>(s.getProperty(soundIds::channels, 0)), 0, 4));
+    for (const auto& p : s.getChildWithName(soundIds::line))
+        if (p.hasType(soundIds::point))
+            sound.line.push_back({static_cast<double>(p[soundIds::time]),
+                                  static_cast<float>(p[soundIds::value]),
+                                  static_cast<float>(p[soundIds::curve])});
+    std::stable_sort(sound.line.begin(), sound.line.end(),
+                     [](const auto& a, const auto& b) { return a.time < b.time; });
+    return sound;
+}
+
+void writeGainLine(juce::ValueTree& clip, const model::AutomationPoints& line, juce::UndoManager* um)
+{
+    if (auto old = clip.getChildWithName(soundIds::line); old.isValid())
+        clip.removeChild(old, um);
+    if (line.empty())
+        return;
+    juce::ValueTree tree(soundIds::line);
+    for (const auto& p : line)
+        tree.appendChild(juce::ValueTree(soundIds::point, {{soundIds::time, p.time},
+                                                           {soundIds::value, std::clamp(p.value, 0.0f, 1.0f)},
+                                                           {soundIds::curve, p.curve}}),
+                         nullptr);
+    clip.appendChild(tree, um);
+}
+
+bool affectsSound(const juce::ValueTree& tree, const juce::Identifier& id)
+{
+    if (tree.hasType(te::IDs::AUDIOCLIP))
+        return id == soundIds::gain || id == soundIds::inverted || id == soundIds::channels ||
+               id == soundIds::forward;
+    return tree.hasType(soundIds::point) || tree.hasType(soundIds::line);
+}
+
 bool edgeFadesOn(const te::Edit& edit)
 {
     return edit.state.getProperty(fadeIds::edgeFades, true);
@@ -68,9 +123,11 @@ model::ClipPlayback playbackOf(te::AudioClipBase& clip)
 
 // ---- the node ------------------------------------------------------------------------------
 
-ClipFadeNode::ClipFadeNode(std::unique_ptr<te::graph::Node> input, te::ProcessState& state, model::FadeClip clip,
-                           model::ClipPlayback playback)
-    : te::TracktionEngineNode(state), input_(std::move(input)), clip_(std::move(clip)), playback_(playback)
+ClipFadeNode::ClipFadeNode(std::unique_ptr<te::graph::Node> input, te::ProcessState& state,
+                           model::FadeClip clip, model::ClipPlayback playback, model::AudioSound sound)
+    : te::TracktionEngineNode(state), input_(std::move(input)), clip_(std::move(clip)), playback_(playback),
+      sound_(std::move(sound)), gain_(model::soundGainAt({.gainDb = sound_.gainDb}, 0.0)),
+      neutral_(sound_.neutral())
 {
     setOptimisations({te::graph::ClearBuffers::no, te::graph::AllocateAudioBuffer::yes});
 }
@@ -106,13 +163,13 @@ void ClipFadeNode::process(ProcessContext& pc)
         setAudioOutput(input_.get(), source.audio);
         return;
     }
-    // Wholly inside what the clip plays and clear of its ramps: as it is.
+    // Wholly inside what the clip plays, clear of its ramps, and its sound as recorded: as it is.
     const double from = range.getStart().inSeconds(), to = range.getEnd().inSeconds();
     const double start = clip_.start - playback_.extendStart, end = clip_.end() + playback_.extendEnd;
     const bool inRamp = playback_.in.kind != model::Ramp::Kind::None && from < start + playback_.in.length;
     const bool outRamp = playback_.out.kind != model::Ramp::Kind::None && to > end - playback_.out.length;
     const bool seamRamp = model::seamRampBetween(playback_.seams, from, to);
-    if (from >= start && to <= end && !inRamp && !outRamp && !seamRamp)
+    if (from >= start && to <= end && !inRamp && !outRamp && !seamRamp && neutral_)
     {
         setAudioOutput(input_.get(), source.audio);
         return;
@@ -121,9 +178,20 @@ void ClipFadeNode::process(ProcessContext& pc)
     te::graph::copyIfNotAliased(dest, source.audio);
     const auto frames = dest.getNumFrames(), channels = dest.getNumChannels();
     const double step = (to - from) / static_cast<double>(frames);
+    const bool line = !sound_.line.empty();
+    const float sign = sound_.inverted ? -1.0f : 1.0f;
+    const bool pair = channels >= 2 && sound_.channels != model::ChannelMode::Stereo;
     for (choc::buffer::FrameCount i = 0; i < frames; ++i)
     {
-        const float gain = model::playbackGain(clip_, playback_, from + step * static_cast<double>(i));
+        const double t = from + step * static_cast<double>(i);
+        float gain = model::playbackGain(clip_, playback_, t) * gain_ * sign;
+        if (line)
+        {
+            const double content = model::contentAt(clip_.start, clip_.offset, clip_.loop, t);
+            gain *= model::lineGainAt(sound_.line, clip_.map.fileAt(content));
+        }
+        if (pair)
+            model::applyChannels(sound_.channels, dest.getSample(0, i), dest.getSample(1, i));
         if (gain == 1.0f)
             continue;
         for (choc::buffer::ChannelCount c = 0; c < channels; ++c)

@@ -382,10 +382,6 @@ TEST_CASE("a looped clip's edges go anywhere; the upper edge loops a clip; a sea
     e = dragClips(s, {3}, {.kind = DragKind::LoopExtend, .anchor = 3, .deltaSeconds = 1.0}, noSnap);
     CHECK_FALSE(e[0].loop);
     CHECK(e[0].length == Approx(3.0));
-    s.tracks[0].clips[1].synced = true;
-    e = dragClips(s, {2}, {.kind = DragKind::LoopExtend, .anchor = 2, .deltaSeconds = 9.0}, noSnap);
-    CHECK_FALSE(e[0].loop);
-    CHECK(e[0].length == Approx(3.0));
 
     // Clip 3 extended to 8 s: its second seam (at 5 s) dragged to 6 s gives 2.5 s laps; snapped, the
     // first seam lands on the grid (whole seconds here).

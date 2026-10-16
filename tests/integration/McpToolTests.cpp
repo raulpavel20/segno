@@ -58,6 +58,8 @@ struct Daw
         session->setCountIn(fd::model::CountIn::Off);
         folder = folderName.getFile();
         REQUIRE(folder.createDirectory());
+        // What an unsaved project writes (recordings, bounces, reversed copies) stays here too.
+        session->setUnsavedRoot(folder.getChildFile("Unsaved"));
         server = std::make_unique<fd::mcp::McpServer>(*session, folder, "test");
         REQUIRE(server->start(0));
     }
@@ -252,7 +254,17 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_route",
                              "remove_route",
                              "keep_roll",
-                             "set_lfo_curve"})
+                             "set_lfo_curve",
+
+                             "set_audio",
+                             "get_gain_line",
+                             "set_gain_line",
+                             "edit_audio_range",
+                             "list_audio_tools",
+                             "transform_audio",
+                             "set_warp_markers",
+                             "get_transients",
+                             "detect_tempo"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -734,17 +746,6 @@ TEST_CASE("mcp tools: clip loops: loop what's shown, set the loop, extend past t
     CHECK(written["clip"]["loop"]["length"] == Approx(8.0)); // to the end of the next bar
     CHECK(written["clip"]["length"] == Approx(8.0));          // the clip as long as it was
     CHECK(written["lengthened"] == false);
-
-    // An audio clip the engine stretches to the tempo (a project from before) can't loop: the call
-    // says why and changes nothing, not even the clips that could loop.
-    const auto synced = daw.call("insert_audio_file", {{"track", t0}, {"start", "20.1.1"}, {"path", wav.getFile().getFullPathName().toStdString()}})["clip"];
-    const auto syncedId = synced["id"].get<std::string>();
-    auto* engineClip = dynamic_cast<tracktion::AudioClipBase*>(daw.session->impl().clip(std::stoull(syncedId.substr(2))));
-    REQUIRE(engineClip != nullptr);
-    engineClip->setAutoTempo(true);
-    daw.session->flushSnapshot();
-    CHECK(daw.fails("loop_clips", {{"clips", {audioId, syncedId}}}).find("tempo") != std::string::npos);
-    CHECK(daw.call("get_clip", {{"clip", audioId}})["loop"].is_null());
 }
 
 TEST_CASE("mcp tools: get_module says how late a module plays its track", "[integration][mcp]")
@@ -2929,4 +2930,271 @@ TEST_CASE("mcp tools: modulators added, routed, set, removed and kept (modulator
     mods = daw.call("get_modulators", {{"track", t0}})["modulators"];
     REQUIRE(mods.size() == 1);
     CHECK(mods[0]["id"] == random);
+}
+
+TEST_CASE("mcp tools: an audio clip's sound, its gain line, its ranges and Normalise (P6a)",
+          "[integration][mcp][audio-sound]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A 4 s stereo sine at -6 dBFS.
+    fd::testkit::AudioBuffer sine(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < sine.numSamples(); ++i)
+            sine.at(c, i) = 0.5f * std::sin(static_cast<float>(i) * 0.05f);
+    const auto file = daw.folder.getChildFile("sine.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), sine, 48000.0));
+    const auto clip =
+        daw.call("insert_audio_file",
+                 {{"track", t0}, {"start", 0}, {"path", file.getFullPathName().toStdString()}})["clip"]["id"]
+            .get<std::string>();
+    auto got = daw.call("get_clip", {{"clip", clip}});
+    CHECK(got["sound"]["gain"] == 0.0);
+    CHECK(got["sound"]["channels"] == "stereo");
+    CHECK(got["file"]["channels"] == 2);
+    CHECK(got["file"]["sampleRate"] == 48000.0);
+    CHECK(got["warp"]["on"] == false); // a held tone has no beat to follow
+
+    // Gain, polarity, channels, reverse: one step each.
+    auto r = daw.call("set_audio",
+                      {{"clips", {clip}}, {"gain", "-3 dB"}, {"inverted", true}, {"channels", "mono"}});
+    CHECK(r["clips"][0]["sound"]["gain"] == -3.0);
+    CHECK(r["clips"][0]["sound"]["inverted"] == true);
+    CHECK(r["clips"][0]["sound"]["channels"] == "mono");
+    CHECK(daw.session->undoDescription() == "Assistant: set audio");
+    r = daw.call("set_audio", {{"clips", {clip}}, {"gainBy", -1.5}});
+    CHECK(r["clips"][0]["sound"]["gain"] == -4.5);
+    r = daw.call("set_audio", {{"clips", {clip}}, {"reverse", true}});
+    CHECK(r["clips"][0]["sound"]["reverse"] == true);
+    CHECK(r["clips"][0]["source"].get<std::string>().find("Reversed") != std::string::npos);
+    CHECK(daw.fails("set_audio", {{"clips", {clip}}, {"channels", "sideways"}}).find("stereo") !=
+          std::string::npos);
+    CHECK(daw.fails("set_audio", {{"clips", {clip}}, {"gain", "loud"}}).find("dB") != std::string::npos);
+
+    // The gain line: in dB, at times in the file.
+    r = daw.call("set_gain_line",
+                 {{"clip", clip},
+                  {"points", {{{"time", 1.0}, {"db", 0}}, {{"time", 2.0}, {"db", nullptr}, {"bend", 0.5}}}}});
+    REQUIRE(r["points"].size() == 2);
+    CHECK(r["points"][0]["db"] == 0.0);
+    CHECK(r["points"][1]["db"].is_null());
+    CHECK(r["points"][1]["bend"] == Approx(0.5));
+    CHECK(daw.call("get_gain_line", {{"clip", clip}})["points"].size() == 2);
+    CHECK(daw.call("get_clip", {{"clip", clip}})["sound"]["gainLinePoints"] == 2);
+    CHECK(daw.fails("set_gain_line", {{"clip", clip}, {"points", {{{"time", -1.0}, {"db", 0}}}}})
+              .find("negative") != std::string::npos);
+    daw.call("set_gain_line", {{"clip", clip}, {"points", Json::array()}});
+    CHECK(daw.call("get_gain_line", {{"clip", clip}})["points"].empty());
+
+    // A range: silenced, then split into a clip of its own; a fade from the middle is refused.
+    r = daw.call("edit_audio_range",
+                 {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "silence"}});
+    CHECK(daw.call("get_gain_line", {{"clip", clip}})["points"].size() == 4);
+    CHECK(daw.session->undoDescription() == "Assistant: edit audio range");
+    CHECK(daw.fails("edit_audio_range",
+                    {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "fade"}})
+              .find("start") != std::string::npos);
+    CHECK(daw.fails("edit_audio_range",
+                    {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "gain"}})
+              .find("db") != std::string::npos);
+    CHECK(daw.fails("edit_audio_range",
+                    {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "fold"}})
+              .find("split") != std::string::npos);
+    r = daw.call("edit_audio_range",
+                 {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "split"}});
+    CHECK(r["clips"].size() == 3);
+
+    // The tools: Normalise each to -1 dBFS.
+    const auto tools = daw.call("list_audio_tools")["tools"];
+    CHECK(std::any_of(tools.begin(), tools.end(), [](const Json& t) { return t["tool"] == "normalise"; }));
+    std::vector<std::string> parts;
+    for (const auto& c : r["clips"])
+        parts.push_back(c["id"].get<std::string>());
+    daw.call("set_audio",
+             {{"clips", parts}, {"reverse", false}, {"inverted", false}, {"channels", "stereo"}});
+    r = daw.call("transform_audio",
+                 {{"clips", parts}, {"tool", "normalise"}, {"settings", {{"to", "peak"}, {"peak", -1}}}});
+    CHECK(r["changed"] == 3);
+    // The parts either side play the sine at -6 dBFS: +5 dB brings them to -1. The middle one is
+    // the silenced range, only its ramps heard: quieter, so raised more.
+    std::map<std::string, double> gains;
+    for (const auto& c : r["clips"])
+        gains[c["id"].get<std::string>()] = c["sound"]["gain"].get<double>();
+    CHECK(gains[parts[1]] == Approx(5.0).margin(0.1));
+    CHECK(gains[parts[2]] == Approx(5.0).margin(0.1));
+    CHECK(gains[parts[0]] > 5.5);
+    CHECK(daw.fails("transform_audio", {{"clips", parts}, {"tool", "normalise"}, {"settings", {{"peak", 3}}}})
+              .find("from") != std::string::npos);
+    CHECK(daw.fails("transform_audio", {{"clips", parts}, {"tool", "explode"}}).find("list_audio_tools") !=
+          std::string::npos);
+}
+
+TEST_CASE(
+    "mcp tools: warping: a loop placed in time, its tempo, mode and pitch, markers, transients, Quantise and "
+    "the Tempo tool (P6b)",
+    "[integration][mcp][warp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A drum loop: a hit on every beat, 2 bars at 92 BPM.
+    const double beat = 60.0 / 92.0;
+    fd::testkit::AudioBuffer loop(2, static_cast<int>(8 * beat * 48000.0));
+    std::uint32_t x = 7;
+    for (int k = 0; k < 8; ++k)
+        for (int i = 0; i < 6000; ++i)
+        {
+            const int at = static_cast<int>(k * beat * 48000.0) + i;
+            if (at >= loop.numSamples())
+                break;
+            x = x * 1664525u + 1013904223u;
+            const float v = 0.7f * std::exp(-static_cast<float>(i) / 2000.0f) *
+                            (static_cast<float>(x >> 8) / 8388608.0f - 1.0f);
+            loop.at(0, at) = loop.at(1, at) = v;
+        }
+    const auto file = daw.folder.getChildFile("break.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), loop, 48000.0));
+    const auto placed = daw.call(
+        "insert_audio_file", {{"track", t0}, {"start", 0}, {"path", file.getFullPathName().toStdString()}});
+    const auto clip = placed["clip"]["id"].get<std::string>();
+    auto got = daw.call("get_clip", {{"clip", clip}});
+    // Placed in time (§7.2): its tempo found, Beats for its hits.
+    CHECK(got["warp"]["on"] == true);
+    CHECK(got["warp"]["tempo"].get<double>() == Approx(92.0).margin(0.01));
+    CHECK(got["warp"]["mode"] == "beats");
+    CHECK(got["file"]["seconds"].get<double>() == Approx(8 * beat).margin(1e-3));
+
+    // What's found: the tempo, its downbeat; the transients, one on each hit.
+    const auto found = daw.call("detect_tempo", {{"clip", clip}});
+    CHECK(found["found"] == true);
+    CHECK(found["tempo"].get<double>() == Approx(92.0).margin(0.01));
+    CHECK(found["downbeat"].get<double>() == Approx(0.0).margin(0.01));
+    const auto transients = daw.call("get_transients", {{"clip", clip}})["transients"];
+    REQUIRE(transients.size() == 8);
+    CHECK(transients[3].get<double>() == Approx(3 * beat).margin(0.003));
+
+    // Its mode, tempo and pitch.
+    auto r = daw.call("set_audio", {{"clips", {clip}}, {"mode", "tones"}, {"transpose", 2}, {"fine", -10}});
+    CHECK(r["clips"][0]["warp"]["mode"] == "tones");
+    CHECK(r["clips"][0]["pitch"]["transpose"] == 2);
+    CHECK(r["clips"][0]["pitch"]["fine"] == -10);
+    CHECK(daw.session->undoDescription() == "Assistant: set audio");
+    r = daw.call("set_audio", {{"clips", {clip}}, {"tempo", 184.0}});
+    CHECK(r["clips"][0]["length"].get<double>() == Approx(16.0).margin(1e-3)); // the same audio, 16 beats
+    daw.call("set_audio", {{"clips", {clip}}, {"tempo", 92.0}});
+    CHECK(daw.fails("set_audio", {{"clips", {clip}}, {"mode", "elastique"}}).find("tones") !=
+          std::string::npos);
+
+    // Markers: at the transients, one tempo from the second on, then set by hand.
+    r = daw.call("set_warp_markers", {{"clip", clip}, {"atTransients", true}});
+    CHECK(r["clip"]["warp"]["markers"].size() == 7); // every hit but the file's start
+    r = daw.call("set_warp_markers", {{"clip", clip}, {"warpFrom", 1}});
+    CHECK(r["clip"]["warp"]["markers"].size() == 2);
+    r = daw.call("set_warp_markers", {{"clip", clip}, {"markers", {{{"file", 2 * beat}, {"beat", 2.5}}}}});
+    REQUIRE(r["clip"]["warp"]["markers"].size() == 1);
+    CHECK(r["clip"]["warp"]["markers"][0]["beat"] == Approx(2.5));
+    CHECK(daw.fails("set_warp_markers", {{"clip", clip}, {"markers", {{{"file", 1.0}, {"beat", 40.0}}}}})
+              .find("x4") != std::string::npos);
+    CHECK(daw.fails("set_warp_markers", {{"clip", clip}}).find("one of") != std::string::npos);
+    r = daw.call("set_warp_markers", {{"clip", clip}, {"remove", {0}}});
+    CHECK(r["clip"]["warp"]["markers"].empty());
+
+    // The tools: Quantise to 1/8; the Tempo tool at what's found, the song's tempo from it.
+    const auto tools = daw.call("list_audio_tools");
+    std::set<std::string> names;
+    for (const auto& t : tools["tools"])
+        names.insert(t["tool"].get<std::string>());
+    CHECK(names == std::set<std::string>{"quantise", "tempo", "normalise", "slice"});
+    r = daw.call("transform_audio", {{"clips", {clip}}, {"tool", "quantise"}, {"grid", "1/8"}});
+    CHECK(daw.session->undoDescription() == "Assistant: transform audio");
+    CHECK(daw.fails("transform_audio", {{"clips", {clip}}, {"tool", "quantise"}, {"grid", "1/5"}})
+              .find("1/16") != std::string::npos);
+    r = daw.call("transform_audio", {{"clips", {clip}}, {"tool", "tempo"}, {"settings", {{"then", "song"}}}});
+    CHECK(daw.project()["tempo"].get<double>() == Approx(92.0).margin(0.01));
+    CHECK(r["clips"][0]["warp"]["tempo"].get<double>() == Approx(92.0).margin(0.01));
+}
+
+TEST_CASE("mcp tools: an audio clip's key, Follow key with the song's, detect_key on audio, and Slice (P6c)",
+          "[integration][mcp][audio-key]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A held A whose name says A major; and a click every half second for 2 s.
+    fd::testkit::AudioBuffer tone(2, 2 * 48000), clicks(2, 2 * 48000);
+    for (int i = 0; i < tone.numSamples(); ++i)
+        tone.at(0, i) = tone.at(1, i) =
+            0.3f * std::sin(2.0f * 3.14159265f * 440.0f * static_cast<float>(i) / 48000.0f);
+    for (int k = 0; k < 4; ++k)
+        for (int i = 0; i < 480; ++i)
+            clicks.at(0, k * 24000 + i) = clicks.at(1, k * 24000 + i) =
+                0.8f * std::exp(-static_cast<float>(i) / 100.0f) * std::sin(static_cast<float>(i) * 0.3f);
+    const auto toneFile = daw.folder.getChildFile("Lead_Amaj.wav");
+    const auto clickFile = daw.folder.getChildFile("Hits.wav");
+    REQUIRE(fd::testkit::writeWav(toneFile.getFullPathName().toStdString(), tone, 48000.0));
+    REQUIRE(fd::testkit::writeWav(clickFile.getFullPathName().toStdString(), clicks, 48000.0));
+    const auto lead =
+        daw.call("insert_audio_file", {{"track", t0},
+                                       {"start", 0},
+                                       {"path", toneFile.getFullPathName().toStdString()}})["clip"]["id"]
+            .get<std::string>();
+    const auto hits =
+        daw.call("insert_audio_file", {{"track", t0},
+                                       {"start", "3.1.1"},
+                                       {"path", clickFile.getFullPathName().toStdString()}})["clip"]["id"]
+            .get<std::string>();
+
+    // detect_key reads audio clips: the lead's key, found now.
+    auto keys = daw.call("detect_key", {{"clips", {lead}}})["keys"];
+    REQUIRE(!keys.empty());
+    CHECK(keys[0]["name"] == "A major");
+    auto got = daw.call("get_clip", {{"clip", lead}});
+    CHECK(got["key"]["name"] == "A major");
+    CHECK(got["keyFound"] == true);
+    CHECK(got["followKey"]["on"] == false);
+
+    // Following G major: two semitones down; set_key moves it again, in its own step.
+    daw.call("set_key", {{"root", "G"}, {"scale", "major"}});
+    auto r = daw.call("set_audio", {{"clips", {lead}}, {"followKey", true}});
+    CHECK(r["clips"][0]["followKey"]["on"] == true);
+    CHECK(r["clips"][0]["followKey"]["steps"] == -2);
+    CHECK(daw.session->undoDescription() == "Assistant: set audio");
+    daw.call("set_key", {{"root", "Bb"}, {"scale", "major"}});
+    CHECK(daw.call("get_clip", {{"clip", lead}})["followKey"]["steps"] == 1);
+    daw.session->undo();
+    CHECK(daw.call("get_clip", {{"clip", lead}})["followKey"]["steps"] == -2);
+    // Its key set by hand, then back to what's found; none can't be followed.
+    r = daw.call("set_audio", {{"clips", {lead}}, {"key", "D major"}});
+    CHECK(r["clips"][0]["key"]["name"] == "D major");
+    CHECK(r["clips"][0]["keyFound"] == false);
+    CHECK(r["clips"][0]["followKey"]["steps"] == 5);
+    r = daw.call("set_audio", {{"clips", {lead}}, {"key", "F#m"}});
+    CHECK(r["clips"][0]["key"]["name"] == "F# minor");
+    r = daw.call("set_audio", {{"clips", {lead}}, {"key", "found"}});
+    CHECK(r["clips"][0]["key"]["name"] == "A major");
+    CHECK(r["clips"][0]["keyFound"] == true);
+    r = daw.call("set_audio", {{"clips", {lead}}, {"key", "none"}});
+    CHECK(r["clips"][0]["key"].is_null());
+    CHECK(r["clips"][0]["followKey"]["on"] == false);
+    CHECK(daw.fails("set_audio", {{"clips", {lead}}, {"key", "Q flat"}}).find("A minor") !=
+          std::string::npos);
+    // A clip with no key found can't follow: said so.
+    r = daw.call("set_audio", {{"clips", {hits}}, {"followKey", true}});
+    CHECK(r["clips"][0]["followKey"]["on"] == false);
+    CHECK(r["note"].get<std::string>().find(hits) != std::string::npos);
+
+    // Slice: listed with its settings; the hits cut at their transients, every part listed.
+    const auto tools = daw.call("list_audio_tools")["tools"];
+    CHECK(std::any_of(tools.begin(), tools.end(), [](const Json& t) { return t["tool"] == "slice"; }));
+    r = daw.call("transform_audio",
+                 {{"clips", {hits}}, {"tool", "slice"}, {"settings", {{"at", "transients"}}}});
+    CHECK(r["changed"] == 1);
+    REQUIRE(r["clips"].size() == 4);
+    CHECK(r["clips"][0]["id"] == hits);
+    CHECK(daw.session->undoDescription() == "Assistant: transform audio");
+    daw.session->undo();
+    // By bars: a bar at 120 BPM is 2 s, the clip's length: nothing to cut, said so.
+    CHECK(daw.fails("transform_audio", {{"clips", {hits}}, {"tool", "slice"}, {"settings", {{"at", "bars"}}}})
+              .find("bar") != std::string::npos);
+    r = daw.call("transform_audio",
+                 {{"clips", {hits}}, {"tool", "slice"}, {"settings", {{"at", "grid"}}}, {"grid", "1/4"}});
+    CHECK(r["clips"].size() == 4);
 }

@@ -144,30 +144,73 @@ void WaveformTiles::drawDirect(juce::Graphics& g, const model::Peaks& peaks, con
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(wholePixelsIn(area));
     g.setColour(colour);
-    fillColumns(g, peaks, x1 - x0, static_cast<float>(x0), 1.0f, body.getCentreY(), body.getHeight() * 0.5f - 1.0f,
-                [&](int c) {
-                    const double file = timeline.timeForX(x0 + c - lanesX) - clip.start + clip.offset;
-                    return static_cast<std::int64_t>(std::floor(file * peaks.sampleRate));
-                },
-                gain ? std::function<float(int)>([&](int c) { return gain(timeline.timeForX(static_cast<float>(x0 + c - lanesX) + 0.5f)); })
-                     : std::function<float(int)>());
+    // A column a physical pixel wide, as fine as the tiles on a dense screen.
+    const float scale = std::max(1.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
+    const float column = 1.0f / scale;
+    const auto xOf = [&](float c) { return static_cast<float>(x0 - lanesX) + c * column; };
+    // Where each column's moment of the clip plays its file (warped: through its map).
+    const auto map = model::contentMap(clip);
+    fillColumns(
+        g, peaks, static_cast<int>(std::ceil(static_cast<float>(x1 - x0) * scale)), static_cast<float>(x0),
+        column, body.getCentreY(), body.getHeight() * 0.5f - 1.0f,
+        [&](int c)
+        {
+            const double file =
+                map.playedAt(timeline.timeForX(xOf(static_cast<float>(c))) - clip.start + clip.offset);
+            return static_cast<std::int64_t>(std::floor(file * peaks.sampleRate));
+        },
+        gain ? std::function<float(int)>(
+                   [&](int c) { return gain(timeline.timeForX(xOf(static_cast<float>(c) + 0.5f))); })
+             : std::function<float(int)>());
+}
+
+std::vector<WaveformTiles::Span> WaveformTiles::spansOf(const model::ClipInfo& clip)
+{
+    const double origin = clip.start - clip.offset; // the timeline's time of the content's start
+    const auto map = model::contentMap(clip);
+    if (!map.warped)
+        return {{0.0, 1e12, origin, 1.0}};
+    // Warped (audio-editor.md §10): each piece between markers at its own speed.
+    std::vector<Span> out;
+    for (const auto& piece : model::warpPieces(map.played, map.fileLength))
+        out.push_back({piece.file0, piece.file1, origin + piece.beat0 / map.beatsPerSecond,
+                       (piece.beat1 - piece.beat0) / map.beatsPerSecond / (piece.file1 - piece.file0)});
+    return out;
 }
 
 void WaveformTiles::draw(juce::Graphics& g, const model::Peaks& peaks, const model::ClipInfo& clip,
                          juce::Rectangle<float> body, juce::Rectangle<int> visible, const model::Timeline& timeline,
                          int lanesX, juce::Colour colour, bool exact)
 {
+    for (const auto& span : spansOf(clip))
+        drawSpan(g, peaks, span, body, visible, timeline, lanesX, colour, exact);
+}
+
+void WaveformTiles::drawSpan(juce::Graphics& g, const model::Peaks& peaks, const Span& span,
+                             juce::Rectangle<float> body, juce::Rectangle<int> visible,
+                             const model::Timeline& timeline, int lanesX, juce::Colour colour, bool exact)
+{
     const float scale = g.getInternalContext().getPhysicalPixelScaleFactor();
     const int height = juce::roundToInt(body.getHeight() * scale);
-    const auto area = body.getIntersection(visible.toFloat());
-    if (height < 4 || area.isEmpty())
+    auto fileAt = [&](float x)
+    { return span.file0 + (timeline.timeForX(x - static_cast<float>(lanesX)) - span.time0) / span.scale; };
+    auto xAt = [&](double fileSeconds)
+    {
+        return static_cast<float>(lanesX +
+                                  timeline.xForTime(span.time0 + (fileSeconds - span.file0) * span.scale));
+    };
+    // Only the span's own part of the body.
+    auto area = body.getIntersection(visible.toFloat());
+    area = area.withLeft(std::max(area.getX(), xAt(span.file0)))
+               .withRight(std::min(area.getRight(), xAt(span.file1)));
+    if (height < 4 || area.isEmpty() || area.getWidth() <= 0.0f)
         return;
 
-    const double pps = timeline.pixelsPerSecond();
-    auto fileAt = [&](float x) { return timeline.timeForX(x - static_cast<float>(lanesX)) - clip.start + clip.offset; };
-    auto xAt = [&](double fileSeconds) {
-        return static_cast<float>(lanesX + timeline.xForTime(fileSeconds - clip.offset + clip.start));
-    };
+    // The file's pixels a second here: a stretched piece's are its share of the song's.
+    const double pps = timeline.pixelsPerSecond() * span.scale;
+    // Exact tiles only where the file plays at its own speed: stretched pieces of every speed
+    // share the level tiles (drawn scaled down at most 2x).
+    exact = exact && std::abs(span.scale - 1.0) < 1e-9;
     const double fileA = fileAt(area.getX()), fileB = fileAt(area.getRight());
     const int scaleKey = juce::roundToInt(scale * 100.0f);
     const auto colourKey = colour.getARGB();
@@ -211,7 +254,7 @@ void WaveformTiles::draw(juce::Graphics& g, const model::Peaks& peaks, const mod
         incomplete_ = true;
         const double s0 = std::max(fileA, static_cast<double>(i) * tileSeconds);
         const double s1 = std::min(fileB, static_cast<double>(i + 1) * tileSeconds);
-        juce::Graphics::ScopedSaveState span(g);
+        juce::Graphics::ScopedSaveState part(g);
         g.reduceClipRegion(juce::Rectangle<float>(xAt(s0), body.getY(), xAt(s1) - xAt(s0) + 1.0f, body.getHeight())
                                .getSmallestIntegerContainer());
         bool covered = exact;

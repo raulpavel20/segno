@@ -643,6 +643,34 @@ void SettingsView::addAudio()
                                  : juce::String(dropouts) + (dropouts == 1 ? " dropout" : " dropouts")));
         };
     }
+    // What follows the tempo when it's placed or made (audio-editor.md §7.2): both on by default;
+    // and loops the key (§8.3): off.
+    struct Follows
+    {
+        const char* id;
+        bool model::AppSettings::AudioClips::* member;
+        bool initial;
+    };
+    for (const auto& [id, flag, initial] :
+         {Follows{"audioClips.loopsFollowTempo", &model::AppSettings::AudioClips::loopsFollowTempo, true},
+          Follows{"audioClips.recordingsFollowTempo", &model::AppSettings::AudioClips::recordingsFollowTempo,
+                  true},
+          Follows{"audioClips.loopsFollowKey", &model::AppSettings::AudioClips::loopsFollowKey, false}})
+    {
+        auto& r = addRow(id, SettingsSection::Audio);
+        auto& b = toggle(r, "On", true);
+        b.onClick = [this, &b, member = flag]
+        { change([&b, member](model::AppSettings& s) { s.audioClips.*member = b.getToggleState(); }); };
+        r.refresh = [this, &b, member = flag]
+        {
+            const bool on = settings().audioClips.*member;
+            b.setToggleState(on, juce::dontSendNotification);
+            b.setButtonText(on ? "On" : "Off");
+        };
+        r.changed = [this, member = flag, initial] { return settings().audioClips.*member != initial; };
+        r.reset = [this, member = flag, initial]
+        { store_->change([member, initial](model::AppSettings& s) { s.audioClips.*member = initial; }); };
+    }
 }
 
 // ---- MIDI ----------------------------------------------------------------------------------

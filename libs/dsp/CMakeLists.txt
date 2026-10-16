@@ -1,5 +1,5 @@
 add_library(fd_dsp STATIC src/Fft.cpp src/Oscillator.cpp src/SynthBlocks.cpp src/Filters.cpp src/MatchedFilters.cpp src/Oversampler.cpp src/IirOversampler.cpp src/Waveshapers.cpp
-    src/Resampling.cpp src/Dynamics.cpp src/Loudness.cpp src/Spectrum.cpp src/Modulation.cpp src/SpectralFilter.cpp
+    src/Resampling.cpp src/Onsets.cpp src/PitchClasses.cpp src/Dynamics.cpp src/Loudness.cpp src/Spectrum.cpp src/Modulation.cpp src/SpectralFilter.cpp
     src/SpectralDynamics.cpp
     src/Wavetable.cpp src/WavetableOscillator.cpp
     src/VoiceModules.cpp src/Modulators.cpp src/DrawnCurve.cpp src/PitchDetector.cpp)
@@ -17,4 +17,6 @@ fd_add_test(NAME fd_dsp_tests
         tests/ModulationTests.cpp
         tests/ModulatorsTests.cpp
         tests/PitchDetectorTests.cpp
+        tests/OnsetsTests.cpp
+        tests/PitchClassesTests.cpp
     LIBS fd::dsp fd::testkit)

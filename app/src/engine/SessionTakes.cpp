@@ -207,8 +207,13 @@ model::ClipInfo Session::Impl::storedClipInfo(const juce::ValueTree& tree, int c
     {
         const auto audio = te::SourceFileReference::findFileFromString(*edit, tree[te::IDs::source].toString());
         info.sourcePath = audio.getFullPathName().toStdString();
-        info.sourceLength = te::AudioFile(engine, audio).getLength();
-        info.synced = tree[te::IDs::autoTempo];
+        info.sound.reversed = tree.hasProperty(soundIds::forward);
+        info.warp = warpOf(tree, edit->tempoSequence.getBpmAt(te::TimePosition::fromSeconds(info.start)));
+        info.pitch = pitchOf(tree);
+        info.fileLength = te::AudioFile(engine, audio).getLength();
+        info.beatsPerSecond =
+            edit->tempoSequence.getBeatsPerSecondAt(te::TimePosition::fromSeconds(info.start));
+        info.sourceLength = info.fileLength > 0.0 ? model::contentMap(info).contentLength() : 0.0;
     }
     info.loop = loopOf(tree, edit->tempoSequence); // ADR 0048
     if (info.loop.on() && info.kind == model::ClipInfo::Kind::Midi)
@@ -298,6 +303,9 @@ te::Clip* Session::Impl::useTakeClip(te::AudioTrack& track, const juce::ValueTre
     auto* clip = track.insertClipWithState(copy); // through the undo manager
     if (clip == nullptr)
         return nullptr;
+    // A take kept aside while the song's key changed plays in the key it is now (§8.3).
+    if (auto* audio = dynamic_cast<te::AudioClipBase*>(clip); audio != nullptr && followsKey(audio->state))
+        syncPitch(*audio);
     const auto pos = clip->getPosition();
     clearUnder(track, pos.getStart().inSeconds(), pos.getEnd().inSeconds(), {clip->itemID.getRawID()});
     return clip;

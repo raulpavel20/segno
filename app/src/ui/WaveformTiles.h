@@ -32,8 +32,9 @@ public:
     /// Call at the start of each paint: resets the per-frame render budget.
     void beginPaint() noexcept;
 
-    /// Draws `clip`'s waveform into `body` (logical coordinates), within `visible`.
-    /// `exact`: render at the exact zoom when tiles are missing (zoom has settled).
+    /// Draws `clip`'s waveform into `body` (logical coordinates), within `visible`: a warped clip's
+    /// piece by piece, each at its speed (audio-editor.md §10). `exact`: render at the exact zoom
+    /// when tiles are missing (zoom has settled).
     void draw(juce::Graphics& g, const model::Peaks& peaks, const model::ClipInfo& clip, juce::Rectangle<float> body,
               juce::Rectangle<int> visible, const model::Timeline& timeline, int lanesX, juce::Colour colour, bool exact);
 
@@ -50,6 +51,17 @@ public:
     [[nodiscard]] std::size_t tileCount() const noexcept { return tiles_.size(); }
 
 private:
+    /// A stretch of a clip's file drawn at one speed: file seconds [file0, file1) at the timeline's
+    /// time0 + (file − file0) × scale. A clip that doesn't warp is one span at its file's speed.
+    struct Span
+    {
+        double file0 = 0.0, file1 = 0.0, time0 = 0.0, scale = 1.0;
+    };
+    [[nodiscard]] static std::vector<Span> spansOf(const model::ClipInfo& clip);
+    void drawSpan(juce::Graphics& g, const model::Peaks& peaks, const Span& span, juce::Rectangle<float> body,
+                  juce::Rectangle<int> visible, const model::Timeline& timeline, int lanesX,
+                  juce::Colour colour, bool exact);
+
     struct Key
     {
         const model::Peaks* peaks = nullptr;

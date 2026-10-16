@@ -1,5 +1,6 @@
 #include "ui/Panels.h"
 
+#include "model/AudioToolkit.h"
 #include "model/ClipLoops.h"
 #include "model/FadeEditing.h"
 #include "model/MusicalTime.h"
@@ -18,6 +19,11 @@ namespace fd::app
 {
 namespace
 {
+// The AUDIO section's key list (§8.2): what's found, none, the twelve major and twelve minor keys,
+// and a set key of another scale.
+constexpr int kKeyFoundItem = 1, kKeyNoneItem = 2, kKeyMajorItems = 10, kKeyMinorItems = 30,
+              kKeyOtherItem = 50;
+
 /// An inspector name field: typed, Return or leaving it commits, Escape restores.
 void styleNameField(juce::TextEditor& field)
 {
@@ -660,6 +666,207 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         place->onChange = [this, place] { setCrossfadePlace(place == &crossInPlace_ ? crossIn_ : crossOut_, place->getSelectedId()); };
         body_.addChildComponent(*place);
     }
+    // An audio clip's sound (audio-editor.md §12).
+    audioGain_.setFontSize(ui::Theme::current().textXs);
+    audioGain_.setRange(model::minusInfinityDb, model::kMaxClipGainDb, 0.1);
+    audioGain_.setDragSensitivity(0.1);
+    audioGain_.setTooltip(
+        "The clip's gain: its level, before its gain line and fades. Drag or type; -inf is silence");
+    audioGain_.textFromValue = [](double db)
+    {
+        if (db <= model::minusInfinityDb)
+            return juce::String::fromUTF8("\xE2\x88\x92\xE2\x88\x9E dB");
+        const auto text = juce::String(std::abs(db), 1) + " dB";
+        return db < -0.05 ? juce::String::fromUTF8("\xE2\x88\x92") + text : (db > 0.05 ? "+" + text : text);
+    };
+    audioGain_.valueFromText = [](const juce::String& text) -> std::optional<double>
+    {
+        auto t = text.trim()
+                     .replace(juce::String::fromUTF8("\xE2\x88\x92"), "-")
+                     .upToFirstOccurrenceOf("dB", false, true)
+                     .trim();
+        if (t == "-inf" || t == juce::String::fromUTF8("-\xE2\x88\x9E"))
+            return model::minusInfinityDb;
+        if (t.isEmpty() || !t.containsOnly("+-0123456789."))
+            return std::nullopt;
+        return t.getDoubleValue();
+    };
+    audioGain_.onGestureStart = [this] { audioGesture_.emplace(session_, "Gain"); };
+    audioGain_.onGestureEnd = [this] { audioGesture_.reset(); };
+    audioGain_.onValueChange = [this](double db)
+    {
+        if (clip_)
+            session_.setSound({clip_->id}, {.gainDb = static_cast<float>(db)}, "Gain");
+    };
+    body_.addChildComponent(audioGain_);
+    audioReverse_.setClickingTogglesState(false);
+    audioReverse_.onClick = [this]
+    {
+        if (clip_)
+            session_.setSound({clip_->id}, {.reversed = !clip_->sound.reversed}, "Reverse");
+    };
+    body_.addChildComponent(audioReverse_);
+    audioPolarity_.setClickingTogglesState(false);
+    audioPolarity_.setTooltip("Invert the clip's polarity: to line up two microphones on one source");
+    audioPolarity_.onClick = [this]
+    {
+        if (clip_)
+            session_.setSound({clip_->id}, {.inverted = !clip_->sound.inverted}, "Polarity");
+    };
+    body_.addChildComponent(audioPolarity_);
+    for (const auto mode : {model::ChannelMode::Stereo, model::ChannelMode::Left, model::ChannelMode::Right,
+                            model::ChannelMode::Mono, model::ChannelMode::Swapped})
+        audioChannels_.addItem(juce::String(model::channelModeName(mode)), static_cast<int>(mode) + 1);
+    audioChannels_.setTooltip(
+        "How a stereo file's channels play: as recorded, one side on both, both summed, or swapped");
+    audioChannels_.onChange = [this]
+    {
+        if (clip_ && audioChannels_.getSelectedId() > 0)
+            session_.setSound(
+                {clip_->id},
+                {.channels = static_cast<model::ChannelMode>(audioChannels_.getSelectedId() - 1)},
+                "Channels");
+    };
+    body_.addChildComponent(audioChannels_);
+    // Warping and transposition (§7, §8.1, §12): a field dragged is one undo step.
+    const auto minus = juce::String::fromUTF8("\xE2\x88\x92");
+    const auto signedText = [minus](int n, const char* unit)
+    {
+        return (n < 0 ? minus + juce::String(-n) : (n > 0 ? "+" + juce::String(n) : juce::String("0"))) +
+               " " + unit;
+    };
+    const auto parsed = [minus](const juce::String& text, const char* unit) -> std::optional<double>
+    {
+        const auto t = text.trim().replace(minus, "-").upToFirstOccurrenceOf(unit, false, true).trim();
+        if (t.isEmpty() || !t.containsOnly("+-0123456789."))
+            return std::nullopt;
+        return t.getDoubleValue();
+    };
+    const auto audioField = [this](ui::NumberField& field, double min, double max, double step,
+                                   double sensitivity, const char* undo, const juce::String& tip,
+                                   std::function<void(std::uint64_t, double)> set)
+    {
+        field.setFontSize(ui::Theme::current().textXs);
+        field.setRange(min, max, step);
+        field.setDragSensitivity(sensitivity);
+        field.setTooltip(tip);
+        field.onGestureStart = [this, undo] { audioGesture_.emplace(session_, undo); };
+        field.onGestureEnd = [this] { audioGesture_.reset(); };
+        field.onValueChange = [this, apply = std::move(set)](double v)
+        {
+            if (clip_)
+                apply(clip_->id, v);
+        };
+        body_.addChildComponent(field);
+    };
+    audioField(audioTranspose_, -model::kMaxTranspose, model::kMaxTranspose, 1.0, 1.0, "Transpose",
+               "Transpose the clip by semitones: it keeps its speed", [this](std::uint64_t id, double v)
+               { session_.setWarp({id}, {.transpose = static_cast<int>(std::lround(v))}, "Transpose"); });
+    audioTranspose_.textFromValue = [signedText](double v)
+    { return signedText(static_cast<int>(std::lround(v)), "st"); };
+    audioTranspose_.valueFromText = [parsed](const juce::String& t) { return parsed(t, "st"); };
+    audioField(audioFine_, -model::kMaxFine, model::kMaxFine, 1.0, 1.0, "Fine",
+               "Fine tuning, in cents: a hundredth of a semitone either way",
+               [this](std::uint64_t id, double v)
+               { session_.setWarp({id}, {.fine = static_cast<int>(std::lround(v))}, "Fine"); });
+    audioFine_.textFromValue = [signedText](double v)
+    { return signedText(static_cast<int>(std::lround(v)), "ct"); };
+    audioFine_.valueFromText = [parsed](const juce::String& t) { return parsed(t, "ct"); };
+    audioField(audioTempo_, model::kMinClipTempo, model::kMaxClipTempo, 0.01, 0.1, "Tempo",
+               "The clip's tempo: the tempo its file was played at. Drag or type",
+               [this](std::uint64_t id, double v) { session_.setWarp({id}, {.tempo = v}, "Tempo"); });
+    audioTempo_.textFromValue = [](double v) { return juce::String(v, 2) + " BPM"; };
+    audioTempo_.valueFromText = [parsed](const juce::String& t) { return parsed(t, "BPM"); };
+    audioField(audioSensitivity_, 0.0, 100.0, 1.0, 1.0, "Sensitivity",
+               "How many transients are found: more as it rises. Their ticks show in the marker strip",
+               [this](std::uint64_t id, double v)
+               { session_.setWarp({id}, {.sensitivity = v / 100.0}, "Sensitivity"); });
+    audioSensitivity_.textFromValue = [](double v)
+    { return juce::String(static_cast<int>(std::lround(v))) + " %"; };
+    audioSensitivity_.valueFromText = [parsed](const juce::String& t) { return parsed(t, "%"); };
+    audioWarp_.setClickingTogglesState(false);
+    audioWarp_.setTooltip("Warp: the clip follows the song's tempo, its audio laid out in beats");
+    audioWarp_.onClick = [this]
+    {
+        if (clip_)
+            session_.setWarp({clip_->id}, {.on = !clip_->warp.on}, "Warp");
+    };
+    body_.addChildComponent(audioWarp_);
+    for (const auto mode : {model::WarpMode::Beats, model::WarpMode::Tones, model::WarpMode::Repitch})
+        audioMode_.addItem(juce::String(model::warpModeName(mode)), static_cast<int>(mode) + 1);
+    audioMode_.setTooltip(
+        "How it follows the tempo: Beats for drums, Tones for the rest, Repitch like a record "
+        "played faster");
+    audioMode_.onChange = [this]
+    {
+        if (clip_ && audioMode_.getSelectedId() > 0)
+            session_.setWarp({clip_->id},
+                             {.mode = static_cast<model::WarpMode>(audioMode_.getSelectedId() - 1)},
+                             "Warp mode");
+    };
+    body_.addChildComponent(audioMode_);
+    for (auto [button, factor, tip] :
+         {std::tuple{&audioDouble_, 2.0, "Double the clip's tempo: it was found at half speed"},
+          std::tuple{&audioHalve_, 0.5, "Halve the clip's tempo: it was found at double speed"}})
+    {
+        button->setClickingTogglesState(false);
+        button->setTooltip(tip);
+        button->onClick = [this, times = factor]
+        {
+            if (clip_)
+                session_.setWarp({clip_->id}, {.tempoTimes = times}, "Tempo");
+        };
+        body_.addChildComponent(*button);
+    }
+    for (const auto tails : {model::WarpTails::Fade, model::WarpTails::Loop})
+        audioTails_.addItem(juce::String(model::tailsName(tails)), static_cast<int>(tails) + 1);
+    audioTails_.setTooltip(
+        "What a hit played slower than its file does after it ends: fades, or loops its tail");
+    audioTails_.onChange = [this]
+    {
+        if (clip_ && audioTails_.getSelectedId() > 0)
+            session_.setWarp({clip_->id},
+                             {.tails = static_cast<model::WarpTails>(audioTails_.getSelectedId() - 1)},
+                             "Tails");
+    };
+    body_.addChildComponent(audioTails_);
+    audioFormants_.setClickingTogglesState(false);
+    audioFormants_.setTooltip("Keep a voice's character when it's transposed (Tones)");
+    audioFormants_.onClick = [this]
+    {
+        if (clip_)
+            session_.setWarp({clip_->id}, {.formants = !clip_->warp.formants}, "Formants");
+    };
+    body_.addChildComponent(audioFormants_);
+    // Its key (§8.2): what's found, none, or a major or minor key set by hand.
+    audioKey_.setTooltip(
+        "The clip's key: found in its file (its metadata, its name, else its sound), or set here");
+    audioKey_.onChange = [this]
+    {
+        const int id = audioKey_.getSelectedId();
+        if (!clip_ || id <= 0)
+            return;
+        engine::Session::WarpChange change;
+        if (id == kKeyFoundItem)
+            change.keyFound = true;
+        else if (id == kKeyNoneItem)
+            change.key = std::optional<music::Key>{};
+        else if (id == kKeyOtherItem && otherKey_)
+            change.key = otherKey_;
+        else
+            change.key = std::optional(
+                music::Key{(id - kKeyMajorItems) % 20, id >= kKeyMinorItems ? "minor" : "major"});
+        session_.setWarp({clip_->id}, change, "Clip key");
+    };
+    body_.addChildComponent(audioKey_);
+    // Follow key (§8.3): the clip plays in the song's key; its step shows on it.
+    audioFollow_.setClickingTogglesState(false);
+    audioFollow_.onClick = [this]
+    {
+        if (clip_)
+            session_.setWarp({clip_->id}, {.followKey = !clip_->followKey}, "Follow key");
+    };
+    body_.addChildComponent(audioFollow_);
     // The take's commands (the shell's actions, on the selected take).
     for (const auto& [button, id] : {std::pair{&copyTake_, "take.copyToTrack"}, std::pair{&moveTake_, "take.moveToTrack"},
                                      std::pair{&keepTake_, "take.keepOnly"}})
@@ -1160,6 +1367,51 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         loopStart_.setValue(tempo_.beatsForSeconds(clip_->loop.start), juce::dontSendNotification);
         loopLength_.setValue(tempo_.beatsForSeconds(clip_->loop.length), juce::dontSendNotification);
     }
+    // An audio clip's sound (audio-editor.md §12).
+    const bool sound =
+        has(model::InspectorSection::Audio) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
+    for (auto* c : std::initializer_list<juce::Component*>{&audioGain_, &audioReverse_, &audioPolarity_,
+                                                           &audioTranspose_, &audioFine_, &audioWarp_,
+                                                           &audioSensitivity_, &audioKey_, &audioFollow_})
+        c->setVisible(sound);
+    audioChannels_.setVisible(sound && clip_->fileChannels >= 2);
+    // While it warps: its mode, its tempo with ×2 and ÷2, and the mode's setting.
+    const bool warps = sound && clip_->warp.on;
+    for (auto* c :
+         std::initializer_list<juce::Component*>{&audioMode_, &audioTempo_, &audioDouble_, &audioHalve_})
+        c->setVisible(warps);
+    audioTails_.setVisible(warps && clip_->warp.mode == model::WarpMode::Beats);
+    audioFormants_.setVisible(warps && clip_->warp.mode == model::WarpMode::Tones);
+    if (sound)
+    {
+        if (!audioGesture_)
+        {
+            audioTranspose_.setValue(clip_->pitch.transpose, juce::dontSendNotification);
+            audioFine_.setValue(clip_->pitch.fine, juce::dontSendNotification);
+            audioTempo_.setValue(clip_->warp.tempo, juce::dontSendNotification);
+            audioSensitivity_.setValue(std::round(clip_->warp.sensitivity * 100.0),
+                                       juce::dontSendNotification);
+        }
+        // Repitch has no transposition: the speed sets the pitch.
+        const bool repitch = clip_->warp.on && clip_->warp.mode == model::WarpMode::Repitch;
+        audioTranspose_.setEnabled(!repitch);
+        audioFine_.setEnabled(!repitch);
+        audioWarp_.setToggleState(clip_->warp.on, juce::dontSendNotification);
+        audioMode_.setSelectedId(static_cast<int>(clip_->warp.mode) + 1, juce::dontSendNotification);
+        audioTails_.setSelectedId(static_cast<int>(clip_->warp.tails) + 1, juce::dontSendNotification);
+        audioFormants_.setToggleState(clip_->warp.formants, juce::dontSendNotification);
+        if (!audioGesture_)
+            audioGain_.setValue(clip_->sound.gainDb, juce::dontSendNotification);
+        audioReverse_.setToggleState(clip_->sound.reversed, juce::dontSendNotification);
+        audioReverse_.setEnabled(clip_->stack == 0);
+        audioReverse_.setTooltip(
+            clip_->stack == 0
+                ? "Play the clip backwards: a reversed copy of its file, the file itself untouched"
+                : "A clip with takes plays its takes: choose one to reverse it");
+        audioPolarity_.setToggleState(clip_->sound.inverted, juce::dontSendNotification);
+        audioChannels_.setSelectedId(static_cast<int>(clip_->sound.channels) + 1, juce::dontSendNotification);
+        refreshKey();
+    }
     const bool audio = has(model::InspectorSection::Clip) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
     for (auto* field : {&fadeIn_, &fadeOut_})
     {
@@ -1398,6 +1650,45 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         }
         return rows;
     }
+    case S::Audio:
+    {
+        if (!clip_ || clip_->kind != model::ClipInfo::Kind::Audio)
+            return {};
+        std::vector<ui::Property> rows{
+            {"Gain", {}, false, "gain"}, {"Transpose", {}, false, "transpose"}, {"Warp", {}, false, "warp"}};
+        if (clip_->warp.on)
+        {
+            rows.push_back({"Tempo", {}, false, "tempo"});
+            if (clip_->warp.mode == model::WarpMode::Beats)
+                rows.push_back({"Tails", {}, false, "tails"});
+            else if (clip_->warp.mode == model::WarpMode::Tones)
+                rows.push_back({"Formants", {}, false, "formants"});
+        }
+        rows.push_back({"Key", {}, false, "key"});
+        rows.push_back({"Transients", {}, false, "transients"});
+        rows.push_back({"Reverse", {}, false, "reverse"});
+        rows.push_back({"Polarity", {}, false, "polarity"});
+        if (clip_->fileChannels >= 2)
+            rows.push_back({"Channels", {}, false, "channels"});
+        // Its file (§12): its channels and length, then its format, a row each so neither is cut.
+        const auto dot = juce::String::fromUTF8(" \xC2\xB7 ");
+        const juce::String channels = clip_->fileChannels == 1 ? juce::String("mono")
+                                      : clip_->fileChannels == 2
+                                          ? juce::String("stereo")
+                                          : juce::String(clip_->fileChannels) + " channels";
+        rows.push_back({"File", channels + dot + juce::String(clip_->fileLength, 1) + " s"});
+        juce::StringArray format;
+        if (clip_->fileSampleRate > 0.0)
+            format.add(
+                juce::String(
+                    clip_->fileSampleRate / 1000.0,
+                    clip_->fileSampleRate == std::round(clip_->fileSampleRate / 1000.0) * 1000.0 ? 0 : 1) +
+                " kHz");
+        format.add(clip_->fileBitDepth > 0 ? juce::String(clip_->fileBitDepth) + "-bit"
+                                           : juce::String("32-bit float"));
+        rows.push_back({"Format", format.joinIntoString(dot)});
+        return rows;
+    }
     case S::Section:
         if (!section_)
             return {};
@@ -1480,6 +1771,71 @@ void InspectorPanel::updateMidiMappings()
         resized();
 }
 
+void InspectorPanel::refreshKey()
+{
+    const auto dot = juce::String::fromUTF8(" \xC2\xB7 ");
+    const auto name = [](const music::Key& k) { return juce::String::fromUTF8(music::keyName(k).c_str()); };
+    // What's found in its file: what the clip's key goes back to (asked for here too: the clip view
+    // may be closed).
+    const auto* analysis = clip_->analysis.get();
+    if (analysis == nullptr)
+        session_.requestAnalysis(clip_->id);
+    const auto found = clip_->keyFound ? clip_->key : (analysis != nullptr ? analysis->key : std::nullopt);
+    const juce::String foundText = found ? name(*found) + dot + "found"
+                                   : analysis != nullptr || clip_->keyFound
+                                       ? juce::String("None found")
+                                       : juce::String::fromUTF8("Finding\xE2\x80\xA6");
+    // A set key of a scale the list doesn't have is listed too.
+    otherKey_ = !clip_->keyFound && clip_->key && clip_->key->scale != "major" && clip_->key->scale != "minor"
+                    ? clip_->key
+                    : std::nullopt;
+    const auto items = foundText + "|" + (otherKey_ ? name(*otherKey_) : juce::String());
+    if (items != keyItems_)
+    {
+        keyItems_ = items;
+        audioKey_.clear(juce::dontSendNotification);
+        audioKey_.addItem(foundText, kKeyFoundItem);
+        audioKey_.addItem("None", kKeyNoneItem);
+        if (otherKey_)
+            audioKey_.addItem(name(*otherKey_), kKeyOtherItem);
+        for (const auto& [scale, first] :
+             {std::pair{"major", kKeyMajorItems}, std::pair{"minor", kKeyMinorItems}})
+        {
+            audioKey_.addSectionHeading(juce::String(scale).substring(0, 1).toUpperCase() +
+                                        juce::String(scale).substring(1));
+            for (int root = 0; root < 12; ++root)
+                audioKey_.addItem(name(music::Key{root, scale}), first + root);
+        }
+    }
+    int selected = kKeyFoundItem;
+    if (!clip_->keyFound)
+        selected = !clip_->key                    ? kKeyNoneItem
+                   : otherKey_                    ? kKeyOtherItem
+                   : clip_->key->scale == "minor" ? kKeyMinorItems + clip_->key->root
+                                                  : kKeyMajorItems + clip_->key->root;
+    audioKey_.setSelectedId(selected, juce::dontSendNotification);
+    // Follow key: its step on it while it follows; why not when it can't.
+    const auto minus = juce::String::fromUTF8("\xE2\x88\x92");
+    const int steps = clip_->followSteps;
+    const auto text = clip_->followKey && steps != 0
+                          ? "Follow " + (steps < 0 ? minus + juce::String(-steps) : "+" + juce::String(steps))
+                          : juce::String("Follow");
+    if (audioFollow_.getButtonText() != text)
+    {
+        audioFollow_.setButtonText(text);
+        resized();
+    }
+    audioFollow_.setToggleState(clip_->followKey, juce::dontSendNotification);
+    const bool keyed = clip_->key.has_value();
+    audioFollow_.setEnabled(keyed || clip_->followKey);
+    const bool songKey = session_.snapshot()->keys.first().has_value();
+    audioFollow_.setTooltip(
+        !keyed     ? "No key to follow: set the clip's key first"
+        : !songKey ? "Follow key: the song has no key yet; set one in the top bar and the clip moves into it"
+                   : "Follow key: the clip plays in the song's key, moved by the smallest step (a key and "
+                     "its relative count as the same)");
+}
+
 void InspectorPanel::resized()
 {
     const auto& t = ui::Theme::current();
@@ -1509,15 +1865,12 @@ int InspectorPanel::layoutSections(int width)
     const auto& t = ui::Theme::current();
     auto r = juce::Rectangle<int>(0, t.shell.itemGap, width, std::numeric_limits<int>::max() / 2).reduced(t.shell.padding, 0);
 
-    static const std::map<S, juce::String> titles{{S::Point, "Point"},       {S::Points, "Points"},
-                                                  {S::Lane, "Lane"},         {S::Assignments, "Assignments"},
-                                                  {S::Input, "Input"},       {S::Take, "Take"},
-                                                  {S::Takes, "Takes"},       {S::Clip, "Clip"},
-                                                  {S::Clips, "Clips"},       {S::Section, "Section"},
-                                                  {S::Sections, "Sections"}, {S::Track, "Track"},
-                                                  {S::Return, "Return"},     {S::Master, "Master"},
-                                                  {S::Mix, "Mix"},           {S::Sends, "Sends"},
-                                                  {S::Module, "Module"},     {S::Routes, "Routes"}};
+    static const std::map<S, juce::String> titles{
+        {S::Point, "Point"},   {S::Points, "Points"}, {S::Lane, "Lane"},       {S::Assignments, "Assignments"},
+        {S::Input, "Input"},   {S::Take, "Take"},     {S::Takes, "Takes"},     {S::Clip, "Clip"},
+        {S::Audio, "Audio"},   {S::Clips, "Clips"},   {S::Section, "Section"}, {S::Sections, "Sections"},
+        {S::Track, "Track"},   {S::Return, "Return"}, {S::Master, "Master"},   {S::Mix, "Mix"},
+        {S::Sends, "Sends"},   {S::Module, "Module"}, {S::Routes, "Routes"}};
     std::vector<ui::SectionStack::Section> sections;
     for (const auto s : sections_)
     {
@@ -1617,6 +1970,59 @@ int InspectorPanel::layoutSections(int width)
             crossInPlace_.setBounds(row("crossInPlace").reduced(0, t.shell.propertyFieldInset));
             crossOutShape_.setBounds(row("crossOutShape").reduced(0, t.shell.propertyFieldInset));
             crossOutPlace_.setBounds(row("crossOutPlace").reduced(0, t.shell.propertyFieldInset));
+        }
+        else if (sections_[i] == S::Audio) // Gain, Reverse, Polarity, Channels: by row
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            const auto row = [&](const char* key)
+            {
+                const int n = rowOf(S::Audio, key);
+                return n < 0 ? juce::Rectangle<int>()
+                             : content.withY(content.getY() + n * t.shell.rowHeight)
+                                   .withHeight(t.shell.rowHeight);
+            };
+            audioGain_.setBounds(row("gain").withTrimmedLeft(-ui::NumberField::textInset));
+            const auto toggle = [&](ui::Toggle& button, juce::Rectangle<int> area)
+            {
+                button.setBounds(area.withWidth(ui::Toggle::widthFor(button.getButtonText()))
+                                     .reduced(0, t.shell.propertyFieldInset));
+            };
+            for (const auto& [b, key] :
+                 {std::pair{&audioReverse_, "reverse"}, std::pair{&audioPolarity_, "polarity"},
+                  std::pair{&audioFormants_, "formants"}})
+                toggle(*b, row(key));
+            audioChannels_.setBounds(row("channels").reduced(0, t.shell.propertyFieldInset));
+            // Transpose, then Fine, halves of the value column (as a fade's length and curve).
+            const int half = (content.getWidth() - t.shell.itemGap) / 2;
+            audioTranspose_.setBounds(
+                row("transpose").withWidth(half).withTrimmedLeft(-ui::NumberField::textInset));
+            audioFine_.setBounds(row("transpose").withTrimmedLeft(half + t.shell.itemGap));
+            // Warp, then the mode beside it.
+            toggle(audioWarp_, row("warp"));
+            audioMode_.setBounds(
+                row("warp")
+                    .withTrimmedLeft(ui::Toggle::widthFor(audioWarp_.getButtonText()) + t.shell.itemGap)
+                    .reduced(0, t.shell.propertyFieldInset));
+            // The tempo, then ×2 and ÷2.
+            const auto tempoRow = row("tempo");
+            const int doubleWidth = ui::Toggle::widthFor(audioDouble_.getButtonText()),
+                      halveWidth = ui::Toggle::widthFor(audioHalve_.getButtonText());
+            audioHalve_.setBounds(
+                tempoRow.withLeft(tempoRow.getRight() - halveWidth).reduced(0, t.shell.propertyFieldInset));
+            audioDouble_.setBounds(tempoRow.withLeft(audioHalve_.getX() - t.shell.itemGap - doubleWidth)
+                                       .withWidth(doubleWidth)
+                                       .reduced(0, t.shell.propertyFieldInset));
+            audioTempo_.setBounds(tempoRow.withRight(audioDouble_.getX() - t.shell.itemGap)
+                                      .withTrimmedLeft(-ui::NumberField::textInset));
+            audioTails_.setBounds(row("tails").reduced(0, t.shell.propertyFieldInset));
+            // The key, then Follow beside it.
+            const auto keyRow = row("key");
+            const int followWidth = ui::Toggle::widthFor(audioFollow_.getButtonText());
+            audioFollow_.setBounds(
+                keyRow.withLeft(keyRow.getRight() - followWidth).reduced(0, t.shell.propertyFieldInset));
+            audioKey_.setBounds(keyRow.withRight(audioFollow_.getX() - t.shell.itemGap)
+                                    .reduced(0, t.shell.propertyFieldInset));
+            audioSensitivity_.setBounds(row("transients").withTrimmedLeft(-ui::NumberField::textInset));
         }
         else if (sections_[i] == S::Notes) // its fields, then Mute
         {
@@ -1779,7 +2185,8 @@ void InspectorPanel::setRoutes(std::vector<RouteRows::Route> routes, DeviceChain
 // ---- DetailPanel ---------------------------------------------------------------------------
 
 DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions)
-    : actions_(actions), chain_(session, actions), roll_(session), tools_(roll_, session), audio_(session)
+    : session_(session), actions_(actions), chain_(session, actions), roll_(session), tools_(roll_, session),
+      audio_(session)
 {
     header_.onTabSelected = [this](int tab)
     {
@@ -1834,8 +2241,15 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
         button->setVisible(false);
     }
     addChildComponent(tools_);
-    tools_.onEscape = [this] { showTools(std::nullopt); };
+    tools_.onEscape = [this]
+    {
+        if (showsAudioClip())
+            showAudioTools(false);
+        else
+            showTools(std::nullopt);
+    };
     tools_.onTabChanged = [this](model::ToolKind tab) { showTools(tab); };
+    tools_.onChosen = [this] { updateAudioBar(); }; // Normalise lit while the pane shows it
     // The piano roll's options; at compact widths Others, then Fold, the voicing, Draw and last the
     // kinds give way (§4, §20.2).
     draw_.setTooltip("What a double-click draws: a note, the key's chord on it, or the key's chord under it");
@@ -1892,8 +2306,294 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     header_.addOption(grid_);
     snap_.setVisible(false);
     grid_.setVisible(false);
+
+    // The audio editor's bar (audio-editor.md §4, §20): a range's commands first while one is
+    // selected, then the Audio menu, its tools, and the clip's gain and Reverse, each group a
+    // group apart. Everything used while working is one click away.
+    const auto& sh = ui::Theme::current().shell;
+    using A = engine::Session::RangeAction;
+    for (const auto action : {A::Split, A::Crop, A::Silence, A::Fade, A::Loop})
+    {
+        auto& button = rangeButton(action);
+        button.setClickingTogglesState(false);
+        button.setWantsKeyboardFocus(false);
+        button.onClick = [this, action] { audio_.editRange(action); };
+        button.setSize(ui::Toggle::widthFor(button.getButtonText()), sh.rowHeight);
+        header_.addCommand(button);
+        button.setVisible(false);
+    }
+    audioButton_.setTooltip("Every command for audio clips: the Audio menu");
+    audioButton_.onClick = [this]
+    {
+        if (audioMenu)
+            audioButton_.showMenu(audioMenu());
+    };
+    audioButton_.setSize(audioButton_.preferredWidth(), sh.rowHeight);
+    header_.addCommand(audioButton_);
+    header_.setCommandGroup(audioButton_);
+    audioButton_.setVisible(false);
+    // Quantise (§7.7): the clip's transients to the grid with the Quantise tool's settings.
+    quantiseAudio_.setClickingTogglesState(false);
+    quantiseAudio_.setWantsKeyboardFocus(false);
+    quantiseAudio_.onClick = [this] { actions_.perform("audio.quantise"); };
+    quantiseAudio_.setSize(ui::Toggle::widthFor(quantiseAudio_.getButtonText()), sh.rowHeight);
+    header_.addCommand(quantiseAudio_);
+    quantiseAudio_.setVisible(false);
+    // The tools with buttons of their own (§11, §20): each opens the Tools pane at it, lit while
+    // it's shown; clicked again, the pane closes.
+    for (auto [button, icon, tool, tip] :
+         {std::tuple{&tempoTool_, ui::Icon::Tempo, "tempo",
+                     "Tempo: find the clip's tempo and downbeat, halve or double it, and warp to it (the "
+                     "Tools pane)"},
+          std::tuple{&normalise_, ui::Icon::Normalise, "normalise",
+                     "Normalise: each clip's gain to a peak or a loudness, or all together (the Tools pane)"},
+          std::tuple{
+              &slice_, ui::Icon::Slice, "slice",
+              "Slice: cut the clip into clips at its transients, its markers, the grid or its bars (the "
+              "Tools pane)"}})
+    {
+        button->setIcon(icon);
+        button->setClickingTogglesState(false);
+        button->setWantsKeyboardFocus(false);
+        button->setTooltip(tip);
+        button->onClick = [this, id = std::string(tool)]
+        {
+            if (tools_.isVisible() && tools_.showsAudio() && tools_.chosen() == id)
+                showAudioTools(false);
+            else
+                showTool(id);
+        };
+        button->setSize(ui::Toggle::widthFor(button->getButtonText(), true), sh.rowHeight);
+        header_.addCommand(*button);
+        button->setVisible(false);
+    }
+    header_.setCommandGroup(tempoTool_);
+    // A number dragged or typed on the bar (Gain, Transpose, the tempo): its own text, a drag one
+    // undo step.
+    const auto barField = [this](ui::BarField& bar, double min, double max, double step, double sensitivity,
+                                 std::function<juce::String(double)> text,
+                                 std::function<std::optional<double>(const juce::String&)> parse,
+                                 std::optional<engine::Session::EditGroup>& gesture, const char* undo,
+                                 std::function<void(std::uint64_t, double)> set, const juce::String& tip)
+    {
+        auto& field = bar.field();
+        field.setFontSize(ui::Theme::current().textXs);
+        field.setRange(min, max, step);
+        field.setDragSensitivity(sensitivity);
+        field.textFromValue = std::move(text);
+        field.valueFromText = std::move(parse);
+        field.onGestureStart = [this, &gesture, undo] { gesture.emplace(session_, undo); };
+        field.onGestureEnd = [&gesture] { gesture.reset(); };
+        field.onValueChange = [this, &bar, apply = std::move(set)](double v)
+        {
+            if (const auto& c = audio_.clip())
+                apply(c->id, v);
+            bar.fit(); // as wide as the value it shows
+            header_.resized();
+        };
+        bar.setTooltip(tip);
+        bar.setSize(0, ui::Theme::current().shell.rowHeight);
+        bar.fit();
+        header_.addCommand(bar);
+        bar.setVisible(false);
+    };
+    const auto minus = juce::String::fromUTF8("\xE2\x88\x92");
+    // Typed text as a number: "−3", "+2 st", "92 BPM" (the unit and a typographic minus allowed).
+    const auto number = [minus](const juce::String& text, const char* unit) -> std::optional<double>
+    {
+        auto t = text.trim().replace(minus, "-").upToFirstOccurrenceOf(unit, false, true).trim();
+        if (t.isEmpty() || !t.containsOnly("+-0123456789."))
+            return std::nullopt;
+        return t.getDoubleValue();
+    };
+    // The clip's gain (§6.1).
+    barField(
+        gain_, model::minusInfinityDb, model::kMaxClipGainDb, 0.1, 0.1,
+        [minus](double db)
+        {
+            if (db <= model::minusInfinityDb)
+                return juce::String::fromUTF8("\xE2\x88\x92\xE2\x88\x9E dB");
+            const auto text = juce::String(std::abs(db), 1) + " dB";
+            return db < -0.05 ? minus + text : (db > 0.05 ? "+" + text : text);
+        },
+        [number](const juce::String& text) -> std::optional<double>
+        {
+            const auto t = text.trim().replace(juce::String::fromUTF8("\xE2\x88\x92"), "-");
+            if (t.startsWith("-inf") || t.startsWith(juce::String::fromUTF8("-\xE2\x88\x9E")))
+                return model::minusInfinityDb;
+            return number(text, "dB");
+        },
+        gainGesture_, "Gain", [this](std::uint64_t id, double db)
+        { session_.setSound({id}, {.gainDb = static_cast<float>(db)}, "Gain"); },
+        "The clip's gain: its level, before its gain line and fades. Drag or type; -inf is silence");
+    header_.setCommandGroup(gain_);
+    // Transpose (§8.1): semitones; the clip keeps its speed. Fine is in the inspector.
+    barField(
+        transpose_, -model::kMaxTranspose, model::kMaxTranspose, 1.0, 1.0,
+        [minus](double st)
+        {
+            const auto n = static_cast<int>(std::lround(st));
+            return (n < 0 ? minus + juce::String(-n) : (n > 0 ? "+" + juce::String(n) : juce::String("0"))) +
+                   " st";
+        },
+        [number](const juce::String& text) { return number(text, "st"); }, transposeGesture_, "Transpose",
+        [this](std::uint64_t id, double st)
+        { session_.setWarp({id}, {.transpose = static_cast<int>(std::lround(st))}, "Transpose"); },
+        "Transpose the clip by semitones: it keeps its speed. Drag or type; Fine is in the inspector");
+    reverse_.setClickingTogglesState(false);
+    reverse_.setWantsKeyboardFocus(false);
+    reverse_.onClick = [this]
+    {
+        if (const auto& c = audio_.clip())
+            session_.setSound({c->id}, {.reversed = !c->sound.reversed}, "Reverse");
+    };
+    reverse_.setSize(ui::Toggle::widthFor(reverse_.getButtonText()), sh.rowHeight);
+    header_.addCommand(reverse_);
+    reverse_.setVisible(false);
+    // Warping (§7): Warp lit while the clip follows the tempo; while it does, its mode, its tempo,
+    // ×2 and ÷2.
+    warp_.setClickingTogglesState(false);
+    warp_.setWantsKeyboardFocus(false);
+    warp_.onClick = [this] { actions_.perform("audio.warp"); };
+    warp_.setTooltip("Warp: the clip follows the song's tempo, its audio laid out in beats");
+    warp_.setSize(ui::Toggle::widthFor(warp_.getButtonText()), sh.rowHeight);
+    header_.addCommand(warp_);
+    header_.setCommandGroup(warp_);
+    warp_.setVisible(false);
+    warpMode_.setTooltip(
+        "How the clip follows the tempo: Beats for drums, Tones for the rest, Repitch like a "
+        "record played faster");
+    warpMode_.onClick = [this]
+    {
+        juce::PopupMenu m;
+        for (const char* id : {"audio.warpMode.beats", "audio.warpMode.tones", "audio.warpMode.repitch"})
+            actions_.addMenuItem(m, id);
+        warpMode_.showMenu(std::move(m));
+    };
+    warpMode_.setSize(warpMode_.preferredWidth(), sh.rowHeight);
+    header_.addCommand(warpMode_);
+    warpMode_.setVisible(false);
+    barField(
+        warpTempo_, model::kMinClipTempo, model::kMaxClipTempo, 0.01, 0.1,
+        [](double bpm) { return juce::String(bpm, 2) + " BPM"; },
+        [number](const juce::String& text) { return number(text, "BPM"); }, tempoGesture_, "Tempo",
+        [this](std::uint64_t id, double bpm) { session_.setWarp({id}, {.tempo = bpm}, "Tempo"); },
+        "The clip's tempo: the tempo its file was played at. Drag or type; the Tempo tool finds it");
+    for (auto [button, id, tip] :
+         {std::tuple{&tempoDouble_, "audio.tempoDouble",
+                     "Double the clip's tempo: it was found at half speed"},
+          std::tuple{&tempoHalf_, "audio.tempoHalf", "Halve the clip's tempo: it was found at double speed"}})
+    {
+        button->setClickingTogglesState(false);
+        button->setWantsKeyboardFocus(false);
+        button->onClick = [this, action = std::string(id)] { actions_.perform(action); };
+        button->setTooltip(tip);
+        button->setSize(ui::Toggle::widthFor(button->getButtonText()), sh.rowHeight);
+        header_.addCommand(*button);
+        button->setVisible(false);
+    }
+    // At narrow widths the least used give way first (§4): Normalise, ×2 and ÷2, Slice, Tempo,
+    // Reverse, the mode, Transpose, Gain, Quantise, then the tempo. Audio, Warp, Snap and the
+    // step stay.
+    int drop = 1;
+    for (juce::Component* c : std::initializer_list<juce::Component*>{
+             &normalise_, &tempoDouble_, &slice_, &tempoTool_, &reverse_, &warpMode_, &transpose_, &gain_,
+             &quantiseAudio_, &warpTempo_})
+        header_.setDropOrder(*c, drop++);
+    header_.setDropOrder(tempoHalf_, 2); // with ×2
+    // The editor tells the bar, and keeps the tools' settings where the notes' are (view state).
+    audio_.onRangeChanged = [this] { updateAudioBar(); };
+    audio_.menu = [this] { return audioMenu ? audioMenu() : juce::PopupMenu(); };
+    // The Tempo tool's downbeat dragged on the waveform shows in its form (§7.8).
+    audio_.onToolValue = [this](std::string_view setting, double value)
+    { tools_.form().show(setting, value); };
+    audio_.rememberedValues = [this](const model::ToolSpec& tool) { return roll_.toolValues(tool); };
+    audio_.rememberValues = [this](const model::ToolSpec& tool, const model::ToolValues& values)
+    { roll_.setToolValues(tool, values); };
     updateOptions();
     header_.resized();
+}
+
+ui::Toggle& DetailPanel::rangeButton(engine::Session::RangeAction action) noexcept
+{
+    using A = engine::Session::RangeAction;
+    switch (action)
+    {
+    case A::Split:
+        return split_;
+    case A::Crop:
+        return crop_;
+    case A::Silence:
+        return silence_;
+    case A::Fade:
+        return fadeRange_;
+    case A::Loop:
+        return loopRange_;
+    case A::Delete:
+    case A::Gain:
+        break;
+    }
+    return split_;
+}
+
+void DetailPanel::updateAudioBar()
+{
+    using A = engine::Session::RangeAction;
+    const bool audio = showsAudioClip();
+    const bool range = audio && audio_.range().has_value();
+    // What each does, or why it can't now.
+    static const std::map<A, juce::String> tips{
+        {A::Split, "Split the clip at the range's edges: the range becomes a clip of its own"},
+        {A::Crop, "Keep only the range"},
+        {A::Silence, "Silence the range: the gain line falls to silence over it"},
+        {A::Fade, "A range from the clip's start becomes its fade-in, one to its end its fade-out"},
+        {A::Loop, "Loop the range"}};
+    for (const auto& [action, tip] : tips)
+    {
+        auto& button = rangeButton(action);
+        button.setVisible(range);
+        const auto why = range ? audio_.rangeRefusal(action) : std::string();
+        button.setEnabled(why.empty());
+        const auto shortcut = action == A::Split ? actions_.shortcut("edit.split") : juce::String();
+        button.setTooltip(why.empty() ? tip + (shortcut.isNotEmpty() ? " (" + shortcut + ")" : juce::String())
+                                      : juce::String::fromUTF8(why.c_str()));
+    }
+    for (auto [button, tool] :
+         {std::pair{&normalise_, "normalise"}, std::pair{&tempoTool_, "tempo"}, std::pair{&slice_, "slice"}})
+        button->setToggleState(audio && tools_.isVisible() && tools_.showsAudio() && tools_.chosen() == tool,
+                               juce::dontSendNotification);
+    // While it warps: its mode, its tempo, ×2 and ÷2 (§4).
+    const bool warps = audio && audio_.clip() && audio_.clip()->warp.on;
+    for (auto* c :
+         std::initializer_list<juce::Component*>{&warpMode_, &warpTempo_, &tempoDouble_, &tempoHalf_})
+        c->setVisible(warps);
+    if (const auto& c = audio_.clip())
+    {
+        if (!gainGesture_)
+            gain_.field().setValue(c->sound.gainDb, juce::dontSendNotification);
+        gain_.fit();
+        if (!transposeGesture_)
+            transpose_.field().setValue(c->pitch.transpose, juce::dontSendNotification);
+        transpose_.fit();
+        warp_.setToggleState(c->warp.on, juce::dontSendNotification);
+        warpMode_.setButtonText(juce::String(model::warpModeName(c->warp.mode)));
+        warpMode_.setSize(warpMode_.preferredWidth(), warpMode_.getHeight());
+        if (!tempoGesture_)
+            warpTempo_.field().setValue(c->warp.tempo, juce::dontSendNotification);
+        warpTempo_.fit();
+        quantiseAudio_.setEnabled(actions_.isEnabled("audio.quantise"));
+        quantiseAudio_.setTooltip(
+            actions_.tooltip("audio.quantise") +
+            ": the clip's transients to the grid, through warp markers (the Quantise tool's "
+            "settings)");
+        reverse_.setToggleState(c->sound.reversed, juce::dontSendNotification);
+        reverse_.setEnabled(c->stack == 0);
+        reverse_.setTooltip(
+            c->stack == 0 ? "Play the clip backwards: a reversed copy of its file, the file itself untouched"
+                          : "A clip with takes plays its takes: choose one to reverse it");
+    }
+    header_.resized();
+    header_.repaint();
 }
 
 void DetailPanel::updateOptions()
@@ -1915,7 +2615,7 @@ void DetailPanel::updateOptions()
     // The Tools pane as the view state has it (a project opened with it open, on a tab).
     if (o.toolsTab != tools_.tab())
         tools_.setTab(o.toolsTab);
-    if (tools_.isVisible() != (showsPianoRoll() && o.toolsOpen) ||
+    if (tools_.isVisible() != ((showsPianoRoll() && o.toolsOpen) || (showsAudioClip() && o.audioToolsOpen)) ||
         transform_.getToggleState() != (showsPianoRoll() && toolsShown(model::ToolKind::Transform)) ||
         generate_.getToggleState() != (showsPianoRoll() && toolsShown(model::ToolKind::Generate)))
         updateVisibility();
@@ -2062,10 +2762,18 @@ void DetailPanel::updateVisibility()
     generate_.setVisible(notes);
     transform_.setToggleState(notes && toolsShown(model::ToolKind::Transform), juce::dontSendNotification);
     generate_.setToggleState(notes && toolsShown(model::ToolKind::Generate), juce::dontSendNotification);
-    const bool tools = notes && roll_.options().toolsOpen;
+    // The audio editor's bar (audio-editor.md §4); the Tools pane on its tools (§11).
+    const bool audio = showsAudioClip();
+    for (auto* c :
+         std::initializer_list<juce::Component*>{&audioButton_, &quantiseAudio_, &tempoTool_, &normalise_,
+                                                 &slice_, &gain_, &transpose_, &reverse_, &warp_})
+        c->setVisible(audio);
+    const bool tools = (notes && roll_.options().toolsOpen) || (audio && roll_.options().audioToolsOpen);
     if (!tools && tools_.isVisible())
         tools_.disarm(); // the notes back as it goes
+    tools_.setAudio(audio ? &audio_ : nullptr);
     tools_.setVisible(tools);
+    updateAudioBar();
     snap_.setVisible(grid);
     grid_.setVisible(grid);
     header_.resized();
@@ -2092,9 +2800,24 @@ bool DetailPanel::toolsShown(model::ToolKind tab) const
 
 void DetailPanel::showTool(std::string_view id)
 {
+    // Quantise is the notes' and the audio's: the clip view's kind says whose.
+    if (model::findAudioTool(id) != nullptr && (showsAudioClip() || model::findNoteTool(id) == nullptr))
+    {
+        showAudioTools(true);
+        tools_.choose(id);
+        return;
+    }
     const auto* tool = model::findNoteTool(id);
     showTools(tool != nullptr ? tool->kind : model::ToolKind::Transform);
     tools_.choose(id);
+}
+
+void DetailPanel::showAudioTools(bool open)
+{
+    auto o = roll_.options();
+    o.audioToolsOpen = open;
+    roll_.setOptions(o); // view state
+    updateVisibility();
 }
 
 void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
@@ -2102,7 +2825,7 @@ void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::Temp
     const bool audio = clip && clip->kind == model::ClipInfo::Kind::Audio;
     roll_.setClip(audio ? std::nullopt : clip, tempo);
     audio_.setClip(audio ? std::move(clip) : std::nullopt, tempo);
-    updateVisibility();
+    updateVisibility(); // the audio editor's bar with it
     updateHeader();
 }
 
@@ -2129,6 +2852,13 @@ void DetailPanel::frame(double playheadSeconds)
     }
     if (const bool can = actions_.isEnabled("notes.quantise"); quantise_.isEnabled() != can)
         quantise_.setEnabled(can);
+    // Normalise, Tempo and Slice lit while the pane shows them (as Transform and Generate are for
+    // theirs).
+    for (auto [button, tool] :
+         {std::pair{&normalise_, "normalise"}, std::pair{&tempoTool_, "tempo"}, std::pair{&slice_, "slice"}})
+        if (const bool lit = showsAudioClip() && tools_.isVisible() && tools_.chosen() == tool;
+            button->getToggleState() != lit)
+            button->setToggleState(lit, juce::dontSendNotification);
     // Its tooltip names its key: the actions are registered after the panel is made.
     if (const auto tip = actions_.tooltip("notes.quantise") + ": the selected notes, or all of them, to the grid";
         tip != quantise_.getTooltip())
@@ -2148,27 +2878,26 @@ void DetailPanel::resized()
     const auto& sh = ui::Theme::current().shell;
     auto r = getLocalBounds();
     header_.setBounds(r.removeFromTop(sh.panelHeaderHeight));
+    // The Tools pane at the clip view's right edge (§25; audio-editor.md §11): beside the notes or
+    // the waveform, or floating over their right side when the clip view is narrow.
+    roll_.setBounds(r);
     audio_.setBounds(r);
-    // The Tools pane at the clip view's right edge (§25): beside the notes, or floating over their
-    // right side when the clip view is narrow.
+    juce::Component& view = showsAudioClip() ? static_cast<juce::Component&>(audio_) : roll_;
     if (tools_.isVisible())
     {
         tools_.setFloating(r.getWidth() < sh.toolsDockFrom);
         const int width = tools_.preferredWidth();
         if (tools_.isFloating())
         {
-            roll_.setBounds(r);
             tools_.setBounds(r.withLeft(std::max(r.getX(), r.getRight() - width)));
             tools_.toFront(false);
         }
         else
         {
             tools_.setBounds(r.withLeft(r.getRight() - width));
-            roll_.setBounds(r.withTrimmedRight(width));
+            view.setBounds(r.withTrimmedRight(width));
         }
     }
-    else
-        roll_.setBounds(r);
     if (mode_ == Mode::Editor && editor_ != nullptr)
     {
         // The module where it was, its editor below, lined up with the module panels.

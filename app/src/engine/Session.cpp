@@ -260,8 +260,24 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
     if (auto* audio = dynamic_cast<te::AudioClipBase*>(&c))
     {
         clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
-        clip.sourceLength = audio->getSourceLength().inSeconds();
-        clip.synced = audio->getAutoTempo();
+        clip.sound = soundOf(*audio); // ADR 0063
+        // Warping (P6b): while it warps, its content counts the song's time, its file laid out in
+        // beats.
+        const auto map = contentMapOf(*audio);
+        clip.warp = warpOf(*audio);
+        clip.pitch = pitchOf(audio->state);
+        clip.fileLength = map.fileLength;
+        clip.beatsPerSecond = map.beatsPerSecond;
+        clip.sourceLength = map.fileLength > 0.0 ? map.contentLength() : 0.0;
+        // The format of the person's file: a reversed clip's forward one, not our copy (ADR 0063).
+        const auto file =
+            c.state.hasProperty(soundIds::forward)
+                ? te::SourceFileReference::findFileFromString(c.edit, c.state[soundIds::forward].toString())
+                : audio->getOriginalFile();
+        const auto info = te::AudioFile(c.edit.engine, file).getInfo();
+        clip.fileChannels = info.numChannels;
+        clip.fileSampleRate = info.sampleRate;
+        clip.fileBitDepth = info.isFloatingPoint ? 0 : info.bitsPerSample;
     }
     clip.loop = loopOf(c.state, c.edit.tempoSequence); // ADR 0048
     if (clip.loop.on() && clip.kind == model::ClipInfo::Kind::Midi) // the zero the clip view shows
@@ -278,36 +294,46 @@ model::TrackInfo::Kind kindOf(te::AudioTrack& t)
 }
 } // namespace
 
+model::ClipInfo clipInfoOf(te::Clip& clip)
+{
+    return clipInfo(clip, 0);
+}
+
 model::ClipLoop loopOf(const juce::ValueTree& clip, const te::TempoSequence& tempo)
 {
     const auto seconds = [&](double beats) { return tempo.toTime(te::BeatPosition::fromBeats(beats)).inSeconds(); };
-    if (clip.hasType(te::IDs::MIDICLIP))
+    // A MIDI clip, and an audio clip that follows the tempo, loop in beats (ADR 0063).
+    if (clip.hasType(te::IDs::MIDICLIP) || static_cast<bool>(clip[te::IDs::autoTempo]))
     {
         const double start = clip[te::IDs::loopStartBeats], length = clip[te::IDs::loopLengthBeats];
         return length > 0.0 ? model::ClipLoop{seconds(start), seconds(start + length) - seconds(start)} : model::ClipLoop{};
     }
-    if (static_cast<bool>(clip[te::IDs::autoTempo]))
-        return {};
     const double length = clip[te::IDs::loopLength];
     return length > 0.0 ? model::ClipLoop{clip[te::IDs::loopStart], length} : model::ClipLoop{};
 }
 
 void writeLoop(te::Clip& clip, const model::ClipLoop& loop, juce::UndoManager* um)
 {
-    if (auto* midi = dynamic_cast<te::MidiClip*>(&clip))
+    // A MIDI clip, and an audio clip that follows the tempo, loop in beats (ADR 0063).
+    auto* audio = dynamic_cast<te::AudioClipBase*>(&clip);
+    if (dynamic_cast<te::MidiClip*>(&clip) != nullptr || (audio != nullptr && audio->getAutoTempo()))
     {
         const auto& tempo = clip.edit.tempoSequence;
         const auto beats = [&](double seconds) { return tempo.toBeats(te::TimePosition::fromSeconds(seconds)); };
         if (loop.on())
-            midi->setLoopRangeBeats({beats(loop.start), beats(loop.end())});
+            clip.setLoopRangeBeats({beats(loop.start), beats(loop.end())});
+        else if (audio == nullptr)
+            clip.setLoopRangeBeats({});
         else
-            midi->setLoopRangeBeats({});
+        {
+            clip.state.setProperty(te::IDs::loopStartBeats, 0.0, um);
+            clip.state.setProperty(te::IDs::loopLengthBeats, 0.0, um);
+        }
         return;
     }
     if (loop.on())
     {
-        auto* audio = dynamic_cast<te::AudioClipBase*>(&clip);
-        if (audio == nullptr || audio->getAutoTempo())
+        if (audio == nullptr)
             return;
         // In whole samples of the file, as the engine wraps it: the seams drawn and faded are then
         // exactly where it wraps, lap after lap.
@@ -344,6 +370,9 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
     setRecordingFiles(engine, [this](te::Track& t, const juce::String& extension) {
         return edit != nullptr && &t.edit == edit.get() ? recordingFile(t, extension) : juce::File();
     });
+    // Beats starts pieces at a clip's transients (audio-editor.md §7.4), once they're found.
+    setTransientSource(engine, [this](te::AudioClipBase& c) { return transientsOf(c); });
+    analyser.onFound = [this](const std::string& path) { analysisFound(path); };
     // The browser's previews play after the engine's output (browser.md §7).
     engine.getDeviceManager().deviceManager.addAudioCallback(&preview);
     tap.setMapper(&midiMapper); // MIDI learn's moves aren't captured as music
@@ -452,7 +481,34 @@ Session::Impl::~Impl()
     engine.getDeviceManager().removeChangeListener(this);
     tapDrain.stopTimer();
     setRecordingFiles(engine, {});
+    setTransientSource(engine, {});
+    analyser.onFound = nullptr;
     detach();
+}
+
+std::vector<double> Session::Impl::transientsOf(te::AudioClipBase& c)
+{
+    auto info = model::ClipInfo{};
+    info.analysis = analyser.get(forwardFileOf(c));
+    info.warp = warpOf(c);
+    info.transientsAdded = timesOf(c.state[warpIds::transientsAdded]);
+    info.transientsRemoved = timesOf(c.state[warpIds::transientsRemoved]);
+    return model::transientsOf(info);
+}
+
+void Session::Impl::analysisFound(const std::string& path)
+{
+    if (edit == nullptr)
+        return;
+    bool beats = false;
+    for (auto* t : te::getAudioTracks(*edit))
+        for (auto* c : t->getClips())
+            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
+                if (forwardFileOf(*audio).getFullPathName().toStdString() == path)
+                    beats = beats || (audio->getAutoTempo() && warpOf(*audio).mode == model::WarpMode::Beats);
+    if (beats)
+        edit->restartPlayback();
+    triggerAsyncUpdate();
 }
 
 void Session::Impl::midiDevicesChanged()
@@ -582,6 +638,20 @@ void Session::Impl::rebuildSnapshot()
             if (c->state.hasProperty(auditionId)) // an audition's copy: not the project (ADR 0038)
                 continue;
             auto clip = clipInfo(*c, info.colour);
+            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
+            {
+                // What's found in its file (P6b), once something asked for it (the editor showing
+                // it, Beats playing it, a loop placed): read here, never started.
+                clip.analysis = analyser.peek(forwardFileOf(*audio));
+                clip.transientsAdded = timesOf(c->state[warpIds::transientsAdded]);
+                clip.transientsRemoved = timesOf(c->state[warpIds::transientsRemoved]);
+                // Its key (P6c): set by hand or pinned, else what's found.
+                const auto stored = storedKeyOf(c->state);
+                clip.key = stored ? *stored : (clip.analysis != nullptr ? clip.analysis->key : std::nullopt);
+                clip.keyFound = !stored || static_cast<bool>(c->state.getProperty(keyIds::found, false));
+                clip.followKey = followsKey(c->state);
+                clip.followSteps = followStepsOf(*audio);
+            }
             if (audition && std::find(audition->muted.begin(), audition->muted.end(), clip.id) != audition->muted.end())
                 clip.muted = false; // muted only while its take is auditioned
             info.clips.push_back(std::move(clip));
@@ -1282,22 +1352,38 @@ std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& 
     const te::AudioFile audio(impl_->engine, file);
     if (track == nullptr || !audio.isValid())
         return 0;
+    EditGroup group(*this, "Insert audio file");
     impl_->beginEdit("Insert audio file");
     const auto start = te::TimePosition::fromSeconds(std::max(0.0, seconds));
     auto clip = track->insertWaveClip(file.getFileNameWithoutExtension(), file,
                                       {{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}}, false);
     if (clip == nullptr)
         return 0;
-    // At the file's own speed (browser.md R8, clip-loops.md §4): the engine would stretch a file
-    // with loop metadata to the tempo by itself; following the tempo comes with M4's warping.
+    // The engine would stretch a file with loop metadata to the tempo by itself: placed at its own
+    // speed first (clip-loops.md §4).
     if (clip->getAutoTempo() || clip->getAutoPitch())
     {
         clip->setAutoTempo(false);
         clip->setAutoPitch(false);
         clip->setPosition({{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}});
     }
-    impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + audio.getLength(), {clip->itemID.getRawID()});
-    return clip->itemID.getRawID();
+    const auto id = clip->itemID.getRawID();
+    impl_->keepFirstTempo(*clip);
+    // A loop plays in time (audio-editor.md §7.2): Warp on at its tempo, in the mode its sound
+    // chooses. Anything else plays at its file's speed.
+    if (impl_->loopsFollowTempo || impl_->loopsFollowKey)
+        if (const auto loop = impl_->loopTempo(*clip))
+        {
+            if (impl_->loopsFollowTempo)
+                setWarp({id}, {.on = true, .mode = loop->second, .tempo = loop->first}, "Insert audio file");
+            // And in key, when asked (§8.3): a loop with a key follows the song's.
+            if (impl_->loopsFollowKey)
+                setWarp({id}, {.followKey = true}, "Insert audio file");
+        }
+    const double end = impl_->clip(id) != nullptr ? impl_->clip(id)->getPosition().getEnd().inSeconds()
+                                                  : start.inSeconds() + audio.getLength();
+    impl_->clearUnder(*track, start.inSeconds(), end, {id});
+    return id;
 }
 
 void Session::applyClipEdits(const std::vector<model::ClipEdit>& asked, const std::string& undoName)

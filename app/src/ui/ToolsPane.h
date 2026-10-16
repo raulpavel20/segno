@@ -16,10 +16,18 @@ namespace fd::app
 /// keeps it as one undo step; choosing it again, another tile or Escape puts the notes back. A tile
 /// that can't run is dimmed, its tooltip saying why. Where the pane is too short for the tab's
 /// tiles and its tallest tool, the tiles show their icons alone, in a row.
+///
+/// For an audio clip (audio-editor.md §11) it shows the audio's tools instead, without tabs, on
+/// the host the audio editor gives it: the same tiles, settings and Apply.
 class ToolsPane final : public juce::Component
 {
 public:
     ToolsPane(PianoRoll& roll, engine::Session& session);
+    ~ToolsPane() override;
+
+    /// The audio's tools on `host` (the audio editor's), or the notes' (null).
+    void setAudio(ToolHost* host);
+    [[nodiscard]] bool showsAudio() const noexcept { return audio_ != nullptr; }
 
     /// The tab's tiles, nothing chosen.
     void setTab(model::ToolKind tab);
@@ -53,6 +61,8 @@ public:
     std::function<void()> onEscape;
     /// Its own tabs chose another (the header's buttons and the view state follow).
     std::function<void(model::ToolKind)> onTabChanged;
+    /// A tool was chosen, or let go (the bar's tool buttons are lit while it shows theirs).
+    std::function<void()> onChosen;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -67,7 +77,14 @@ private:
         std::string id;
         model::ToolKind kind;
         std::unique_ptr<ui::Tile> tile;
+        bool audio = false; // one of the audio's tools
     };
+    /// Whether a tile shows now: the audio's, or the notes' of the tab.
+    [[nodiscard]] bool shows(const TileItem& item) const noexcept;
+    /// The tools shown now, and a tool of them by id.
+    [[nodiscard]] const std::vector<model::ToolSpec>& catalogue() const;
+    [[nodiscard]] const model::ToolSpec* findTool(std::string_view id) const;
+    [[nodiscard]] ToolHost& host() const;
 
     /// Why a tile can't run now (empty: it can).
     [[nodiscard]] juce::String unavailable(const TileItem& item) const;
@@ -82,6 +99,8 @@ private:
 
     PianoRoll& roll_;
     engine::Session& session_;
+    std::unique_ptr<ToolHost> notes_; // the piano roll's notes, as the tools see them
+    ToolHost* audio_ = nullptr;       // the audio editor's, while it's shown
     ToolForm form_;
     MakeChordsForm makeChords_;
     ui::Segments tabs_{juce::StringArray{"Transform", "Generate"}};

@@ -3,6 +3,7 @@
 #include "engine/ClipChance.h"
 #include "engine/ClipFades.h"
 #include "engine/MonitoringLatency.h"
+#include "engine/WarpPlayer.h"
 
 #include <map>
 
@@ -41,10 +42,29 @@ public:
     {
         auto [clips, index] = fadeNeighboursOf(clip);
         const auto playback = model::clipPlayback(clips, index, edgeFadesOn(clip.edit));
-        // Nothing to fade: no node, unless tracktion would apply its own curves to tiny fades.
-        if (!playback.any() && clip.getFadeIn() == tracktion::TimeDuration() && clip.getFadeOut() == tracktion::TimeDuration())
+        auto sound = soundOf(clip);
+        // Nothing to fade and its sound as recorded: no node, unless tracktion would apply its own
+        // curves to tiny fades.
+        if (!playback.any() && sound.neutral() && clip.getFadeIn() == tracktion::TimeDuration() &&
+            clip.getFadeOut() == tracktion::TimeDuration())
             return {};
-        return std::make_unique<ClipFadeNode>(std::move(input), state, clips[index], playback);
+        return std::make_unique<ClipFadeNode>(std::move(input), state, clips[index], playback,
+                                              std::move(sound));
+    }
+
+    // Warping (ADR 0063, audio-editor.md §22): a clip that follows the tempo plays through Segno's
+    // piece player.
+    std::unique_ptr<tracktion::graph::Node> createAudioClipSourceNode(tracktion::AudioClipBase& clip,
+                                                                      tracktion::TimeRange played,
+                                                                      tracktion::ProcessState& state,
+                                                                      bool forRendering) override
+    {
+        if (!clip.getAutoTempo())
+            return {};
+        std::vector<double> found;
+        if (transients && warpOf(clip).mode == model::WarpMode::Beats)
+            found = transients(clip);
+        return makeWarpPlayer(clip, played, state, forRendering, found);
     }
 
     // Chance (piano-roll.md §10, §26, ADR 0062): a MIDI clip's notes left to chance are decided as
@@ -69,6 +89,7 @@ public:
     }
 
     RecordingFiles files;
+    TransientSource transients;
     /// What the graph last decided for each module it asked about (every build asks again about
     /// every module on a monitored track, so a stale entry is never read for one).
     std::map<const tracktion::Plugin*, bool> leftOut;
@@ -95,5 +116,11 @@ void setRecordingFiles(tracktion::Engine& engine, RecordingFiles files)
 {
     if (auto* behaviour = dynamic_cast<Behaviour*>(&engine.getEngineBehaviour()))
         behaviour->files = std::move(files);
+}
+
+void setTransientSource(tracktion::Engine& engine, TransientSource source)
+{
+    if (auto* behaviour = dynamic_cast<Behaviour*>(&engine.getEngineBehaviour()))
+        behaviour->transients = std::move(source);
 }
 } // namespace fd::engine

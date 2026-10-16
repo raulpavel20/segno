@@ -1,5 +1,7 @@
 #pragma once
 
+#include "model/AudioAnalysis.h"
+#include "model/AudioSound.h"
 #include "model/Automation.h"
 #include "model/Controllers.h"
 #include "model/Fades.h"
@@ -8,6 +10,7 @@
 #include "model/Modulators.h"
 #include "model/Recording.h"
 #include "model/TempoMap.h"
+#include "model/Warp.h"
 
 #include <array>
 #include <cstdint>
@@ -53,8 +56,6 @@ struct ClipInfo
     double sourceLength = 0.0; // seconds of source material (0 = unbounded, e.g. MIDI)
     /// What it plays again and again (ADR 0048, model/ClipLoops.h): seconds of its content.
     ClipLoop loop;
-    /// An audio clip the engine stretches to the song's tempo (placed before ADR 0048): it can't loop.
-    bool synced = false;
     int colour = 0;      // index into the clip palette
     std::string sourcePath; // audio file, if any
 
@@ -78,6 +79,31 @@ struct ClipInfo
     Fade fadeIn, fadeOut;
     std::optional<Crossfade> crossfadeOut;
     ClipPlayback playback;
+    /// Audio clips (P6, audio-editor.md §6): its gain, gain line, reverse, polarity and channels.
+    AudioSound sound;
+    /// Its file's format: channels, sample rate and bit depth (0: floating point or unknown).
+    int fileChannels = 0;
+    double fileSampleRate = 0.0;
+    int fileBitDepth = 0;
+    /// Audio clips (P6b, audio-editor.md §7, §8.1): its warping and transposition. While it warps,
+    /// its content is counted in the song's time (its offset, length and loop as everywhere) and
+    /// `sourceLength` is its file's length as it plays; `fileLength` is the file's own, and
+    /// `beatsPerSecond` the song's where it plays (model/Warp.h's ContentMap joins them).
+    AudioWarp warp;
+    AudioPitch pitch;
+    double fileLength = 0.0;
+    double beatsPerSecond = 2.0;
+    /// What's found in its file (§7.4, model/AudioAnalysis.h): null while it's being found. Its
+    /// transients as edited by hand (seconds of its file as recorded): model::transientsOf joins
+    /// them.
+    std::shared_ptr<const FileAnalysis> analysis;
+    std::vector<double> transientsAdded, transientsRemoved;
+    /// Audio clips (P6c, audio-editor.md §8.2, §8.3): its key, set by hand or found in its file
+    /// (`keyFound`); whether it follows the song's key, and the semitones that adds to its
+    /// transposition.
+    std::optional<music::Key> key;
+    bool keyFound = true, followKey = false;
+    int followSteps = 0;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };

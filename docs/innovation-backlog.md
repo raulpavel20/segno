@@ -20,7 +20,7 @@ To schedule an idea, it needs:
 | **Stack mode** for loop recording: each lap goes straight onto a new track instead of a take lane | Doubles and layered parts while you play | 💡 |
 | **Tempo from captured MIDI:** capturing into an empty, stopped project sets the tempo from what was played | Start from a played idea without a click | 💡 |
 | **Take ranking by assistants:** an assistant renders and measures each take (level, timing against the grid, pitch) and suggests the best | Faster choices among many takes; the user decides | 💡 (the tools exist with C5b) |
-| **Clip gain and clip effects:** gain envelopes and effects on individual clips, not only tracks | Fast fixes without automation lanes | 💡 |
+| **Clip gain and clip effects:** gain envelopes and effects on individual clips, not only tracks | Fast fixes without automation lanes | Clip gain and a gain line proposed for M3 P6a ([audio-editor.md](design/audio-editor.md) §6); effects on clips left out (modules belong to tracks) |
 | **Project versions:** named snapshots of a whole project with instant A/B (e.g. "mix v3 vs v4") | Safe experimentation, comparing mixes | 💡 |
 | **Undo history panel**, including branches | Lets you see and revisit earlier states | 💡 |
 | **Scratch lane:** an area beside the arrangement for parking ideas | Keeps the arrangement clean while you sketch | 💡 |
@@ -61,5 +61,5 @@ To schedule an idea, it needs:
 |---|---|---|
 | **Loudness-normalised previews** in the browser | Fair comparison between sounds | 💡 |
 | **Similarity search and auto-tagging** for samples (local ML, offline) | Finding sounds is slow | 💡 |
-| **Stem separation and audio→MIDI on import** (local ML models) | Remixing, sampling, transcription | 💡 |
+| **Stem separation and audio→MIDI on import** (local ML models) | Remixing, sampling, transcription | 💡 Proposed as the step after M3 P6 ([audio-editor.md](design/audio-editor.md) §17): htdemucs (MIT code, about 80 MB) through demucs.cpp or ONNX, its model in the Library |
 | **Unified search across devices, presets, samples and plugins** | One place to look | 📌 M3 |

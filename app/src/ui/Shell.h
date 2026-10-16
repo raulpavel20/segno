@@ -212,6 +212,13 @@ private:
     std::unique_ptr<Tooltips> tooltips_;
     /// The notes' right-click menu (piano-roll.md §13).
     [[nodiscard]] juce::PopupMenu notesContextMenu();
+    /// The audio editor's commands (audio-editor.md §13): the Audio menu's actions, the bar's Audio
+    /// button and the waveform's right-click menu (ShellAudio.cpp).
+    void registerAudioActions();
+    [[nodiscard]] juce::PopupMenu audioContextMenu();
+    /// The audio clips a clip command acts on: the editor's, when it was used last; else the
+    /// arrangement's selected audio clips.
+    [[nodiscard]] std::vector<model::ClipInfo> audioTargets() const;
     [[nodiscard]] juce::PopupMenu sectionColourMenu();
     void sectionMenu(juce::PopupMenu& menu, std::uint64_t section);
     [[nodiscard]] bool sectionsActive() const; // sections are selected, in the arrangement used last
@@ -288,6 +295,7 @@ private:
     /// What the inspector's MODULE showed last: the module (0 none) and the project as it was.
     std::pair<std::uint64_t, const void*> inspectorModule_{0, nullptr};
     [[nodiscard]] bool notesActive() const; // the piano roll was used last and shows a clip
+    [[nodiscard]] bool audioActive() const; // the audio editor was used last and shows a clip
     [[nodiscard]] bool laneActive() const;   // an automation lane was used last and is selected
     [[nodiscard]] bool pointsActive() const; // ... with points selected
     ArrangementView arrangement_;

@@ -59,11 +59,21 @@ void ArrangementView::paintFades(juce::Graphics& g, const model::ClipInfo& clip,
         {
             g.setColour(t.clipBody(colour, selected));
             g.fillRect(region);
-            forEachLap(g, clip, body, [&](const model::ClipInfo& lap, juce::Rectangle<float> lapBody) {
-                WaveformTiles::drawDirect(g, *peaks, lap, lapBody, region.getSmallestIntegerContainer(), timeline_,
-                                          laneArea().getX(), t.clipContent(colour),
-                                          [&](double seconds) { return model::rampGain(ramp, (seconds - from) / (to - from), fadingIn); });
-            });
+            const auto map = model::contentMap(clip);
+            forEachLap(g, clip, body,
+                       [&](const model::ClipInfo& lap, juce::Rectangle<float> lapBody)
+                       {
+                           // Through the clip's sound too (audio-editor.md §10): its gain and gain line.
+                           WaveformTiles::drawDirect(
+                               g, *peaks, lap, lapBody, region.getSmallestIntegerContainer(), timeline_,
+                               laneArea().getX(), t.clipContent(colour),
+                               [&](double seconds)
+                               {
+                                   const double content = model::contentAt(lap, seconds);
+                                   return model::rampGain(ramp, (seconds - from) / (to - from), fadingIn) *
+                                          model::soundGainAt(clip.sound, map.fileAt(content));
+                               });
+                       });
         }
         // Narrower than a handle, the curve would read as a glitch: an edge fade shows once zoomed in.
         if (x1 - x0 < static_cast<float>(t.shell.fadeHandleSize))
@@ -145,10 +155,20 @@ void ArrangementView::paintCrossfades(juce::Graphics& g, const model::TrackInfo&
 bool ArrangementView::showsFadeHandles(const model::TrackInfo& track, const model::FadeHandle& handle) const
 {
     auto shown = [&](std::uint64_t clip) { return hoveredClip_ == clip || selection_.clips.contains(clip); };
+    using K = model::FadeHandle::Kind;
+    if (handle.kind == K::Gain)
+    {
+        // Only where it has room between the fade squares in the clip's corners (audio-editor.md §10).
+        const auto it = std::find_if(track.clips.begin(), track.clips.end(),
+                                     [&](const auto& c) { return c.id == handle.clip; });
+        const auto& s = ui::Theme::current().shell;
+        const double room = 3.0 * s.fadeHandleSize + 2.0 * s.itemGap;
+        return it != track.clips.end() && it->length * timeline_.pixelsPerSecond() >= room &&
+               shown(handle.clip);
+    }
     if (shown(handle.clip))
         return true;
     // A crossfade's grips show for the clip after the join too.
-    using K = model::FadeHandle::Kind;
     if (handle.kind != K::CrossStart && handle.kind != K::CrossEnd)
         return false;
     for (size_t i = 0; i + 1 < track.clips.size(); ++i)
@@ -279,6 +299,30 @@ std::optional<ArrangementView::FadeGrip> ArrangementView::fadeGripAt(juce::Point
     return FadeGrip{pool.front().handle, track.id};
 }
 
+std::optional<juce::Point<float>> ArrangementView::handleGrip(std::uint64_t clip,
+                                                              model::FadeHandle::Kind kind) const
+{
+    using K = model::FadeHandle::Kind;
+    const auto lanes = laneArea();
+    for (size_t r = 0; r < rows_.size(); ++r)
+    {
+        if (!rows_[r].holdsClips())
+            continue;
+        const auto& track = snapshot_->tracks[static_cast<size_t>(rows_[r].track)];
+        const float y = static_cast<float>(lanes.getY() + layout_.top(static_cast<int>(r)));
+        const float h = static_cast<float>(layout_.baseHeight(static_cast<int>(r)));
+        for (const auto& handle : model::fadeHandles(track))
+            if (handle.clip == clip && handle.kind == kind && showsFadeHandles(track, handle))
+                if (auto at = handlePoint(track, handle, y, h))
+                {
+                    if (kind != K::BendIn && kind != K::BendOut) // a square hangs from the top of the body
+                        at->y += static_cast<float>(ui::Theme::current().shell.fadeHandleSize) * 0.5f;
+                    return at;
+                }
+    }
+    return std::nullopt;
+}
+
 std::optional<ArrangementView::FadeRegion> ArrangementView::fadeRegionAt(juce::Point<float> pos) const
 {
     const auto lanes = laneArea();
@@ -390,6 +434,9 @@ bool ArrangementView::fadeMouseDown(const juce::MouseEvent& e)
         case K::BendOut: session_.setFades({h.clip}, std::nullopt, model::Fade{it->fadeOut.length, 0.0f}); break;
         case K::CrossStart:
         case K::CrossEnd: session_.setCrossfade(h.clip, std::nullopt, "Remove crossfade"); break;
+        case K::Gain:
+            session_.setSound(gainClipsFor(*track, *it), {.gainDb = 0.0f}, "Gain");
+            break; // 0 dB
         }
         return true;
     }
@@ -398,7 +445,26 @@ bool ArrangementView::fadeMouseDown(const juce::MouseEvent& e)
                          .track = grip->track,
                          .baseBend = h.kind == K::BendIn ? it->fadeIn.bend : it->fadeOut.bend,
                          .pointer = e.position};
+    if (h.kind == K::Gain)
+        for (auto id : gainClipsFor(*track, *it))
+            for (const auto& c : track->clips)
+                if (c.id == id)
+                    fadeDrag_->gains[id] = c.sound.gainDb;
     return true;
+}
+
+std::vector<std::uint64_t> ArrangementView::gainClipsFor(const model::TrackInfo& track,
+                                                         const model::ClipInfo& clip) const
+{
+    // Every part of the clip (a clip with takes is one clip, ADR 0032); while it's selected, every
+    // selected audio clip on its track too, moved together (audio-editor.md §10).
+    std::vector<std::uint64_t> out;
+    for (const auto& c : track.clips)
+        if (c.kind == model::ClipInfo::Kind::Audio &&
+            (c.id == clip.id || (clip.stack != 0 && c.stack == clip.stack) ||
+             (selection_.clips.contains(clip.id) && selection_.clips.contains(c.id))))
+            out.push_back(c.id);
+    return out;
 }
 
 void ArrangementView::fadeMouseDrag(const juce::MouseEvent& e)
@@ -410,6 +476,22 @@ void ArrangementView::fadeMouseDrag(const juce::MouseEvent& e)
     if (track == nullptr)
         return;
     const auto& h = fadeDrag_->handle;
+    if (h.kind == K::Gain)
+    {
+        // Up raises it: a tenth of a dB a pixel (Shift: a hundredth), every clip it moves by as much.
+        const double perPixel = e.mods.isShiftDown() ? 0.01 : 0.1;
+        fadeDrag_->gainBy =
+            static_cast<float>(std::round((dragStart_.y - e.position.y) * perPixel * 10.0) / 10.0);
+        fadeDrag_->pointer = e.position;
+        auto preview = *track;
+        for (auto& c : preview.clips)
+            if (const auto base = fadeDrag_->gains.find(c.id); base != fadeDrag_->gains.end())
+                c.sound.gainDb = std::clamp(base->second + fadeDrag_->gainBy, model::minusInfinityDb,
+                                            model::kMaxClipGainDb);
+        fadePreview_ = std::move(preview);
+        repaint(laneArea());
+        return;
+    }
     model::FadeEdit edit;
     if (h.kind == K::BendIn || h.kind == K::BendOut)
     {
@@ -426,9 +508,19 @@ void ArrangementView::fadeMouseDrag(const juce::MouseEvent& e)
 
 juce::String ArrangementView::fadeDragText() const
 {
+    using K = model::FadeHandle::Kind;
+    if (fadeDrag_ && fadeDrag_->handle.kind == K::Gain)
+    {
+        const auto base = fadeDrag_->gains.find(fadeDrag_->handle.clip);
+        const double db = base == fadeDrag_->gains.end() ? 0.0 : base->second + fadeDrag_->gainBy;
+        if (db <= model::minusInfinityDb)
+            return juce::String::fromUTF8("Gain \xE2\x88\x92\xE2\x88\x9E dB");
+        const auto text = juce::String(std::abs(db), 1) + " dB";
+        return "Gain " +
+               (db < -0.05 ? juce::String::fromUTF8("\xE2\x88\x92") + text : (db > 0.05 ? "+" + text : text));
+    }
     if (!fadeDrag_ || !fadeDrag_->edit)
         return {};
-    using K = model::FadeHandle::Kind;
     const auto& e = *fadeDrag_->edit;
     auto ms = [](double seconds) { return juce::String(juce::roundToInt(seconds * 1000.0)) + " ms"; };
     auto percent = [](float bend) { return juce::String(juce::roundToInt(bend * 100.0f)) + " %"; };
@@ -448,6 +540,19 @@ juce::String ArrangementView::fadeDragText() const
 
 void ArrangementView::fadeMouseUp()
 {
+    if (fadeDrag_ && fadeDrag_->handle.kind == model::FadeHandle::Kind::Gain)
+    {
+        std::vector<std::uint64_t> clips;
+        for (const auto& [id, gain] : fadeDrag_->gains)
+            clips.push_back(id);
+        if (fadeDrag_->gainBy != 0.0f)
+            session_.setSound(clips, {.gainBy = fadeDrag_->gainBy}, "Gain");
+        else
+            fadePreview_.reset();
+        fadeDrag_.reset();
+        repaint(laneArea());
+        return;
+    }
     if (fadeDrag_ && fadeDrag_->edit && !fadeDrag_->edit->empty())
     {
         const auto& edit = *fadeDrag_->edit;
