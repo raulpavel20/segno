@@ -53,7 +53,7 @@ using ShapeEditor = ui::synth::SynthShapeEditor<GranularParts>;
 using MatrixList = ui::synth::SynthMatrixList<GranularParts>;
 
 /// The audio files a source takes.
-inline constexpr const char* audioFiles = "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.ogg;*.sfz";
+inline constexpr const char* audioFiles = "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.sfz";
 /// Puts `file` into source n through the host, one undo step.
 void loadSourceFile(ui::DeviceUiContext& ctx, int n, const juce::File& file);
 

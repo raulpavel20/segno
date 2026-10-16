@@ -55,7 +55,14 @@ private:
         void tick(double x, double g, double k) noexcept;
     };
 
+    // The coefficients of the last cutoff and resonance, kept: they're the same sample after
+    // sample unless something moves them (a tan and a pow saved per sample).
+    [[nodiscard]] double cutoffG(double cutoff) noexcept;
+    [[nodiscard]] double damping(double resonance) noexcept;
+    [[nodiscard]] double secondDamping(double resonance) noexcept;
+
     double sampleRate_ = 48000.0;
+    double gCutoff_ = -1.0, g_ = 0.0, kResonance_ = -1.0, k_ = 0.0, k2Resonance_ = -1.0, k2_ = 0.0;
     Svf a_, b_;
     std::array<Svf, 3> formants_{};
     LadderFilter ladder_;

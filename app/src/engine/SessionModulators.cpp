@@ -1,5 +1,6 @@
 // Modulators in the session (docs/design/modulators.md, ADR 0061, ADR 0062): where they sit in a
 // track's chain, their routes, their rolls, their panels.
+#include "engine/DevicePlugin.h"
 #include "engine/Modulator.h"
 #include "engine/SessionImpl.h"
 #include "engine/SpecParameter.h"
@@ -459,6 +460,11 @@ void Session::Impl::startPasses()
     for (auto* m : modulators())
         if (!m->kept())
             m->startPass(static_cast<std::uint64_t>(juce::Random::getSystemRandom().nextInt64()));
+    // The modules' own randomness (the Granular's sprays, Chance and Jitter).
+    for (auto* p : te::getAllPlugins(*edit, false))
+        if (auto* native = dynamic_cast<DevicePlugin*>(p))
+            native->device().startPass(
+                static_cast<std::uint64_t>(juce::Random::getSystemRandom().nextInt64()));
 }
 
 model::DeviceSlot Session::Impl::modulatorSlot(const Modulator& m) const

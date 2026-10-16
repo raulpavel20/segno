@@ -84,9 +84,40 @@ void VoiceFilter::Svf::tick(double x, double g, double k) noexcept
     hp = x - k * v1 - v2;
 }
 
+double VoiceFilter::cutoffG(double cutoff) noexcept
+{
+    if (cutoff != gCutoff_)
+    {
+        gCutoff_ = cutoff;
+        g_ = gOf(cutoff, sampleRate_);
+    }
+    return g_;
+}
+
+double VoiceFilter::damping(double resonance) noexcept
+{
+    if (resonance != kResonance_)
+    {
+        kResonance_ = resonance;
+        k_ = resonanceK(resonance);
+    }
+    return k_;
+}
+
+double VoiceFilter::secondDamping(double resonance) noexcept
+{
+    if (resonance != k2Resonance_)
+    {
+        k2Resonance_ = resonance;
+        k2_ = secondStageK(resonance);
+    }
+    return k2_;
+}
+
 void VoiceFilter::prepare(double sampleRate)
 {
     sampleRate_ = sampleRate > 0.0 ? sampleRate : 48000.0;
+    gCutoff_ = -1.0; // a new rate: new coefficients
     int size = 4;
     while (size < static_cast<int>(sampleRate_ / 20.0) + 8)
         size <<= 1;
@@ -127,8 +158,8 @@ float VoiceFilter::process(float input, Type type, double cutoff, double resonan
     case Type::Notch:
     case Type::Peak:
     {
-        const double k = resonanceK(resonance);
-        a_.tick(x, gOf(cutoff, fs), k);
+        const double k = damping(resonance);
+        a_.tick(x, cutoffG(cutoff), k);
         switch (type)
         {
         case Type::Lp12:
@@ -146,14 +177,14 @@ float VoiceFilter::process(float input, Type type, double cutoff, double resonan
     case Type::Lp24:
     case Type::Hp24:
     {
-        const double g = gOf(cutoff, fs);
+        const double g = cutoffG(cutoff);
         a_.tick(x, g, kFirstStageK);
-        b_.tick(type == Type::Lp24 ? a_.lp : a_.hp, g, secondStageK(resonance));
+        b_.tick(type == Type::Lp24 ? a_.lp : a_.hp, g, secondDamping(resonance));
         return static_cast<float>(type == Type::Lp24 ? b_.lp : b_.hp);
     }
     case Type::Bp24:
     {
-        const double g = gOf(cutoff, fs), k = resonanceK(resonance);
+        const double g = cutoffG(cutoff), k = damping(resonance);
         a_.tick(x, g, k);
         b_.tick(k * a_.bp, g, k);
         return static_cast<float>(k * b_.bp);
@@ -164,7 +195,7 @@ float VoiceFilter::process(float input, Type type, double cutoff, double resonan
     {
         // Three one-pole stages with zero-delay feedback through a soft clip: a rounder,
         // rubbery resonance than the ladder's (self-oscillation above k = 8).
-        const double g = gOf(cutoff, fs);
+        const double g = cutoffG(cutoff);
         const double G = g / (1.0 + g);
         const double k = 8.4 * std::clamp(resonance, 0.0, 1.0);
         const double S = (G * G * diode_[0] + G * diode_[1] + diode_[2]) / (1.0 + g);

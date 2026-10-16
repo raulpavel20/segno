@@ -561,24 +561,8 @@ GrainFilterResponse::GrainFilterResponse(ui::DeviceUiContext& context) : ctx_(co
 
 double GrainFilterResponse::magnitude(int type, double hz, double cutoff, double res) noexcept
 {
-    constexpr double kDisplayRate = 48000.0;
-    using M = dsp::StateVariableFilter::Mode;
-    switch (type)
-    {
-    case 1:
-        return dsp::StateVariableFilter::magnitude(hz, cutoff, res, kDisplayRate, M::Bandpass);
-    case 2:
-        return dsp::StateVariableFilter::magnitude(hz, cutoff, res, kDisplayRate, M::Highpass);
-    case 3: // Resonator: the band pass at a high Q, as loud at its peak as the others
-    {
-        const double q = 0.6 + 0.4 * res;
-        return dsp::StateVariableFilter::magnitude(hz, cutoff, q, kDisplayRate, M::Bandpass) /
-               std::max(1e-6,
-                        dsp::StateVariableFilter::magnitude(cutoff, cutoff, q, kDisplayRate, M::Bandpass));
-    }
-    default:
-        return dsp::StateVariableFilter::magnitude(hz, cutoff, res, kDisplayRate, M::Lowpass);
-    }
+    // Exactly as each grain's filter has it (the type's choice, 0 LP … 3 Resonator).
+    return granular::grainFilterMagnitude(type + 1, hz, cutoff, res, 48000.0);
 }
 
 void GrainFilterResponse::refresh()
