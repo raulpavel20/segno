@@ -23,7 +23,7 @@ TEST_CASE("factory racks: every recipe makes its rack, the same every time", "[f
     for (const auto& p : made.problems)
         INFO(p);
     REQUIRE(made.problems.empty());
-    CHECK(made.racks.size() == 12);
+    CHECK(made.racks.size() == 22); // and Granular's ten with a space (ADR 0069)
     std::set<std::string> folders, names;
     for (const auto& rack : made.racks)
     {

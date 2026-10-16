@@ -264,17 +264,20 @@ void addModulatorTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"keep_roll", "Keep what was left to chance, or let it roll",
-         "A Random, a Steps with chances, an Envelope with Chance, and a MIDI clip's notes left to chance "
-         "roll their dice again each time the song plays and each time the loop comes round. keep true keeps "
-         "the roll heard last, so it plays the same every time and exports as heard; keep false lets it roll "
-         "again. For one modulator or clip, or with song true every one in the song. One undo step.",
+         "A Random, a Steps with chances, an Envelope with Chance, a Granular module's sprays, Chance and "
+         "Jitter, and a MIDI clip's notes left to chance roll their dice again each time the song plays and "
+         "each time the loop comes round. keep true keeps the roll heard last, so it plays the same every "
+         "time and exports as heard; keep false lets it roll again. For one modulator, module or clip, or "
+         "with song true every one in the song. One undo step.",
          object({{"modulator", id(IdKind::Module, "A modulator that rolls dice")},
+                 {"module", id(IdKind::Module, "A module that rolls its own dice (a Granular)")},
                  {"clip", id(IdKind::Clip, "A MIDI clip with notes left to chance")},
-                 {"song", boolean("Every modulator and clip in the song")},
+                 {"song", boolean("Every modulator, module and clip in the song")},
                  {"keep", boolean("Keep its roll (true) or let it roll (false)")}},
                 {"keep"}),
          result(
              {{"modulators", arrayOf(result({{"id", string("")}, {"kept", boolean("")}}), "", std::nullopt)},
+              {"modules", arrayOf(result({{"id", string("")}, {"kept", boolean("")}}), "", std::nullopt)},
               {"clips", arrayOf(result({{"id", string("")}, {"kept", boolean("")}}), "", std::nullopt)}},
              {"modulators", "clips"}),
          changes},
@@ -283,11 +286,18 @@ void addModulatorTools(Registry& registry, ToolEnv& env)
             const bool keep = args["keep"].get<bool>();
             const bool song = args.value("song", false);
             if (static_cast<int>(song) + static_cast<int>(args.contains("modulator")) +
-                    static_cast<int>(args.contains("clip")) !=
+                    static_cast<int>(args.contains("module")) + static_cast<int>(args.contains("clip")) !=
                 1)
-                throw Problem{"Give modulator or clip, or song: true for every one in the song."};
+                throw Problem{"Give modulator, module or clip, or song: true for every one in the song."};
             if (song)
                 env.session.keepAllRolls(keep);
+            else if (args.contains("module"))
+            {
+                const auto [slot, owner] = module(env, args["module"]);
+                if (!slot.rollKept)
+                    throw Problem{slot.name + " rolls no dice of its own: a Granular does."};
+                env.session.keepModuleRoll(slot.id, keep);
+            }
             else if (args.contains("clip"))
             {
                 const auto c = clip(env, args["clip"]);
@@ -304,7 +314,7 @@ void addModulatorTools(Registry& registry, ToolEnv& env)
                 env.session.keepRoll(m.id, keep);
             }
             env.session.flushSnapshot();
-            Json list = Json::array();
+            Json list = Json::array(), modules = Json::array();
             const auto snapshot = env.session.snapshot();
             for (const auto* channels : {&snapshot->tracks, &snapshot->returns})
                 for (const auto& t : *channels)
@@ -312,12 +322,17 @@ void addModulatorTools(Registry& registry, ToolEnv& env)
                         if (d.modulator != nullptr && model::hasKeep(d.modulator->kind))
                             list.push_back(
                                 {{"id", formatId(IdKind::Module, d.id)}, {"kept", d.modulator->kept}});
+                        else if (d.rollKept)
+                            modules.push_back(
+                                {{"id", formatId(IdKind::Module, d.id)}, {"kept", *d.rollKept}});
             Json clips = Json::array();
             for (const auto& t : snapshot->tracks)
                 for (const auto& c : t.clips)
                     if (c.kind == model::ClipInfo::Kind::Midi && model::usesChance(c.notes))
                         clips.push_back({{"id", formatId(IdKind::Clip, c.id)}, {"kept", c.chanceKept}});
-            return ToolResult::ok({{"modulators", std::move(list)}, {"clips", std::move(clips)}});
+            return ToolResult::ok({{"modulators", std::move(list)},
+                                   {"modules", std::move(modules)},
+                                   {"clips", std::move(clips)}});
         }));
 }
 } // namespace fd::mcp

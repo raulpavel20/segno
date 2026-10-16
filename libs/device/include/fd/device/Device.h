@@ -164,6 +164,12 @@ public:
     [[nodiscard]] virtual int latencySamples() const noexcept { return 0; }
     [[nodiscard]] virtual double tailSeconds() const noexcept { return 0.0; }
 
+    /// A new pass of the song is starting (playback, a render; ADR 0062): `roll` is fresh dice
+    /// for whatever doesn't keep a roll. The host calls it off the audio thread, before the pass's
+    /// first block. Devices without randomness ignore it; with no host calling it, a device
+    /// rolls by itself each time playback starts.
+    virtual void startPass(std::uint64_t /*roll*/) noexcept {}
+
     /// Non-parameter state (sample references, wavetables...). Not real-time.
     virtual void writeExtraState(nlohmann::json& /*extra*/) const {}
     virtual void readExtraState(const nlohmann::json& /*extra*/) {}

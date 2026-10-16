@@ -9,6 +9,7 @@
 #include "fd/dsp/Math.h"
 #include "fd/testkit/WavIO.h"
 #include "mcp/McpServer.h"
+#include "model/Chance.h"
 #include "model/ChannelStripLayout.h"
 #include "model/Editing.h"
 #include "model/MenuBar.h"
@@ -694,6 +695,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // A Drum Kit's pads (drum-kit.md §12): a double-click renames, Ctrl+drag copies, and every
         // item is on the pad's right-click.
         "module.renamePad", "module.copyPad", "module.pastePad", "module.clearPad",
+        // The Granular's sources (devices/granular/SPEC.md): its panel's picker and display load.
+        "module.loadSource1", "module.loadSource2", "module.swapSources",
         // Racks (racks.md §9): Ctrl+G and Ctrl+Shift+G group and ungroup; the rest are on the
         // rack itself (its macro's and header's right-click, "+ Chain", a double-click on a name).
         "module.editMacros", "module.addChain", "module.renameRack", "module.saveRack", "module.saveRackAs",
@@ -5074,6 +5077,49 @@ TEST_CASE("Module > Load sample… is the selected Sampler's (devices/sampler/SP
     REQUIRE(module != menus.end());
     const auto ids = fd::model::menuActions({*module});
     CHECK(std::find(ids.begin(), ids.end(), "module.loadSample") != ids.end());
+}
+
+TEST_CASE(
+    "Module > the Granular's sources and its roll are the selected Granular's (devices/granular/SPEC.md)",
+    "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto eq = s.addDevice(t0, "fd:eq");
+    const auto granular = s.addDevice(t0, "fd:granular");
+    REQUIRE(granular != 0);
+    s.updateSnapshotNow();
+    f.shell->arrangement().selectTrack(t0);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    const std::vector<std::string> own{"module.loadSource1", "module.loadSource2", "module.swapSources"};
+    f.shell->detail().chain().selectDevice(eq);
+    for (const auto& id : own)
+        CHECK_FALSE(actions.isEnabled(id));
+    CHECK_FALSE(actions.isEnabled("module.keepRoll")); // an EQ rolls no dice
+    f.shell->detail().chain().selectDevice(granular);
+    for (const auto& id : own)
+        CHECK(actions.isEnabled(id));
+    // Keep as played: the Granular's roll, one undo step, its label turning to Let it roll.
+    REQUIRE(actions.isEnabled("module.keepRoll"));
+    CHECK(actions.label("module.keepRoll") == "Keep as played");
+    actions.perform("module.keepRoll");
+    s.updateSnapshotNow();
+    CHECK(s.undoDescription() == "Keep as played");
+    CHECK(actions.label("module.keepRoll") == "Let it roll");
+    CHECK(fd::model::chanceIn(*s.snapshot()).keptModules == 1);
+    s.undo();
+    s.updateSnapshotNow();
+    CHECK(fd::model::chanceIn(*s.snapshot()).keptModules == 0);
+    // In the Module menu, with the module's own commands.
+    const auto menus = fd::model::menuBar(fd::model::MenuPlatform::Windowed);
+    const auto module =
+        std::find_if(menus.begin(), menus.end(), [](const auto& m) { return m.title == "Module"; });
+    REQUIRE(module != menus.end());
+    const auto ids = fd::model::menuActions({*module});
+    for (const auto& id : own)
+        CHECK(std::find(ids.begin(), ids.end(), id) != ids.end());
 }
 
 TEST_CASE(

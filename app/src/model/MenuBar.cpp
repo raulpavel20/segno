@@ -205,7 +205,8 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           action("module.presetsFolder"), separator(),
           // A module's own (docs/design/table-editor.md §8): dimmed for the others.
           action("module.editWavetable"), action("module.importWavetable"), action("module.exportWavetable"),
-          separator(), action("module.loadSample"),
+          separator(), action("module.loadSample"), action("module.loadSource1"),
+          action("module.loadSource2"), action("module.swapSources"),
           // A Drum Kit's pads (drum-kit.md §12).
           action("module.renamePad"), action("module.copyPad"), action("module.pastePad"),
           action("module.clearPad"), separator(),

@@ -40,6 +40,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Loudness Meter | `loudness-meter` | `Flud` | `org.segnoaudio.loudness-meter` | M3 (approved 2026-10-13) |
 | Tuner | `tuner` | `Ftun` | `org.segnoaudio.tuner` | M3 (approved 2026-10-15) |
 | Wavetable | `wavetable` | `Fwav` | `org.segnoaudio.wavetable` | M3 P1 (approved 2026-10-13) |
+| Granular | `granular` | `Fgrn` | `org.segnoaudio.granular` | M3 P8 (approved 2026-10-16) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.

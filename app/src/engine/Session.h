@@ -654,8 +654,11 @@ public:
     void removeRoutes(std::uint64_t modulator);
     /// Keep as played (keep) or Let it roll (ADR 0062). False for a modulator that rolls no dice.
     bool keepRoll(std::uint64_t modulator, bool keep);
-    /// Keep all as played, or Let all roll: every modulator that rolls dice, and every clip with
-    /// notes left to chance (piano-roll.md §26).
+    /// The same for a module that rolls its own dice (a Granular's sprays, Chance and Jitter;
+    /// devices/granular/SPEC.md, G9), one undo step; false for any other, or if it already is.
+    bool keepModuleRoll(std::uint64_t deviceId, bool keep);
+    /// Keep all as played, or Let all roll: every modulator and module that rolls dice, and every
+    /// clip with notes left to chance (piano-roll.md §26).
     void keepAllRolls(bool keep);
     /// Its panel's context and host; null if there's no such modulator.
     [[nodiscard]] std::unique_ptr<ModulatorHandle> openModulator(std::uint64_t modulator);
@@ -1283,6 +1286,36 @@ public:
     /// <name>"; false if it isn't a Wavetable or the file isn't a table (`error` says why).
     bool loadWavetable(std::uint64_t deviceId, int oscillator, const juce::File& file,
                        std::string* error = nullptr);
+
+    /// A Granular's source (devices/granular/SPEC.md, G22): what it holds, and loading one.
+    struct GranularSource
+    {
+        std::string kind = "empty"; // "empty", "file" or "multisample" (the live input with step 2)
+        std::string path;           // as stored: a `library:` reference for the Library's
+        std::string name;
+        std::string error;    // why the file didn't load
+        double seconds = 0.0; // the file's (a multisample's middle-C zone's)
+        int channels = 0;
+        double sampleRate = 0.0;
+        bool truncated = false;     // past 20 minutes: its first 20
+        std::optional<double> root; // MIDI, fractional for its tuning
+        bool rootFound = false;     // from the file (its metadata, name or sound), not set by hand
+        int zones = 0;
+        double partStart = 0.0, partEnd = 1.0; // where grains come from (0 ... 1 of the file)
+        std::vector<double> transients, beats; // seconds
+    };
+    /// Source `source` (0 or 1) of a Granular; nullopt if it isn't one.
+    [[nodiscard]] std::optional<GranularSource> granularSource(std::uint64_t deviceId, int source);
+    /// Loads a file (any audio, or an SFZ: the Library's instruments are) into a Granular's
+    /// source, as its panel does: the source on, playing the file; with `part` (0 ... 1 of the
+    /// file) only that part, else all of it. One undo step; nullopt if it isn't a Granular or the
+    /// file can't be read (`error` says why).
+    std::optional<GranularSource>
+    loadGranularSource(std::uint64_t deviceId, int source, const juce::File& file,
+                       std::optional<std::pair<double, double>> part = std::nullopt,
+                       std::string* error = nullptr);
+    /// Swap Sources: each source's file and settings in the other's place, one undo step.
+    bool swapGranularSources(std::uint64_t deviceId);
 
     /// Copies every file the project uses from outside its folder into its Samples folder and
     /// points the clips and takes at the copies (§12); not an undo step. The project must have a

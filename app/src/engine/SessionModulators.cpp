@@ -1,5 +1,7 @@
 // Modulators in the session (docs/design/modulators.md, ADR 0061, ADR 0062): where they sit in a
 // track's chain, their routes, their rolls, their panels.
+#include "Granular.h"
+#include "engine/DevicePlugin.h"
 #include "engine/Modulator.h"
 #include "engine/SessionImpl.h"
 #include "engine/SpecParameter.h"
@@ -459,6 +461,11 @@ void Session::Impl::startPasses()
     for (auto* m : modulators())
         if (!m->kept())
             m->startPass(static_cast<std::uint64_t>(juce::Random::getSystemRandom().nextInt64()));
+    // The modules' own randomness (the Granular's sprays, Chance and Jitter).
+    for (auto* p : te::getAllPlugins(*edit, false))
+        if (auto* native = dynamic_cast<DevicePlugin*>(p))
+            native->device().startPass(
+                static_cast<std::uint64_t>(juce::Random::getSystemRandom().nextInt64()));
 }
 
 model::DeviceSlot Session::Impl::modulatorSlot(const Modulator& m) const
@@ -728,13 +735,22 @@ void Session::keepAllRolls(bool keep)
             if (auto* midi = dynamic_cast<te::MidiClip*>(c);
                 midi != nullptr && keptChanceOf(*midi).has_value() != keep && usesChance(*midi))
                 clips.push_back(midi);
-    if (changing.empty() && clips.empty())
+    // And every module that rolls its own (a Granular).
+    std::vector<std::uint64_t> modules;
+    for (auto* p : te::getAllPlugins(*impl_->edit, false))
+        if (auto* native = dynamic_cast<DevicePlugin*>(p))
+            if (const auto* g = dynamic_cast<const devices::Granular*>(&native->device());
+                g != nullptr && g->rollKept() != keep)
+                modules.push_back(p->itemID.getRawID());
+    if (changing.empty() && clips.empty() && modules.empty())
         return;
-    impl_->beginEdit(keep ? "Keep all as played" : "Let all roll");
+    const EditGroup group(*this, keep ? "Keep all as played" : "Let all roll");
     for (auto* m : changing)
         m->setKept(keep, &impl_->edit->getUndoManager());
     for (auto* c : clips)
         impl_->keepChance(*c, keep);
+    for (const auto id : modules)
+        keepModuleRoll(id, keep);
 }
 
 // ---- the panel ----------------------------------------------------------------------------------

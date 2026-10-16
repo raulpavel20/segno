@@ -32,7 +32,11 @@ enum class Unit : std::uint8_t
     Degrees,
     Note, // MIDI note number, displayed as a name; middle C (60) = C3
     Lufs, // loudness, displayed "-14.0 LUFS" (the Loudness Meter's target)
-    Dbtp  // a true-peak level, displayed "-1.0 dBTP"
+    Dbtp, // a true-peak level, displayed "-1.0 dBTP"
+    // Added 2026-10-16 for Granular (devices/granular/SPEC.md):
+    PerSecond, // a rate of events, displayed "40 /s" (grains a second)
+    Octaves,   // a span of octaves, displayed "2.0 oct" (a cutoff's spray)
+    Times      // a multiple, displayed "2.00×" (a ring modulator's ratio to the pitch)
 };
 
 enum class SmoothingKind : std::uint8_t

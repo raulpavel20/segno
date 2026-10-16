@@ -1,5 +1,5 @@
 add_library(fd_device STATIC src/Param.cpp src/ParamStore.cpp src/State.cpp src/Realtime.cpp src/VoiceManager.cpp src/Presets.cpp
-    src/Library.cpp)
+    src/PresetCheck.cpp src/Library.cpp)
 add_library(fd::device ALIAS fd_device)
 target_include_directories(fd_device PUBLIC include)
 target_link_libraries(fd_device PUBLIC fd::dsp nlohmann_json::nlohmann_json PRIVATE fd::warnings)

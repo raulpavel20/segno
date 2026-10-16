@@ -392,6 +392,14 @@ PanelSection* DevicePanel::findSection(std::string_view id) const
     return nullptr;
 }
 
+int DevicePanel::sectionPage(const PanelSection& section) const
+{
+    for (size_t i = 0; i < sections_.size(); ++i)
+        if (sections_[i].get() == &section)
+            return pages_.empty() ? -1 : sectionPage_[i];
+    return -1;
+}
+
 std::vector<PanelSection*> DevicePanel::pageSections(int index) const
 {
     std::vector<PanelSection*> out;

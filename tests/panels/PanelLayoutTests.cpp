@@ -170,16 +170,19 @@ TEST_CASE("every module panel is laid out on the module grid", "[ui]")
             p.layout();
             if (p.panel->pageCount() > 0)
             {
-                // Every section on exactly one page, page ids unique.
+                // Every section on exactly one page (one that shows only sometimes too), page ids
+                // unique.
                 std::set<std::string> pageIds;
-                size_t onPages = 0;
                 for (int page = 0; page < p.panel->pageCount(); ++page)
-                {
                     pageIds.insert(p.panel->pageId(page));
-                    onPages += p.panel->pageSections(page).size();
-                }
                 CHECK(pageIds.size() == static_cast<size_t>(p.panel->pageCount()));
-                CHECK(onPages == p.panel->sections().size());
+                for (const auto* section : p.panel->sections())
+                {
+                    INFO(section->id());
+                    const int page = p.panel->sectionPage(*section);
+                    CHECK(page >= 0);
+                    CHECK(page < p.panel->pageCount());
+                }
             }
             // The EQ delaying its sound (linear phase, a spectral band selected): the latency badge
             // in the header, Detail in DYNAMICS.

@@ -75,6 +75,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSettings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionBrowser.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionWavetables.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionGranular.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/FileIndexer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PreviewPlayer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PresetPreview.cpp"

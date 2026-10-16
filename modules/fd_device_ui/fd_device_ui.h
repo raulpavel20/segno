@@ -25,6 +25,7 @@ END_JUCE_MODULE_DECLARATION
 #include <fd/dsp/Modulation.h>
 #include <fd/dsp/Spectrum.h>
 #include <fd/dsp/SynthBlocks.h>
+#include <fd/dsp/VoiceModules.h>
 
 #include <nlohmann/json.hpp>
 
@@ -41,5 +42,6 @@ namespace fd::ui { class ModulationModel; class ModuleEditor; }
 #include "panel/Modulation.h"
 #include "panel/Displays.h"
 #include "panel/CurveEditor.h"
+#include "panel/SynthParts.h"
 #include "panel/PanelRegistry.h"
 // clang-format on

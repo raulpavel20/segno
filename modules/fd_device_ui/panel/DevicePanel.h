@@ -48,6 +48,8 @@ public:
     void turnPage(int delta, bool byUser = false);
     /// The sections on page `index`: every section for a module without pages.
     [[nodiscard]] std::vector<PanelSection*> pageSections(int index) const;
+    /// The page section `section` is on, shown or not (-1 without pages, or not this panel's).
+    [[nodiscard]] int sectionPage(const PanelSection& section) const;
     /// The sections shown: the page's.
     [[nodiscard]] std::vector<PanelSection*> shownSections() const { return pageSections(page_); }
     /// The page tabs (for the layout lint): null for a module without pages.
@@ -179,6 +181,9 @@ protected:
     /// Dims `controls` while `inactive()` is true: settings the current mode or switch ignores
     /// stay visible and adjustable but recede (ui-principles §3). Checked on every refresh.
     void dimWhen(std::vector<juce::Component*> controls, std::function<bool()> inactive);
+    /// Dims and undims the controls of dimWhen() now (after what they depend on changed), as the
+    /// refresh does.
+    void updateDimming();
 
 private:
     HeaderBadge& showBadge(std::unique_ptr<HeaderBadge> badge);
@@ -201,7 +206,6 @@ private:
         std::vector<juce::Component*> controls;
         std::function<bool()> inactive;
     };
-    void updateDimming();
     std::vector<Dimming> dimming_;
 
     void timerCallback() override;

@@ -37,35 +37,38 @@ bool loadTableFile(ui::DeviceUiContext& ctx, int n, const juce::File& file);
 void exportTable(juce::Component& owner, ui::DeviceUiContext& ctx, int n,
                  std::unique_ptr<juce::FileChooser>& chooser);
 
-/// The synth's matrix (32 routes in its parameters) for rings, handles and dragged sources.
-class Modulation final : public ui::ModulationModel
+/// What the shared synth parts (ui::synth, SynthParts.h) need to know of the Wavetable beyond
+/// its parameters' layout.
+struct WavetableParts
 {
-public:
-    explicit Modulation(ui::DeviceUiContext& context) : ctx_(context) {}
-
-    [[nodiscard]] std::vector<Route> routes() const override;
-    [[nodiscard]] bool canModulate(size_t param) const override { return W::targetOf(param).has_value(); }
-    [[nodiscard]] juce::String sourceName(int source) const override;
-    bool addRoute(int source, size_t param) override;
-    [[nodiscard]] bool isFull() const override;
-    void removeRoute(int index) override;
-    void beginAmount(int index) override;
-    void setAmount(int index, float amount) override;
-    void endAmount(int index) override;
-    [[nodiscard]] std::optional<int> routeOfParam(size_t param) const override;
-    [[nodiscard]] std::vector<SourceInfo> sources() const override;
-
-    /// A route from the matrix's add button: the source last hovered (else LFO 1), no target yet.
-    bool addFromMatrix();
-    /// The routes the matrix lists: those with a source, in slot order.
-    [[nodiscard]] std::vector<int> listed() const;
+    using Synth = WavetableSynth;
+    /// The group a source is listed under.
+    [[nodiscard]] static const char* sourceGroup(int source) noexcept
+    {
+        using S = W::Source;
+        const auto s = static_cast<S>(source);
+        return s < S::Lfo1       ? "Envelopes"
+               : s < S::Random1  ? "LFOs"
+               : s < S::Macro1   ? "Random"
+               : s < S::Velocity ? "Macros"
+                                 : "Playing";
+    }
     /// Whether a source swings both ways (an LFO, a random source, the note, the bend).
-    [[nodiscard]] static bool bipolar(int source) noexcept;
-
-private:
-    [[nodiscard]] int freeSlot() const;
-    ui::DeviceUiContext& ctx_;
+    [[nodiscard]] static bool bipolar(int source) noexcept
+    {
+        using S = W::Source;
+        const auto s = static_cast<S>(source);
+        return (s >= S::Lfo1 && s < S::Macro1) || s == S::Note || s == S::PitchBend || s == S::NoteRandom;
+    }
+    [[nodiscard]] static int envSource(int n) noexcept { return static_cast<int>(W::Source::AmpEnv) + n; }
+    [[nodiscard]] static dsp::RandomSource::Mode randomMode(int choice) noexcept
+    {
+        return static_cast<dsp::RandomSource::Mode>(choice);
+    }
 };
+
+/// The synth's matrix (32 routes in its parameters) for rings, handles and dragged sources.
+using Modulation = ui::synth::SynthModulation<WavetableParts>;
 
 /// Oscillator n's table in 3D: its frames from front to back, the cycle it plays (Position, its
 /// warps) highlighted where it is, from the newest note while one plays. Dragged, it moves
@@ -202,121 +205,10 @@ private:
     bool noise_;
 };
 
-/// Both filters' responses (the selected one bright, the other faint), 20 Hz to 20 kHz. Dragged,
-/// the selected filter's Cutoff sideways and Resonance up and down.
-class FilterResponse final : public juce::Component,
-                             public ui::ParamControl,
-                             public juce::SettableTooltipClient
-{
-public:
-    explicit FilterResponse(ui::DeviceUiContext& context);
-    void setFilter(int n);
-    void refresh() override;
-    void paint(juce::Graphics& g) override;
-    void mouseDown(const juce::MouseEvent& e) override;
-    void mouseDrag(const juce::MouseEvent& e) override;
-    void mouseUp(const juce::MouseEvent& e) override;
-
-private:
-    [[nodiscard]] ui::SpectrumPlot plot() const;
-    ui::DeviceUiContext& ctx_;
-    int filter_ = 0;
-    float startCutoff_ = 0.0f, startRes_ = 0.0f;
-    std::vector<float> last_;
-};
-
-/// Envelope n drawn from its times, sustain and curves, and dragged: the attack's peak sideways
-/// (Attack), the decay's end both ways (Decay, Sustain), the release's end sideways (Release); a
-/// segment dragged up or down bends it (its curve). Its source handle in the corner.
-class EnvelopeEditor final : public juce::Component,
-                             public ui::ParamControl,
-                             public juce::SettableTooltipClient
-{
-public:
-    EnvelopeEditor(ui::DeviceUiContext& context, Modulation& modulation);
-    void setEnvelope(int n);
-    void refresh() override;
-    void paint(juce::Graphics& g) override;
-    void resized() override;
-    void mouseMove(const juce::MouseEvent& e) override;
-    void mouseDown(const juce::MouseEvent& e) override;
-    void mouseDrag(const juce::MouseEvent& e) override;
-    void mouseUp(const juce::MouseEvent& e) override;
-
-    /// What a press at `p` drags: a point (0 attack, 1 decay, 2 release) or a segment's bend
-    /// (3 attack, 4 decay, 5 release), or -1.
-    [[nodiscard]] int partAt(juce::Point<float> p) const;
-    [[nodiscard]] ui::ModulationHandle& handle() noexcept { return handle_; }
-
-private:
-    struct Layout
-    {
-        juce::Rectangle<float> area;
-        float attackEnd = 0.0f, holdEnd = 0.0f, decayEnd = 0.0f, sustainEnd = 0.0f, releaseEnd = 0.0f;
-    };
-    [[nodiscard]] Layout layout() const;
-    [[nodiscard]] juce::Point<float> pointOf(int part, const Layout& l) const;
-    [[nodiscard]] float param(W::EnvParam p) const;
-
-    /// Envelope n's attack, decay, sustain and release.
-    [[nodiscard]] static ui::EnvelopeDrag::Params dragParams(int n);
-
-    ui::DeviceUiContext& ctx_;
-    ui::ModulationHandle handle_;
-    ui::EnvelopeDrag drag_; // its points and bends, as every envelope's
-    int env_ = 0;
-    std::vector<float> last_;
-};
-
-/// LFO n's shape drawn and edited with the shared curve editor (ui::CurveEditor: points dragged,
-/// a double-click adds or removes one, a segment bent, a named shape from its menu), or random
-/// source n's way of moving drawn. Its phase while one plays; its source handle in the corner.
-class ShapeEditor final : public ui::CurveEditor
-{
-public:
-    ShapeEditor(ui::DeviceUiContext& context, Modulation& modulation);
-    /// 0-7: an LFO; 8-9: a random source.
-    void setSource(int n);
-    void refresh() override;
-    [[nodiscard]] ui::ModulationHandle& handle() noexcept { return handle_; }
-
-protected:
-    void paintContent(juce::Graphics& g, juce::Rectangle<float> plot) override;
-
-private:
-    [[nodiscard]] bool isLfo() const noexcept { return source_ < W::numLfos; }
-
-    ui::DeviceUiContext& ctx_;
-    ui::ModulationHandle handle_;
-    int source_ = 0;
-    std::string lastRandom_;
-};
-
-/// The modulation matrix: a caption row with Add, then a row a route (source, target, amount,
-/// curve, scale) on the module grid, five showing and the wheel scrolling the rest (the section's
-/// title says which). Right-click a route's control to remove the route.
-class MatrixList final : public juce::Component, public ui::ParamControl
-{
-public:
-    MatrixList(ui::DeviceUiContext& context, Modulation& modulation);
-    ~MatrixList() override;
-    void refresh() override;
-    void paint(juce::Graphics& g) override;
-    void resized() override;
-    void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
-    /// The routes listed (with a source), and the first one showing (for tests).
-    [[nodiscard]] const std::vector<int>& rows() const noexcept { return listed_; }
-    [[nodiscard]] int firstShown() const noexcept { return first_; }
-    [[nodiscard]] juce::Button& addButton() noexcept { return add_; }
-
-private:
-    void rebuild();
-
-    ui::DeviceUiContext& ctx_;
-    Modulation& modulation_;
-    ui::IconButton add_{ui::Icon::Plus};
-    std::vector<std::unique_ptr<juce::Component>> controls_;
-    std::vector<int> listed_;
-    int first_ = 0;
-};
+/// Both filters' responses, an envelope drawn and dragged, an LFO's shape or a random source
+/// drawn, the matrix: the parts every synth shares (SynthParts.h).
+using FilterResponse = ui::synth::SynthFilterResponse<WavetableParts>;
+using EnvelopeEditor = ui::synth::SynthEnvelopeEditor<WavetableParts>;
+using ShapeEditor = ui::synth::SynthShapeEditor<WavetableParts>;
+using MatrixList = ui::synth::SynthMatrixList<WavetableParts>;
 } // namespace fd::devices::wavetable_ui
