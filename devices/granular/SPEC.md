@@ -1,8 +1,8 @@
 # Granular: device spec
 
-- **Status:** Draft for review by the product owner (2026-10-16), on the `synth` branch. [ADR 0065](../../docs/decisions/0065-granular-goes-beyond-live.md) is proposed with it. The product owner asked for Granulator III plus extras: extensive and full-featured, so that for granular work most people won't reach for another plugin; open to experimental workflows; and with CPU optimisation even more of a focus than usual ("optimise everything where possible").
+- **Status:** Approved by the product owner (2026-10-16, with every recommendation of G1–G24); IDs are permanent. [ADR 0065](../../docs/decisions/0065-granular-goes-beyond-live.md) accepted with it: the product owner asked for Granulator III plus extras, extensive and full-featured, so that for granular work most people won't reach for another plugin; open to experimental workflows; and with CPU optimisation even more of a focus than usual ("optimise everything where possible"). Next: the visual mockup, drawn in every state with the real panel kit, for approval before step 1 (G18).
 - **Type:** Instrument
-- **Tier / milestone:** Tier 2. Proposed to move up from M5 into M3 as P8, on its own branch ([next-synth.md](../../docs/devices/next-synth.md), chosen by the product owner on 2026-10-16).
+- **Tier / milestone:** Tier 2, moved up from M5 into M3 as P8 by the product owner (2026-10-16), on its own branch ([next-synth.md](../../docs/devices/next-synth.md), chosen by the product owner on 2026-10-16).
 - **Live target:** Granulator III (Live 12 Suite). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)); this device goes well beyond it (G1).
 
 ## Purpose

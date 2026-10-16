@@ -1,6 +1,6 @@
 # 0065. Granular goes beyond Live, CPU first
 
-- **Status:** Proposed (2026-10-16, with Granular's SPEC, for the product owner's review)
+- **Status:** Accepted (product owner, 2026-10-16, with Granular's SPEC and every recommendation of G1–G24)
 - **Date:** 2026-10-16
 - **Amends:** [0011](0011-calibrated-ambition-and-consolidation.md), point 2 ("instruments stay close to Live's stock instruments"), for Granular only, as [0050](0050-the-wavetable-synth-goes-beyond-live.md) did for the Wavetable
 - **Device:** [devices/granular/SPEC.md](../../devices/granular/SPEC.md)
