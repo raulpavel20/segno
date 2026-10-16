@@ -84,7 +84,7 @@ struct Made
     RecipeResult result;
     /// How far apart its notes may be across the keyboard: 12 dB, unless the recipes say
     /// otherwise ("keyboardSpread": the Sampler's, whose multisamples keep their recordings'
-    /// balance between registers until the Library levels them, B93).
+    /// balance between registers until the Library levels them, B97).
     double spreadLimit = 12.0;
     /// Each preset's range for that (its recipe's "keys": [low, high]; else 36 to 84).
     std::map<std::string, std::pair<int, int>> ranges;

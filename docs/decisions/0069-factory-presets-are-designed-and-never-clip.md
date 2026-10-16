@@ -27,5 +27,5 @@
 ## Consequences
 - **Every instrument's existing set is re-levelled now** to pass (the Wavetable's, the Subtractive's and the Sampler's, by their output levels alone), so nothing in the red ships; about 6 dB quieter than before. Their sound design is reviewed against this bar in turn, the product owner choosing the order.
 - **Granular's first set is replaced** by one built to this bar, its multisamples' zones each brought to full scale so grains play evenly across the keyboard.
-- **The Sampler's evenness** comes from the Library's multisamples, which keep each recording's balance between registers: the sets that exceed 12 dB are listed (B93) and fixed in the Library's zone levels, not in the presets.
+- **The Sampler's evenness** comes from the Library's multisamples, which keep each recording's balance between registers: the sets that exceed 12 dB are listed (B97) and fixed in the Library's zone levels, not in the presets.
 - **Checking takes time:** about a minute a set in Release, an hour for every set in Debug, so the full check runs where presets are made and in the Release suite, not on every dev build.
