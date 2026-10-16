@@ -2,7 +2,7 @@
 
 The **Drum Kit** is an instrument with a pad for each note. Each pad holds a sound: a sample, played by the Sampler, or any other instrument, with effects after it if you want them. Drop a kick on a pad and the pad plays it. Drop a synth on the next one and that pad plays the synth. Hats choke each other. A whole kit is saved as one of the Drum Kit's presets.
 
-**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built the same day (§22), for the product owner's hands-on check. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
+**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built and signed off by the product owner the same day (§22). Next: step 2 (macros on kits), the piano roll's drum view (asked for at sign-off, §23), and last the factory kits. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
 
 What the product owner asked (2026-10-16):
 - A Drum Sampler module and a Drum Rack feature were "such a convoluted, roundabout way" of doing it. The Sampler already plays a single sample, and the rack "reads like something distinct from the collection of modules that the Rack feature is supposed to be".
@@ -427,4 +427,4 @@ The kit, built on the spike (§20) and the drawings (§21): `app/src/engine/Sess
 - **An empty kit is Default settings:** its state says nothing, so a new kit shows no changed mark.
 - **Modulators on a pad aren't kept in a kit preset yet:** they stay with the project; a preset made from a kit with one leaves it out. Few will put one there before macros come (step 2).
 
-**Before sign-off,** the hands-on tasks of §17 step 1, done unaided by the product owner.
+**Signed off by the product owner (2026-10-16).** Asked at sign-off: a drum view in the piano roll, for clips on a kit's track: only the lanes of the pads with sounds, named, and without the tools that make no sense for drums (chords and the like). Designed in §23 for review.
