@@ -6287,6 +6287,600 @@
    ]
   },
   {
+   "name": "Analog lab",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Synth"
+   ],
+   "description": "Segno's own analog-style drums, made in the build: a round kick and a punchy one, a snappy snare, a clap, metallic hats and cymbals, toms and a cowbell.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Analog lab/Kick punchy.sfz",
+     "name": "Kick punchy",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Analog lab/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Analog lab/Rim.sfz",
+     "name": "Rim",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Analog lab/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Analog lab/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Analog lab/Snare tight.sfz",
+     "name": "Snare tight",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Analog lab/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Analog lab/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Analog lab/Pedal hat.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Analog lab/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Analog lab/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Analog lab/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Analog lab/Cymbal.sfz",
+     "name": "Cymbal",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Analog lab/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/Analog lab/Cowbell.sfz",
+     "name": "Cowbell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 75,
+     "piece": "Samples/Drums/Analog lab/Clave.sfz",
+     "name": "Clave",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Chip",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Chiptune"
+   ],
+   "description": "8-bit drums from pulse, triangle and noise channels, in sixteen steps of loudness: kicks, noise snares and hats, sliding toms, a blip, a zap and a laser.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Chip/Kick 2.sfz",
+     "name": "Kick 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Chip/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Chip/Tick.sfz",
+     "name": "Tick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Chip/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Chip/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Chip/Metal snare.sfz",
+     "name": "Metal snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Chip/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Chip/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Chip/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Chip/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Chip/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Chip/Noise crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Chip/Metal.sfz",
+     "name": "Metal",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 60,
+     "piece": "Samples/Drums/Chip/Blip.sfz",
+     "name": "Blip",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 61,
+     "piece": "Samples/Drums/Chip/Zap.sfz",
+     "name": "Zap",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 62,
+     "piece": "Samples/Drums/Chip/Laser.sfz",
+     "name": "Laser",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Sub 808",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Trap"
+   ],
+   "description": "A tuned 808 bass across twelve pads, C to B, to play basslines from the pads, a slide into the note, and a kick, snare, clap and hats around it.",
+   "pads": [
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 C",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 C♯",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 1,
+     "trim": -2
+    },
+    {
+     "note": 50,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 D",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 2,
+     "trim": -2
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 D♯",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 3,
+     "trim": -2
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 E",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 4,
+     "trim": -2
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 F",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 5,
+     "trim": -2
+    },
+    {
+     "note": 54,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 F♯",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 6,
+     "trim": -2
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 G",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 7,
+     "trim": -2
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 G♯",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 8,
+     "trim": -2
+    },
+    {
+     "note": 57,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 A",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 9,
+     "trim": -2
+    },
+    {
+     "note": 58,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 A♯",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 10,
+     "trim": -2
+    },
+    {
+     "note": 59,
+     "piece": "Samples/Drums/Sub 808/808 bass.sfz",
+     "name": "808 B",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 11,
+     "trim": -2
+    },
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Sub 808/808 slide.sfz",
+     "name": "808 slide",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Analog lab/Kick punchy.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Analog lab/Rim.sfz",
+     "name": "Rim",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Analog lab/Snare tight.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Analog lab/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Analog lab/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Analog lab/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 40,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
    "name": "Body",
    "tags": [
     "Drums",

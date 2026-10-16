@@ -107,6 +107,13 @@
    "commit": "338133ee7fe6a429576c0dea3edfa1b9270201b6",
    "license": "CC0-1.0"
   },
+  "segno": {
+   "name": "Segno's own drum voices",
+   "url": "tools/library/DrumSynth.cpp",
+   "raw": "",
+   "commit": "rendered",
+   "license": "CC0-1.0"
+  },
   "fischer": {
    "name": "Michael Fischer's 808 recordings (TidalCycles' repackaging)",
    "url": "https://github.com/tidalcycles/sounds-tr808-fischer",
@@ -74634,6 +74641,2774 @@
      "file": "Zamenhof Stickmusterstuch Error Zwei Samples/z02.wav",
      "name": "Glitch16",
      "sha256": "f812f2cff662a5377bcf1f0d9f8aaffbfe7d30b24c854cc7537f8b2cfb770ae7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Kick.sfz",
+   "source": "segno",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Kick_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "kick",
+      "pitch": 48,
+      "sweep": 150,
+      "sweepTime": 0.035,
+      "decay": 0.5,
+      "click": 0.25,
+      "seconds": 2.0,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Kick_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "kick",
+      "pitch": 48,
+      "sweep": 150,
+      "sweepTime": 0.035,
+      "decay": 0.5,
+      "click": 0.25,
+      "seconds": 2.0,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "Kick_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "kick",
+      "pitch": 48,
+      "sweep": 150,
+      "sweepTime": 0.035,
+      "decay": 0.5,
+      "click": 0.25,
+      "seconds": 2.0,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Kick_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "kick",
+      "pitch": 48,
+      "sweep": 150,
+      "sweepTime": 0.035,
+      "decay": 0.5,
+      "click": 0.25,
+      "seconds": 2.0,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "Kick_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "kick",
+      "pitch": 48,
+      "sweep": 150,
+      "sweepTime": 0.035,
+      "decay": 0.5,
+      "click": 0.25,
+      "seconds": 2.0,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Kick_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "kick",
+      "pitch": 48,
+      "sweep": 150,
+      "sweepTime": 0.035,
+      "decay": 0.5,
+      "click": 0.25,
+      "seconds": 2.0,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Kick punchy.sfz",
+   "source": "segno",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "KickPunchy_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "kick",
+      "pitch": 55,
+      "sweep": 220,
+      "sweepTime": 0.02,
+      "decay": 0.3,
+      "click": 0.5,
+      "drive": 0.4,
+      "seconds": 1.5,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "KickPunchy_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "kick",
+      "pitch": 55,
+      "sweep": 220,
+      "sweepTime": 0.02,
+      "decay": 0.3,
+      "click": 0.5,
+      "drive": 0.4,
+      "seconds": 1.5,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "KickPunchy_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "kick",
+      "pitch": 55,
+      "sweep": 220,
+      "sweepTime": 0.02,
+      "decay": 0.3,
+      "click": 0.5,
+      "drive": 0.4,
+      "seconds": 1.5,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "KickPunchy_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "kick",
+      "pitch": 55,
+      "sweep": 220,
+      "sweepTime": 0.02,
+      "decay": 0.3,
+      "click": 0.5,
+      "drive": 0.4,
+      "seconds": 1.5,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "KickPunchy_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "kick",
+      "pitch": 55,
+      "sweep": 220,
+      "sweepTime": 0.02,
+      "decay": 0.3,
+      "click": 0.5,
+      "drive": 0.4,
+      "seconds": 1.5,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "KickPunchy_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "kick",
+      "pitch": 55,
+      "sweep": 220,
+      "sweepTime": 0.02,
+      "decay": 0.3,
+      "click": 0.5,
+      "drive": 0.4,
+      "seconds": 1.5,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Snare.sfz",
+   "source": "segno",
+   "maxSeconds": 1.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Snare_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "Snare_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "Snare_v1_3",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 0.4,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    },
+    {
+     "name": "Snare_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "Snare_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "Snare_v2_3",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 0.7,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    },
+    {
+     "name": "Snare_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "Snare_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "Snare_v3_3",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "snare",
+      "tone": 185,
+      "tone2": 330,
+      "toneDecay": 0.07,
+      "color": 5000,
+      "noiseDecay": 0.15,
+      "noise": 0.65,
+      "seconds": 1.0,
+      "level": 1.0,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Snare tight.sfz",
+   "source": "segno",
+   "maxSeconds": 0.8,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "SnareTight_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "SnareTight_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "SnareTight_v1_3",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 0.4,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    },
+    {
+     "name": "SnareTight_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "SnareTight_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "SnareTight_v2_3",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 0.7,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    },
+    {
+     "name": "SnareTight_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "SnareTight_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "SnareTight_v3_3",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "snare",
+      "tone": 230,
+      "tone2": 410,
+      "toneDecay": 0.05,
+      "color": 7000,
+      "noiseDecay": 0.08,
+      "noise": 0.75,
+      "seconds": 0.8,
+      "level": 1.0,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Clap.sfz",
+   "source": "segno",
+   "maxSeconds": 1.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Clap_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "Clap_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "Clap_v1_3",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 0.4,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    },
+    {
+     "name": "Clap_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "Clap_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "Clap_v2_3",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 0.7,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    },
+    {
+     "name": "Clap_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "Clap_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "Clap_v3_3",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "clap",
+      "bursts": 4,
+      "spacing": 0.011,
+      "color": 1200,
+      "decay": 0.16,
+      "seconds": 1.0,
+      "level": 1.0,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Rim.sfz",
+   "source": "segno",
+   "maxSeconds": 0.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Rim_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "rim",
+      "pitch": 1700,
+      "decay": 0.025,
+      "seconds": 0.5,
+      "level": 0.4,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Rim_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "rim",
+      "pitch": 1700,
+      "decay": 0.025,
+      "seconds": 0.5,
+      "level": 0.7,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Rim_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "rim",
+      "pitch": 1700,
+      "decay": 0.025,
+      "seconds": 0.5,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Closed hat.sfz",
+   "source": "segno",
+   "maxSeconds": 0.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "ClosedHat_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "ClosedHat_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "ClosedHat_v1_3",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 0.4,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    },
+    {
+     "name": "ClosedHat_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "ClosedHat_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "ClosedHat_v2_3",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 0.7,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    },
+    {
+     "name": "ClosedHat_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      3,
+      1
+     ]
+    },
+    {
+     "name": "ClosedHat_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      3,
+      2
+     ]
+    },
+    {
+     "name": "ClosedHat_v3_3",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "hp": 7500.0,
+      "decay": 0.045,
+      "noise": 0.2,
+      "seconds": 0.5,
+      "level": 1.0,
+      "seed": 3
+     },
+     "seq": [
+      3,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Pedal hat.sfz",
+   "source": "segno",
+   "maxSeconds": 0.4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "PedalHat_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "hp": 8000,
+      "decay": 0.03,
+      "noise": 0.1,
+      "seconds": 0.4,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "PedalHat_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "hp": 8000,
+      "decay": 0.03,
+      "noise": 0.1,
+      "seconds": 0.4,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "PedalHat_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "hp": 8000,
+      "decay": 0.03,
+      "noise": 0.1,
+      "seconds": 0.4,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "PedalHat_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "hp": 8000,
+      "decay": 0.03,
+      "noise": 0.1,
+      "seconds": 0.4,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "PedalHat_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "hp": 8000,
+      "decay": 0.03,
+      "noise": 0.1,
+      "seconds": 0.4,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "PedalHat_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "hp": 8000,
+      "decay": 0.03,
+      "noise": 0.1,
+      "seconds": 0.4,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Open hat.sfz",
+   "source": "segno",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "OpenHat_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "hp": 7000,
+      "decay": 0.35,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "OpenHat_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "hp": 7000,
+      "decay": 0.35,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "OpenHat_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "hp": 7000,
+      "decay": 0.35,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "OpenHat_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "hp": 7000,
+      "decay": 0.35,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "OpenHat_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "hp": 7000,
+      "decay": 0.35,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "OpenHat_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "hp": 7000,
+      "decay": 0.35,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Cymbal.sfz",
+   "source": "segno",
+   "maxSeconds": 3.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Cymbal_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       328.5,
+       487.0,
+       591.4,
+       836.3,
+       864.0,
+       1280.0
+      ],
+      "hp": 5000,
+      "decay": 1.2,
+      "noise": 0.25,
+      "seconds": 3.0,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Cymbal_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       328.5,
+       487.0,
+       591.4,
+       836.3,
+       864.0,
+       1280.0
+      ],
+      "hp": 5000,
+      "decay": 1.2,
+      "noise": 0.25,
+      "seconds": 3.0,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "Cymbal_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       328.5,
+       487.0,
+       591.4,
+       836.3,
+       864.0,
+       1280.0
+      ],
+      "hp": 5000,
+      "decay": 1.2,
+      "noise": 0.25,
+      "seconds": 3.0,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Cymbal_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       328.5,
+       487.0,
+       591.4,
+       836.3,
+       864.0,
+       1280.0
+      ],
+      "hp": 5000,
+      "decay": 1.2,
+      "noise": 0.25,
+      "seconds": 3.0,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "Cymbal_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       328.5,
+       487.0,
+       591.4,
+       836.3,
+       864.0,
+       1280.0
+      ],
+      "hp": 5000,
+      "decay": 1.2,
+      "noise": 0.25,
+      "seconds": 3.0,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Cymbal_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       328.5,
+       487.0,
+       591.4,
+       836.3,
+       864.0,
+       1280.0
+      ],
+      "hp": 5000,
+      "decay": 1.2,
+      "noise": 0.25,
+      "seconds": 3.0,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Ride.sfz",
+   "source": "segno",
+   "maxSeconds": 3.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Ride_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       263.0,
+       400.0,
+       532.0,
+       721.0,
+       852.0,
+       1090.0
+      ],
+      "hp": 4000,
+      "decay": 0.9,
+      "noise": 0.05,
+      "seconds": 3.0,
+      "level": 0.4,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Ride_v1_2",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       263.0,
+       400.0,
+       532.0,
+       721.0,
+       852.0,
+       1090.0
+      ],
+      "hp": 4000,
+      "decay": 0.9,
+      "noise": 0.05,
+      "seconds": 3.0,
+      "level": 0.4,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "Ride_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       263.0,
+       400.0,
+       532.0,
+       721.0,
+       852.0,
+       1090.0
+      ],
+      "hp": 4000,
+      "decay": 0.9,
+      "noise": 0.05,
+      "seconds": 3.0,
+      "level": 0.7,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Ride_v2_2",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       263.0,
+       400.0,
+       532.0,
+       721.0,
+       852.0,
+       1090.0
+      ],
+      "hp": 4000,
+      "decay": 0.9,
+      "noise": 0.05,
+      "seconds": 3.0,
+      "level": 0.7,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    },
+    {
+     "name": "Ride_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       263.0,
+       400.0,
+       532.0,
+       721.0,
+       852.0,
+       1090.0
+      ],
+      "hp": 4000,
+      "decay": 0.9,
+      "noise": 0.05,
+      "seconds": 3.0,
+      "level": 1.0,
+      "seed": 1
+     },
+     "seq": [
+      2,
+      1
+     ]
+    },
+    {
+     "name": "Ride_v3_2",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       263.0,
+       400.0,
+       532.0,
+       721.0,
+       852.0,
+       1090.0
+      ],
+      "hp": 4000,
+      "decay": 0.9,
+      "noise": 0.05,
+      "seconds": 3.0,
+      "level": 1.0,
+      "seed": 2
+     },
+     "seq": [
+      2,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Low tom.sfz",
+   "source": "segno",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "LowTom_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "tom",
+      "pitch": 90,
+      "sweep": 150,
+      "sweepTime": 0.05,
+      "decay": 0.35,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.4,
+      "seed": 1
+     }
+    },
+    {
+     "name": "LowTom_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "tom",
+      "pitch": 90,
+      "sweep": 150,
+      "sweepTime": 0.05,
+      "decay": 0.35,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.7,
+      "seed": 1
+     }
+    },
+    {
+     "name": "LowTom_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "tom",
+      "pitch": 90,
+      "sweep": 150,
+      "sweepTime": 0.05,
+      "decay": 0.35,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Mid tom.sfz",
+   "source": "segno",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "MidTom_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "tom",
+      "pitch": 130,
+      "sweep": 220,
+      "sweepTime": 0.05,
+      "decay": 0.3,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.4,
+      "seed": 1
+     }
+    },
+    {
+     "name": "MidTom_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "tom",
+      "pitch": 130,
+      "sweep": 220,
+      "sweepTime": 0.05,
+      "decay": 0.3,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.7,
+      "seed": 1
+     }
+    },
+    {
+     "name": "MidTom_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "tom",
+      "pitch": 130,
+      "sweep": 220,
+      "sweepTime": 0.05,
+      "decay": 0.3,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/High tom.sfz",
+   "source": "segno",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "HighTom_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "tom",
+      "pitch": 180,
+      "sweep": 300,
+      "sweepTime": 0.05,
+      "decay": 0.25,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.4,
+      "seed": 1
+     }
+    },
+    {
+     "name": "HighTom_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "tom",
+      "pitch": 180,
+      "sweep": 300,
+      "sweepTime": 0.05,
+      "decay": 0.25,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 0.7,
+      "seed": 1
+     }
+    },
+    {
+     "name": "HighTom_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "tom",
+      "pitch": 180,
+      "sweep": 300,
+      "sweepTime": 0.05,
+      "decay": 0.25,
+      "click": 0.15,
+      "noise": 0.1,
+      "seconds": 1.5,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Cowbell.sfz",
+   "source": "segno",
+   "maxSeconds": 1.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Cowbell_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       540,
+       800
+      ],
+      "bp": 800,
+      "decay": 0.12,
+      "seconds": 1.0,
+      "level": 0.4,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Cowbell_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       540,
+       800
+      ],
+      "bp": 800,
+      "decay": 0.12,
+      "seconds": 1.0,
+      "level": 0.7,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Cowbell_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "metal",
+      "freqs": [
+       540,
+       800
+      ],
+      "bp": 800,
+      "decay": 0.12,
+      "seconds": 1.0,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Analog lab/Clave.sfz",
+   "source": "segno",
+   "maxSeconds": 0.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Clave_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "rim",
+      "pitch": 2500,
+      "decay": 0.04,
+      "seconds": 0.5,
+      "level": 0.4,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Clave_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "rim",
+      "pitch": 2500,
+      "decay": 0.04,
+      "seconds": 0.5,
+      "level": 0.7,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Clave_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "rim",
+      "pitch": 2500,
+      "decay": 0.04,
+      "seconds": 0.5,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Kick 2.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Kick2_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "triangle",
+      "start": 300,
+      "end": 45,
+      "sweepTime": 0.06,
+      "decay": 0.25,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Kick2_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "triangle",
+      "start": 300,
+      "end": 45,
+      "sweepTime": 0.06,
+      "decay": 0.25,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Kick.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Kick_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "start": 400,
+      "end": 50,
+      "sweepTime": 0.03,
+      "decay": 0.18,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Kick_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "start": 400,
+      "end": 50,
+      "sweepTime": 0.03,
+      "decay": 0.18,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Tick.sfz",
+   "source": "segno",
+   "maxSeconds": 0.2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Tick_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "duty": 0.125,
+      "start": 3000,
+      "end": 3000,
+      "decay": 0.02,
+      "seconds": 0.2,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Tick_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "duty": 0.125,
+      "start": 3000,
+      "end": 3000,
+      "decay": 0.02,
+      "seconds": 0.2,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Snare.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Snare_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "start": 8000,
+      "end": 4000,
+      "sweepTime": 0.05,
+      "decay": 0.12,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Snare_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "start": 8000,
+      "end": 4000,
+      "sweepTime": 0.05,
+      "decay": 0.12,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Clap.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Clap_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 8,
+      "wave": "noise",
+      "start": 12000,
+      "end": 12000,
+      "decay": 0.08,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Clap_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 8,
+      "wave": "noise",
+      "start": 12000,
+      "end": 12000,
+      "decay": 0.08,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Metal snare.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "MetalSnare_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "noiseMode": "short",
+      "start": 2000,
+      "end": 1500,
+      "decay": 0.15,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "MetalSnare_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "noiseMode": "short",
+      "start": 2000,
+      "end": 1500,
+      "decay": 0.15,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Low tom.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "LowTom_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "triangle",
+      "start": 300,
+      "end": 120,
+      "sweepTime": 0.12,
+      "decay": 0.25,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "LowTom_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "triangle",
+      "start": 300,
+      "end": 120,
+      "sweepTime": 0.12,
+      "decay": 0.25,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Closed hat.sfz",
+   "source": "segno",
+   "maxSeconds": 0.3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "ClosedHat_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "start": 16000,
+      "end": 16000,
+      "decay": 0.03,
+      "seconds": 0.3,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "ClosedHat_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "start": 16000,
+      "end": 16000,
+      "decay": 0.03,
+      "seconds": 0.3,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Mid tom.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "MidTom_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "triangle",
+      "start": 400,
+      "end": 180,
+      "sweepTime": 0.12,
+      "decay": 0.22,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "MidTom_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "triangle",
+      "start": 400,
+      "end": 180,
+      "sweepTime": 0.12,
+      "decay": 0.22,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Open hat.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "OpenHat_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "start": 14000,
+      "end": 14000,
+      "decay": 0.2,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "OpenHat_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "start": 14000,
+      "end": 14000,
+      "decay": 0.2,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/High tom.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "HighTom_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "triangle",
+      "start": 550,
+      "end": 260,
+      "sweepTime": 0.12,
+      "decay": 0.2,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "HighTom_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "triangle",
+      "start": 550,
+      "end": 260,
+      "sweepTime": 0.12,
+      "decay": 0.2,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Noise crash.sfz",
+   "source": "segno",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "NoiseCrash_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "start": 9000,
+      "end": 3000,
+      "sweepTime": 0.4,
+      "decay": 0.8,
+      "seconds": 2.0,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "NoiseCrash_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "start": 9000,
+      "end": 3000,
+      "sweepTime": 0.4,
+      "decay": 0.8,
+      "seconds": 2.0,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Metal.sfz",
+   "source": "segno",
+   "maxSeconds": 1.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Metal_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "noiseMode": "short",
+      "start": 4000,
+      "end": 4000,
+      "decay": 0.3,
+      "seconds": 1.0,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Metal_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "noise",
+      "noiseMode": "short",
+      "start": 4000,
+      "end": 4000,
+      "decay": 0.3,
+      "seconds": 1.0,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Blip.sfz",
+   "source": "segno",
+   "maxSeconds": 0.3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Blip_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "duty": 0.25,
+      "start": 1046.5,
+      "end": 1046.5,
+      "decay": 0.08,
+      "seconds": 0.3,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Blip_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "duty": 0.25,
+      "start": 1046.5,
+      "end": 1046.5,
+      "decay": 0.08,
+      "seconds": 0.3,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Zap.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Zap_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "duty": 0.125,
+      "start": 2000,
+      "end": 200,
+      "sweepTime": 0.1,
+      "decay": 0.2,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Zap_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "duty": 0.125,
+      "start": 2000,
+      "end": 200,
+      "sweepTime": 0.1,
+      "decay": 0.2,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Chip/Laser.sfz",
+   "source": "segno",
+   "maxSeconds": 0.6,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "Laser_v1_1",
+     "lovel": 0,
+     "hivel": 63,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "duty": 0.5,
+      "start": 3000,
+      "end": 100,
+      "sweepTime": 0.05,
+      "decay": 0.15,
+      "seconds": 0.6,
+      "level": 0.5,
+      "seed": 1
+     }
+    },
+    {
+     "name": "Laser_v2_1",
+     "lovel": 64,
+     "hivel": 127,
+     "synth": {
+      "voice": "chip",
+      "rate": 22050,
+      "steps": 16,
+      "wave": "pulse",
+      "duty": 0.5,
+      "start": 3000,
+      "end": 100,
+      "sweepTime": 0.05,
+      "decay": 0.15,
+      "seconds": 0.6,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Sub 808/808 bass.sfz",
+   "source": "segno",
+   "maxSeconds": 4.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "808Bass_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "sub",
+      "pitch": 32.7,
+      "decay": 1.8,
+      "drive": 0.35,
+      "seconds": 4.0,
+      "level": 0.4,
+      "seed": 1
+     }
+    },
+    {
+     "name": "808Bass_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "sub",
+      "pitch": 32.7,
+      "decay": 1.8,
+      "drive": 0.35,
+      "seconds": 4.0,
+      "level": 0.7,
+      "seed": 1
+     }
+    },
+    {
+     "name": "808Bass_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "sub",
+      "pitch": 32.7,
+      "decay": 1.8,
+      "drive": 0.35,
+      "seconds": 4.0,
+      "level": 1.0,
+      "seed": 1
+     }
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Sub 808/808 slide.sfz",
+   "source": "segno",
+   "maxSeconds": 4.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "name": "808Slide_v1_1",
+     "lovel": 0,
+     "hivel": 41,
+     "synth": {
+      "voice": "sub",
+      "pitch": 32.7,
+      "glide": 12,
+      "decay": 1.8,
+      "drive": 0.35,
+      "seconds": 4.0,
+      "level": 0.4,
+      "seed": 1
+     }
+    },
+    {
+     "name": "808Slide_v2_1",
+     "lovel": 42,
+     "hivel": 84,
+     "synth": {
+      "voice": "sub",
+      "pitch": 32.7,
+      "glide": 12,
+      "decay": 1.8,
+      "drive": 0.35,
+      "seconds": 4.0,
+      "level": 0.7,
+      "seed": 1
+     }
+    },
+    {
+     "name": "808Slide_v3_1",
+     "lovel": 85,
+     "hivel": 127,
+     "synth": {
+      "voice": "sub",
+      "pitch": 32.7,
+      "glide": 12,
+      "decay": 1.8,
+      "drive": 0.35,
+      "seconds": 4.0,
+      "level": 1.0,
+      "seed": 1
+     }
     }
    ]
   },

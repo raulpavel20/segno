@@ -68,6 +68,9 @@ struct Zone
     double loRand = 0.0, hiRand = 1.0;
     /// Its sound mixed from several files (a drum's microphones), else empty: `file` alone.
     std::vector<MixPart> mix;
+    /// Its sound rendered by Segno's own drum voices (DrumSynth.h): the voice's JSON, else empty.
+    /// Its `file` is then "synth" and its `sha256` the voice's fingerprint.
+    std::string synth;
 };
 
 /// One instrument: an SFZ file in the Library and the zones it maps.

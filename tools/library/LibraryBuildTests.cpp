@@ -1,6 +1,7 @@
 // Building the Library (ADR 0055, docs/design/factory-library.md §6): a sample's tail trimmed and
 // capped, made 16-bit the same way every time, written as FLAC and read back exactly; roots checked
 // by pitch; the SFZ the Sampler reads; a whole instrument built, and built again only where needed.
+#include "DrumSynth.h"
 #include "LibraryBuild.h"
 #include "SampleMap.h"
 
@@ -323,4 +324,50 @@ TEST_CASE("library build: a drum starts at its onset, a millisecond before it, f
     CHECK(std::abs(kept.frames - trimmed.frames -
                    (static_cast<int>(lead) - static_cast<int>(0.001 * audio.sampleRate))) <= 1);
     CHECK(trimmed.interleaved.front() == 0); // faded in from silence
+}
+
+TEST_CASE("library build: Segno's own drum voices render the same every time, each as asked", "[fast]")
+{
+    // Every voice renders, finite, at its length, the same for the same parameters.
+    for (const auto* voice :
+         {R"({"voice":"kick","seconds":1})", R"({"voice":"tom","pitch":120,"sweep":240,"seconds":1})",
+          R"({"voice":"snare","seconds":0.5})", R"({"voice":"clap","seconds":0.5})",
+          R"({"voice":"metal","decay":0.05,"seconds":0.3})",
+          R"({"voice":"metal","bp":800,"freqs":[540,800],"seconds":0.5})", R"({"voice":"rim","seconds":0.2})",
+          R"({"voice":"chip","wave":"noise","noiseMode":"short","seconds":0.3})",
+          R"({"voice":"chip","wave":"triangle","seconds":0.3})",
+          R"({"voice":"sub","pitch":55,"glide":7,"seconds":2})"})
+    {
+        INFO(voice);
+        std::string error;
+        const auto a = lb::renderVoice(voice, &error);
+        const auto b = lb::renderVoice(voice, &error);
+        REQUIRE(a);
+        CHECK(a->sampleRate == 48000.0);
+        CHECK(a->numChannels() == 1);
+        CHECK(a->channels == b->channels);
+        float peak = 0.0f;
+        for (const float x : a->channels[0])
+        {
+            REQUIRE(std::isfinite(x));
+            peak = std::max(peak, std::abs(x));
+        }
+        CHECK(peak > 0.05f);
+        CHECK(peak <= 1.0f);
+    }
+    // A kick falls to its pitch: its last cycles near 50 Hz.
+    const auto kick = lb::renderVoice(R"({"voice":"kick","pitch":50,"sweep":200,"decay":2,"seconds":1})");
+    REQUIRE(kick);
+    const auto pitch = lb::detectPitch(*kick);
+    REQUIRE(pitch);
+    CHECK(*pitch == Approx(31.35).margin(1.0)); // 50 Hz is G0, MIDI 31.35
+    // Softer: the same voice at a lower level; another seed, other noise.
+    const auto loud = lb::renderVoice(R"({"voice":"snare","seconds":0.3})");
+    const auto soft = lb::renderVoice(R"({"voice":"snare","seconds":0.3,"level":0.5})");
+    const auto other = lb::renderVoice(R"({"voice":"snare","seconds":0.3,"seed":7})");
+    CHECK(soft->channels[0][2000] == Approx(loud->channels[0][2000] * 0.5f).margin(1e-6));
+    CHECK(other->channels != loud->channels);
+    std::string error;
+    CHECK_FALSE(lb::renderVoice(R"({"voice":"theremin"})", &error));
+    CHECK(error.find("theremin") != std::string::npos);
 }

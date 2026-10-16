@@ -1,7 +1,7 @@
 # Segno's Library (ADR 0055, docs/design/factory-library.md §6): the tool that builds it, and a
 # target of its own that fetches the sources and builds it into .cache/library, where debug builds
 # find it. Not part of a plain build: the sources are about 2 GB.
-add_library(fd_library_build STATIC LibraryBuild.cpp RackRecipes.cpp)
+add_library(fd_library_build STATIC LibraryBuild.cpp RackRecipes.cpp DrumSynth.cpp)
 target_include_directories(fd_library_build PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(fd_library_build PUBLIC fd::audiofile fd::registry nlohmann_json::nlohmann_json
     PRIVATE FLAC::FLAC fd::warnings)

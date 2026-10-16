@@ -115,6 +115,15 @@ SOURCES = {
         "commit": "338133ee7fe6a429576c0dea3edfa1b9270201b6",
         "license": "CC0-1.0",
     },
+    "segno": {
+        # Rendered by the Library build where no CC0 recording exists (ADR 0068), dedicated CC0 with
+        # the rest.
+        "name": "Segno's own drum voices",
+        "url": "tools/library/DrumSynth.cpp",
+        "commit": "rendered",
+        "license": "CC0-1.0",
+        "rendered": True,
+    },
     "fischer": {
         # Michael Fischer's recordings (1994), CC0 by their repackager, TidalCycles (ADR 0068).
         "name": "Michael Fischer's 808 recordings (TidalCycles' repackaging)",
@@ -261,6 +270,21 @@ def named(ctx, pool, name, source, pattern, seconds, layers=6, takes=4):
     return _add(Piece(pool, name, source, seconds, zones))
 
 
+def voice(pool, name, params, seconds, levels=(0.4, 0.7, 1.0), takes=1):
+    """A piece of Segno's own (DrumSynth.cpp): the voice at each level a velocity layer, softest first,
+    and `takes` takes, each with its own noise."""
+    zones = []
+    for li, level in enumerate(levels):
+        for t in range(takes):
+            zone = {"name": f"{_short(name)}_v{li + 1}_{t + 1}",
+                    "lovel": 128 * li // len(levels), "hivel": 128 * (li + 1) // len(levels) - 1,
+                    "synth": {**params, "seconds": seconds, "level": level, "seed": t + 1}}
+            if takes > 1:
+                zone["seq"] = [takes, t + 1]
+            zones.append(zone)
+    return _add(Piece(pool, name, "segno", seconds, zones))
+
+
 def files(ctx, pool, name, source, paths, seconds, as_layers=False):
     """A piece from files: each a take (round robin), or with `as_layers` each a velocity layer, softest
     first."""
@@ -352,6 +376,9 @@ def kits(ctx):
     out.append(_orchestral(ctx))
     out.append(_junkyard(ctx))
     out.append(_glitch(ctx))
+    out.append(_analog_lab(ctx))
+    out.append(_chip(ctx))
+    out.append(_sub_808(ctx))
     out.append(_body(ctx))
     return out
 
@@ -1549,3 +1576,135 @@ def _glitch(ctx):
     return Kit("Glitch", ["Drums", "Electronic", "Glitch"],
                "Sixteen glitches: processed clicks, crackles, bursts and stutters for IDM and experimental "
                "beats.", pads)
+
+
+# ---- Segno's own (DrumSynth.cpp) ---------------------------------------------------------------
+
+HAT = {"voice": "metal", "hp": 7500.0}
+RIDE_FREQS = [263.0, 400.0, 532.0, 721.0, 852.0, 1090.0]
+
+
+def _analog_lab_pieces():
+    pool = "Analog lab"
+    return {
+        "kick": voice(pool, "Kick", {"voice": "kick", "pitch": 48, "sweep": 150, "sweepTime": 0.035, "decay": 0.5,
+                                     "click": 0.25}, 2.0, takes=2),
+        "punch": voice(pool, "Kick punchy", {"voice": "kick", "pitch": 55, "sweep": 220, "sweepTime": 0.02,
+                                             "decay": 0.3, "click": 0.5, "drive": 0.4}, 1.5, takes=2),
+        "snare": voice(pool, "Snare", {"voice": "snare", "tone": 185, "tone2": 330, "toneDecay": 0.07,
+                                       "color": 5000, "noiseDecay": 0.15, "noise": 0.65}, 1.0, takes=3),
+        "tight": voice(pool, "Snare tight", {"voice": "snare", "tone": 230, "tone2": 410, "toneDecay": 0.05,
+                                             "color": 7000, "noiseDecay": 0.08, "noise": 0.75}, 0.8, takes=3),
+        "clap": voice(pool, "Clap", {"voice": "clap", "bursts": 4, "spacing": 0.011, "color": 1200,
+                                     "decay": 0.16}, 1.0, takes=3),
+        "rim": voice(pool, "Rim", {"voice": "rim", "pitch": 1700, "decay": 0.025}, 0.5),
+        "closed": voice(pool, "Closed hat", {**HAT, "decay": 0.045, "noise": 0.2}, 0.5, takes=3),
+        "pedal": voice(pool, "Pedal hat", {**HAT, "hp": 8000, "decay": 0.03, "noise": 0.1}, 0.4, takes=2),
+        "open": voice(pool, "Open hat", {**HAT, "hp": 7000, "decay": 0.35, "noise": 0.1}, 1.5, takes=2),
+        "cymbal": voice(pool, "Cymbal", {"voice": "metal", "freqs": [328.5, 487.0, 591.4, 836.3, 864.0, 1280.0],
+                                         "hp": 5000, "decay": 1.2, "noise": 0.25}, 3.0, takes=2),
+        "ride": voice(pool, "Ride", {"voice": "metal", "freqs": RIDE_FREQS, "hp": 4000, "decay": 0.9,
+                                     "noise": 0.05}, 3.0, takes=2),
+        "low": voice(pool, "Low tom", {"voice": "tom", "pitch": 90, "sweep": 150, "sweepTime": 0.05,
+                                       "decay": 0.35, "click": 0.15, "noise": 0.1}, 1.5),
+        "mid": voice(pool, "Mid tom", {"voice": "tom", "pitch": 130, "sweep": 220, "sweepTime": 0.05,
+                                       "decay": 0.3, "click": 0.15, "noise": 0.1}, 1.5),
+        "high": voice(pool, "High tom", {"voice": "tom", "pitch": 180, "sweep": 300, "sweepTime": 0.05,
+                                         "decay": 0.25, "click": 0.15, "noise": 0.1}, 1.5),
+        "cowbell": voice(pool, "Cowbell", {"voice": "metal", "freqs": [540, 800], "bp": 800, "decay": 0.12}, 1.0),
+        "clave": voice(pool, "Clave", {"voice": "rim", "pitch": 2500, "decay": 0.04}, 0.5),
+    }
+
+
+def _analog_lab(ctx):
+    v = _analog_lab_pieces()
+    pads = [
+        Pad(35, v["punch"], "Kick punchy", "kick", velocity=40),
+        Pad(KICK, v["kick"], "Kick", "kick", velocity=40),
+        Pad(SIDESTICK, v["rim"], "Rim", "rim", velocity=40),
+        Pad(SNARE, v["snare"], "Snare", "snare", velocity=40),
+        Pad(CLAP, v["clap"], "Clap", "clap", velocity=40),
+        Pad(SNARE2, v["tight"], "Snare tight", "snare", velocity=40),
+        Pad(LOWTOM_F, v["low"], "Low tom", "tom", velocity=40, pan=-0.3),
+        Pad(CLOSED, v["closed"], "Closed hat", "hat", choke=1, velocity=40),
+        Pad(PEDAL, v["pedal"], "Pedal hat", "hat", choke=1, velocity=40),
+        Pad(MIDTOM_L, v["mid"], "Mid tom", "tom", velocity=40),
+        Pad(OPEN, v["open"], "Open hat", "open hat", choke=1, velocity=40),
+        Pad(HIGHTOM_L, v["high"], "High tom", "tom", velocity=40, pan=0.3),
+        Pad(CRASH, v["cymbal"], "Cymbal", "cymbal", velocity=40),
+        Pad(RIDE, v["ride"], "Ride", "ride", velocity=40),
+        Pad(COWBELL, v["cowbell"], "Cowbell", "perc", velocity=40),
+        Pad(CLAVES, v["clave"], "Clave", "perc", velocity=40),
+    ]
+    return Kit("Analog lab", ["Drums", "Electronic", "Synth"],
+               "Segno's own analog-style drums, made in the build: a round kick and a punchy one, a snappy "
+               "snare, a clap, metallic hats and cymbals, toms and a cowbell.", pads)
+
+
+def _chip(ctx):
+    pool = "Chip"
+
+    def c(name, params, seconds=0.6):
+        return voice(pool, name, {"voice": "chip", "rate": 22050, "steps": 16, **params}, seconds,
+                     levels=(0.5, 1.0))
+
+    pads = [
+        Pad(35, c("Kick 2", {"wave": "triangle", "start": 300, "end": 45, "sweepTime": 0.06, "decay": 0.25}),
+            "Kick 2", "kick", velocity=40),
+        Pad(KICK, c("Kick", {"wave": "pulse", "start": 400, "end": 50, "sweepTime": 0.03, "decay": 0.18}),
+            "Kick", "kick", velocity=40),
+        Pad(SIDESTICK, c("Tick", {"wave": "pulse", "duty": 0.125, "start": 3000, "end": 3000, "decay": 0.02},
+                         0.2), "Tick", "rim", velocity=40),
+        Pad(SNARE, c("Snare", {"wave": "noise", "start": 8000, "end": 4000, "sweepTime": 0.05, "decay": 0.12}),
+            "Snare", "snare", velocity=40),
+        Pad(CLAP, c("Clap", {"wave": "noise", "start": 12000, "end": 12000, "decay": 0.08, "steps": 8}), "Clap",
+            "clap", velocity=40),
+        Pad(SNARE2, c("Metal snare", {"wave": "noise", "noiseMode": "short", "start": 2000, "end": 1500,
+                                      "decay": 0.15}), "Metal snare", "snare", velocity=40),
+        Pad(LOWTOM_F, c("Low tom", {"wave": "triangle", "start": 300, "end": 120, "sweepTime": 0.12,
+                                    "decay": 0.25}), "Low tom", "tom", velocity=40),
+        Pad(CLOSED, c("Closed hat", {"wave": "noise", "start": 16000, "end": 16000, "decay": 0.03}, 0.3),
+            "Closed hat", "hat", choke=1, velocity=40),
+        Pad(MIDTOM_L, c("Mid tom", {"wave": "triangle", "start": 400, "end": 180, "sweepTime": 0.12,
+                                    "decay": 0.22}), "Mid tom", "tom", velocity=40),
+        Pad(OPEN, c("Open hat", {"wave": "noise", "start": 14000, "end": 14000, "decay": 0.2}), "Open hat",
+            "open hat", choke=1, velocity=40),
+        Pad(HIGHTOM_L, c("High tom", {"wave": "triangle", "start": 550, "end": 260, "sweepTime": 0.12,
+                                      "decay": 0.2}), "High tom", "tom", velocity=40),
+        Pad(CRASH, c("Noise crash", {"wave": "noise", "start": 9000, "end": 3000, "sweepTime": 0.4, "decay": 0.8},
+                     2.0), "Crash", "cymbal", velocity=40),
+        Pad(RIDE, c("Metal", {"wave": "noise", "noiseMode": "short", "start": 4000, "end": 4000, "decay": 0.3},
+                    1.0), "Metal", "ride", velocity=40),
+        Pad(60, c("Blip", {"wave": "pulse", "duty": 0.25, "start": 1046.5, "end": 1046.5, "decay": 0.08}, 0.3),
+            "Blip", "fx", velocity=40),
+        Pad(61, c("Zap", {"wave": "pulse", "duty": 0.125, "start": 2000, "end": 200, "sweepTime": 0.1,
+                          "decay": 0.2}), "Zap", "fx", velocity=40),
+        Pad(62, c("Laser", {"wave": "pulse", "duty": 0.5, "start": 3000, "end": 100, "sweepTime": 0.05,
+                            "decay": 0.15}), "Laser", "fx", velocity=40),
+    ]
+    return Kit("Chip", ["Drums", "Electronic", "Chiptune"],
+               "8-bit drums from pulse, triangle and noise channels, in sixteen steps of loudness: kicks, "
+               "noise snares and hats, sliding toms, a blip, a zap and a laser.", pads)
+
+
+def _sub_808(ctx):
+    """A tuned 808 bass on twelve pads a semitone apart (C2 to B2), a slide, and the analog lab's
+    kick, snare, clap and hats around it."""
+    v = _analog_lab_pieces()
+    bass = voice("Sub 808", "808 bass", {"voice": "sub", "pitch": 32.70, "decay": 1.8, "drive": 0.35}, 4.0)
+    slide = voice("Sub 808", "808 slide", {"voice": "sub", "pitch": 32.70, "glide": 12, "decay": 1.8,
+                                           "drive": 0.35}, 4.0)
+    names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"]
+    pads = [Pad(48 + i, bass, f"808 {n}", "kick", velocity=40, transpose=i, trim=-2) for i, n in enumerate(names)]
+    pads += [
+        Pad(35, slide, "808 slide", "kick", velocity=40, trim=-2),
+        Pad(KICK, v["punch"], "Kick", "kick", velocity=40),
+        Pad(SIDESTICK, v["rim"], "Rim", "rim", velocity=40),
+        Pad(SNARE, v["tight"], "Snare", "snare", velocity=40),
+        Pad(CLAP, v["clap"], "Clap", "clap", velocity=40),
+        Pad(CLOSED, v["closed"], "Closed hat", "hat", choke=1, velocity=40),
+        Pad(OPEN, v["open"], "Open hat", "open hat", choke=1, velocity=40),
+    ]
+    return Kit("Sub 808", ["Drums", "Electronic", "Trap"],
+               "A tuned 808 bass across twelve pads, C to B, to play basslines from the pads, a slide into "
+               "the note, and a kick, snare, clap and hats around it.", pads)

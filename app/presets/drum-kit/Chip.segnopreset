@@ -1,0 +1,940 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Electronic",
+    "Chiptune"
+  ],
+  "description": "8-bit drums from pulse, triangle and noise channels, in sixteen steps of loudness: kicks, noise snares and hats, sliding toms, a blip, a zap and a laser.",
+  "author": "Segno",
+  "state": {
+    "device": "drum-kit",
+    "extra": {
+      "pads": [
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Kick 2.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Kick 2",
+          "note": 35,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -8.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Kick.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Kick",
+          "note": 36,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Tick.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Tick",
+          "note": 37,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -14.8
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Snare.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Snare",
+          "note": 38,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -13.4
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Clap.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Clap",
+          "note": 39,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -14.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Metal snare.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Metal snare",
+          "note": 40,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -13.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Low tom.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Low tom",
+          "note": 41,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.7
+        },
+        {
+          "choke": 1,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Closed hat.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Closed hat",
+          "note": 42,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -20.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Mid tom.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Mid tom",
+          "note": 45,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.5
+        },
+        {
+          "choke": 1,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Open hat.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Open hat",
+          "note": 46,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -21.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/High tom.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "High tom",
+          "note": 48,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Noise crash.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Crash",
+          "note": 49,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -21.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Metal.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Metal",
+          "note": 51,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -22.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Blip.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Blip",
+          "note": 60,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -18.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Zap.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Zap",
+          "note": 61,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -19.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Chip/Laser.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 40.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Laser",
+          "note": 62,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -19.5
+        }
+      ]
+    },
+    "params": {
+      "macro1": 0.0,
+      "macro2": 0.0,
+      "macro3": 0.0,
+      "macro4": 0.0,
+      "macro5": 0.0,
+      "macro6": 0.0,
+      "macro7": 0.0,
+      "macro8": 0.0
+    },
+    "stateVersion": 1
+  }
+}

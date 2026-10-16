@@ -1,9 +1,12 @@
 #include "LibraryBuild.h"
 
+#include "DrumSynth.h"
+
 #include <FLAC/stream_encoder.h>
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <map>
 #include <mutex>
@@ -50,6 +53,17 @@ std::uint32_t seedOf(const std::string& text)
     for (const unsigned char c : text)
         h = (h ^ c) * 16777619u;
     return h == 0 ? 1u : h;
+}
+
+/// A rendered voice's fingerprint: FNV-1a over its JSON and the voices' version, 64 bits in hex.
+std::string fingerprint(const std::string& text)
+{
+    std::uint64_t h = 14695981039346656037ull;
+    for (const unsigned char c : text + drumSynthVersion)
+        h = (h ^ c) * 1099511628211ull;
+    char out[17];
+    std::snprintf(out, sizeof out, "%016llx", static_cast<unsigned long long>(h));
+    return out;
 }
 
 std::string number(double v)
@@ -309,10 +323,20 @@ std::optional<Recipe> readRecipe(const fs::path& path, std::string* error)
             for (const auto& z : i.at("zones"))
             {
                 Zone zone;
-                // A mix's file is its first part's.
-                const auto& first = z.contains("mix") ? z["mix"].at(0) : z;
-                zone.file = first.at("file").get<std::string>();
-                zone.sha256 = first.at("sha256").get<std::string>();
+                if (z.contains("synth"))
+                {
+                    // Rendered, not fetched: its fingerprint stands for a file's hash.
+                    zone.synth = z["synth"].dump();
+                    zone.file = "synth";
+                    zone.sha256 = "synth-" + fingerprint(zone.synth);
+                }
+                else
+                {
+                    // A mix's file is its first part's.
+                    const auto& first = z.contains("mix") ? z["mix"].at(0) : z;
+                    zone.file = first.at("file").get<std::string>();
+                    zone.sha256 = first.at("sha256").get<std::string>();
+                }
                 zone.name = z.value("name", std::string());
                 zone.loKey = z.value("lokey", 0);
                 zone.hiKey = z.value("hikey", 127);
@@ -362,6 +386,8 @@ std::vector<SourceFile> sourceFiles(const Recipe& recipe)
     for (const auto& inst : recipe.instruments)
         for (const auto& z : inst.zones)
         {
+            if (!z.synth.empty())
+                continue; // rendered, nothing to fetch
             if (z.mix.empty())
                 add(recipe.source(inst.source), z.file, z.sha256);
             for (const auto& m : z.mix)
@@ -417,7 +443,9 @@ std::optional<audiofile::DecodedAudio> zoneAudio(const Zone& zone, const Source&
 {
     if (zone.mix.empty())
     {
-        auto audio = audiofile::decode(sourceFile(cache, source, zone.file).string(), error);
+        auto audio = zone.synth.empty()
+                         ? audiofile::decode(sourceFile(cache, source, zone.file).string(), error)
+                         : renderVoice(zone.synth, error);
         if (audio && gain != 1.0)
         {
             for (auto& ch : audio->channels)

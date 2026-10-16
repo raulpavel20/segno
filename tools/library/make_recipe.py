@@ -349,7 +349,7 @@ def main():
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     cache = sys.argv[1]
-    trees = {s: tree(s, cache) for s in SOURCES}
+    trees = {s: tree(s, cache) for s in SOURCES if not SOURCES[s].get("rendered")}
     instruments = [vsco_instrument(*i, trees["vsco"]) for i in VSCO]
     instruments += [vcsl_instrument(*i, trees["vcsl"]) for i in VCSL]
     kits = drums.kits(Context(trees, cache))
@@ -357,7 +357,8 @@ def main():
 
     # Every file once (a drum's every microphone): fetched into the cache unless it's there, checked,
     # hashed.
-    wanted = {(i["source"], part["file"]) for i in instruments for z in i["zones"] for part in z.get("mix", [z])}
+    wanted = {(i["source"], part["file"]) for i in instruments for z in i["zones"] if "synth" not in z
+              for part in z.get("mix", [z])}
     hashes = {}
 
     def get(item):
@@ -385,11 +386,13 @@ def main():
                 print(f"{n}/{len(wanted)} files, {total / 1e6:.0f} MB", flush=True)
     for i in instruments:
         for z in i["zones"]:
+            if "synth" in z:
+                continue  # rendered by the Library build (tools/library/DrumSynth.cpp)
             for part in z.get("mix", [z]):
                 part["sha256"] = hashes[(i["source"], part["file"])]
 
-    sources = {k: {"name": v["name"], "url": v["url"], "raw": f"{RAW}/{v['repo']}", "commit": v["commit"],
-                   "license": v["license"]} for k, v in SOURCES.items()}
+    sources = {k: {"name": v["name"], "url": v["url"], "raw": "" if v.get("rendered") else f"{RAW}/{v['repo']}",
+                   "commit": v["commit"], "license": v["license"]} for k, v in SOURCES.items()}
     recipe = {"segnoLibraryRecipe": 1, "version": "1.0.0", "sources": sources, "instruments": instruments}
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recipe.json")
     with open(out, "w") as f:
