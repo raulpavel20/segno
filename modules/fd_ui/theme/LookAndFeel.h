@@ -14,6 +14,11 @@ public:
 /// A MenuBarComponent's property (bool): its mnemonics are underlined (Alt is held).
 inline const juce::Identifier mnemonicsShown{"fdMnemonicsShown"};
 
+/// A choice's text as it fits `width` (ui-foundations.md, "Layout quality"): what follows its last
+/// " · " is a qualifier ("A minor · found"), dropped, the last first, before the text itself is cut
+/// short with an ellipsis. A combo box's text is drawn so.
+[[nodiscard]] juce::String fitQualified(const juce::String& text, const juce::Font& font, float width);
+
 /// Maps the current Theme onto JUCE's standard widgets (labels, text editors, menus, tooltips,
 /// scrollbars). Our own controls (Knob, Toggle, Meter) paint themselves from the Theme.
 class LookAndFeel : public juce::LookAndFeel_V4
@@ -39,6 +44,8 @@ public:
                       int buttonW, int buttonH, juce::ComboBox& box) override;
     juce::Font getComboBoxFont(juce::ComboBox& box) override;
     void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override;
+    // A combo's text drops its qualifier before it's cut short (fitQualified).
+    void drawLabel(juce::Graphics& g, juce::Label& label) override;
 
     // The menu bar in the title bar (ADR 0040): titles in `Field`, padded like text buttons; the
     // hovered one on the hover wash, the open one on its menu's surface, reaching down to it.

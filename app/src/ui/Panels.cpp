@@ -1665,6 +1665,7 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                 rows.push_back({"Formants", {}, false, "formants"});
         }
         rows.push_back({"Key", {}, false, "key"});
+        rows.push_back({"Follow key", {}, false, "follow"});
         rows.push_back({"Transients", {}, false, "transients"});
         rows.push_back({"Reverse", {}, false, "reverse"});
         rows.push_back({"Polarity", {}, false, "polarity"});
@@ -1814,23 +1815,24 @@ void InspectorPanel::refreshKey()
                    : clip_->key->scale == "minor" ? kKeyMinorItems + clip_->key->root
                                                   : kKeyMajorItems + clip_->key->root;
     audioKey_.setSelectedId(selected, juce::dontSendNotification);
-    // Follow key: its step on it while it follows; why not when it can't.
+    // Follow key: dimmed where it can't move the clip (no clip key, no song key, Repitch), but a
+    // clip that follows can always be turned off. While it moves the clip, its step on it, 0 too:
+    // already in the key.
+    const bool keyed = clip_->key.has_value();
+    const bool songKey = session_.snapshot()->keys.first().has_value();
+    const bool repitch = clip_->warp.on && clip_->warp.mode == model::WarpMode::Repitch;
     const auto minus = juce::String::fromUTF8("\xE2\x88\x92");
     const int steps = clip_->followSteps;
-    const auto text = clip_->followKey && steps != 0
-                          ? "Follow " + (steps < 0 ? minus + juce::String(-steps) : "+" + juce::String(steps))
-                          : juce::String("Follow");
+    const auto text =
+        clip_->followKey && songKey && !repitch
+            ? "On" + dot + (steps < 0 ? minus + juce::String(-steps) : juce::String(steps)) + " st"
+            : juce::String("On");
     if (audioFollow_.getButtonText() != text)
     {
         audioFollow_.setButtonText(text);
         resized();
     }
     audioFollow_.setToggleState(clip_->followKey, juce::dontSendNotification);
-    // Dimmed where it can't move the clip (no clip key, no song key, Repitch), but a clip that
-    // follows can always be turned off.
-    const bool keyed = clip_->key.has_value();
-    const bool songKey = session_.snapshot()->keys.first().has_value();
-    const bool repitch = clip_->warp.on && clip_->warp.mode == model::WarpMode::Repitch;
     audioFollow_.setEnabled((keyed && songKey && !repitch) || clip_->followKey);
     juce::String tip = "Follow key: the clip plays in the song's key, moved by the smallest step (a key and "
                        "its relative count as the same)";
@@ -2023,13 +2025,9 @@ int InspectorPanel::layoutSections(int width)
             audioTempo_.setBounds(tempoRow.withRight(audioDouble_.getX() - t.shell.itemGap)
                                       .withTrimmedLeft(-ui::NumberField::textInset));
             audioTails_.setBounds(row("tails").reduced(0, t.shell.propertyFieldInset));
-            // The key, then Follow beside it.
-            const auto keyRow = row("key");
-            const int followWidth = ui::Toggle::widthFor(audioFollow_.getButtonText());
-            audioFollow_.setBounds(
-                keyRow.withLeft(keyRow.getRight() - followWidth).reduced(0, t.shell.propertyFieldInset));
-            audioKey_.setBounds(keyRow.withRight(audioFollow_.getX() - t.shell.itemGap)
-                                    .reduced(0, t.shell.propertyFieldInset));
+            // The key, then Follow key under it: a row each, so the key's text isn't cut.
+            audioKey_.setBounds(row("key").reduced(0, t.shell.propertyFieldInset));
+            toggle(audioFollow_, row("follow"));
             audioSensitivity_.setBounds(row("transients").withTrimmedLeft(-ui::NumberField::textInset));
         }
         else if (sections_[i] == S::Notes) // its fields, then Mute

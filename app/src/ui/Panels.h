@@ -330,10 +330,10 @@ private:
         audioHalve_{juce::String::fromUTF8("\xC3\xB7"
                                            "2")};
     juce::ComboBox audioMode_, audioTails_;
-    /// Its key, found or set, with Follow key beside it (§8.2, §8.3). The list is made again when
+    /// Its key, found or set, then Follow key under it (§8.2, §8.3). The list is made again when
     /// what it offers changes (`keyItems_`).
     juce::ComboBox audioKey_;
-    ui::Toggle audioFollow_{"Follow"};
+    ui::Toggle audioFollow_{"On"};
     juce::String keyItems_;
     std::optional<music::Key> otherKey_; // a set key of another scale, listed as its own item
     void refreshKey();

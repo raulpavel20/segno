@@ -294,7 +294,8 @@ Under CLIP, for one audio clip (CLIP keeps Name, Colour, Start, Length, Offset, 
 | Warp | On, with the mode beside it |
 | Tempo | BPM (×2 and ÷2 in its menu); while it warps |
 | Tails, or Formants | the mode's setting; while it warps |
-| Key | the clip's key, with Follow key beside it |
+| Key | the clip's key |
+| Follow key | under the key, a row of its own so neither is cut: On, with its step while it moves the clip |
 | Transients | Sensitivity % |
 | Reverse | On |
 | Polarity | Inverted |
@@ -609,7 +610,7 @@ Started at the product owner's word ("Start work on P6c") with P6b's hands-on re
 - **When the sound has a key:** it must be pitched, with 60 % or more of its peaks' energy within 15 cents of a semitone. Chords score 0.8 and more, noise and drums about 0.3. Then its best major or minor key (Krumhansl–Kessler, as for notes) must fit at 0.6 or more, 0.08 better than every key but its relative. A held note fits A major and A minor alike, so it has none; so do drums and noise.
 - **The file's own say first:** an acid chunk's or an AIFF's root note, in the mode its name gives that root, else the one its sound fits better there, else major; then a key in its name ("Am", "F#min", "Ebmaj", "C# minor", "Bb_major": a root and its quality standing alone; a root alone, "Kick C", isn't one); then its sound.
 - **The clip's key is one of three things:** what's found ("A minor · found", or "None found", "Finding…" while it's being found), a key set by hand, or None.
-- **Set in the inspector's Key row:** a list with what's found, None, then the twelve major and twelve minor keys. Assistants can set any scale ("D dorian"); one set that way is listed too. Follow sits beside it (§24.2).
+- **Set in the inspector's Key row:** a list with what's found, None, then the twelve major and twelve minor keys. Assistants can set any scale ("D dorian"); one set that way is listed too. Follow key is the row under it (§24.2).
 - **The Key popover's "From your notes"** weighs audio clips with a key (key-and-scale.md §11). Each counts as its key's notes held as long as it plays, the tonic and the fifth most. Clips that follow the song's key say nothing of their own, so they're left out.
 - **Measured on generated material:** chord progressions in C major, A minor and F♯ major are found; a held tone, drums and noise have no key. Real loops will tell how well the thresholds hold: they're constants beside the code that uses them, easy to tune.
 
@@ -619,7 +620,7 @@ Started at the product owner's word ("Start work on P6c") with P6b's hands-on re
 - **The key it follows is pinned:** turning Follow on keeps the clip's key (what's found, unless one is set) on the clip, so what it plays never changes by itself. Turned off, a found key pinned for it goes back to following what's found.
 - **What it moves:** its step adds to Transpose and Fine, in the engine's transposition for a clip without Warp and in the piece player for a warped one. Repitch has none: its speed sets its pitch.
 - **When the song's key changes,** clips that follow it move in the same undo step, and back with it on undo. A take kept aside meanwhile moves when it's used.
-- **In the inspector:** Follow is lit while the clip follows, and shows its step ("Follow −2"). It's dimmed where it can't move the clip, its tooltip saying why: without a clip key, without a song key, and in Repitch (as Transpose is). A clip that follows can always be turned off, so one following when the song's key is taken away stays lit, and moves into the next key set. Audio ▸ Follow key is dimmed without a song key, saying to set one (the product owner, after first use, 2026-10-16: a control that does nothing where it is shouldn't invite a click).
+- **In the inspector:** Follow key, the row under Key, is lit while the clip follows, and shows its step while it moves it ("On · −2 st"; "On · 0 st" already in the key). Beside the key it cut the key's text at the inspector's width ("A minor · fo…"), so it has a row of its own, as File and Format do (2026-10-16). It's dimmed where it can't move the clip, its tooltip saying why: without a clip key, without a song key, and in Repitch (as Transpose is). A clip that follows can always be turned off, so one following when the song's key is taken away stays lit, and moves into the next key set. Audio ▸ Follow key is dimmed without a song key, saying to set one (the product owner, after first use, 2026-10-16: a control that does nothing where it is shouldn't invite a click).
 - **Placed loops:** with Settings › Audio › "Loops follow the key" (off), a loop placed with a key found in it follows the song's.
 
 ### 24.3 Slice (§9)

@@ -137,6 +137,35 @@ void LookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& label)
     label.setJustificationType(juce::Justification::centredLeft);
 }
 
+juce::String fitQualified(const juce::String& text, const juce::Font& font, float width)
+{
+    const auto dot = juce::String::fromUTF8(" \xC2\xB7 ");
+    auto fitted = text;
+    while (fitted.contains(dot) && juce::GlyphArrangement::getStringWidth(font, fitted) > width)
+        fitted = fitted.upToLastOccurrenceOf(dot, false, false);
+    return fitted;
+}
+
+void LookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label)
+{
+    if (dynamic_cast<juce::ComboBox*>(label.getParentComponent()) == nullptr || label.isBeingEdited())
+    {
+        LookAndFeel_V4::drawLabel(g, label);
+        return;
+    }
+    // As LookAndFeel_V2 draws a label, its text fitted first.
+    g.fillAll(label.findColour(juce::Label::backgroundColourId));
+    const float alpha = label.isEnabled() ? 1.0f : 0.5f;
+    const auto font = getLabelFont(label);
+    const auto area = getLabelBorderSize(label).subtractedFrom(label.getLocalBounds());
+    g.setColour(label.findColour(juce::Label::textColourId).withMultipliedAlpha(alpha));
+    g.setFont(font);
+    g.drawFittedText(fitQualified(label.getText(), font, static_cast<float>(area.getWidth())), area,
+                     label.getJustificationType(), 1, label.getMinimumHorizontalScale());
+    g.setColour(label.findColour(juce::Label::outlineColourId).withMultipliedAlpha(alpha));
+    g.drawRect(label.getLocalBounds());
+}
+
 juce::Font LookAndFeel::getMenuBarFont(juce::MenuBarComponent&, int, const juce::String&)
 {
     return font(TextStyle::Field);

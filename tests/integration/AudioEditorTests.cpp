@@ -1051,24 +1051,46 @@ TEST_CASE(
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
         dumpPng(dir, "audio-key-no-song-key@2x.png",
                 inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+    // The key's text as the list draws it: whole at the inspector's width; at its narrowest
+    // (200 px) "· found" gives way before the key is cut (fitQualified).
+    const auto shown = [&inspector]
+    {
+        auto& box = inspector.audioKey();
+        for (auto* c : box.getChildren())
+            if (auto* label = dynamic_cast<juce::Label*>(c))
+                if (auto* lnf = dynamic_cast<juce::Label::LookAndFeelMethods*>(&box.getLookAndFeel()))
+                    return fd::ui::fitQualified(label->getText(), lnf->getLabelFont(*label),
+                                                static_cast<float>(label->getWidth()));
+        return juce::String();
+    };
+    CHECK(shown() == "A minor" + dot + "found");
+    const int width = inspector.getWidth();
+    inspector.setSize(200, inspector.getHeight());
+    CHECK(shown() == "A minor");
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "audio-key-narrowest@2x.png",
+                inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+    inspector.setSize(width, inspector.getHeight());
+    CHECK(fd::ui::fitQualified("a" + dot + "b" + dot + "c", fd::ui::font(fd::ui::TextStyle::Control), 1.0f) ==
+          "a");
     REQUIRE(f.session->setKey(Key{0, "major"}));
     f.settle();
     CHECK(inspector.audioFollow().isEnabled());
     CHECK(f.shell->actions().isEnabled("audio.followKey"));
-    // Following: A minor has C major's notes, so it stays.
+    // Following: A minor has C major's notes, so it stays, 0 st on Follow.
     inspector.audioFollow().onClick();
     f.settle();
     CHECK(f.clip(keys).followKey);
     CHECK(inspector.audioFollow().getToggleState());
-    CHECK(inspector.audioFollow().getButtonText() == "Follow");
+    CHECK(inspector.audioFollow().getButtonText() == "On" + dot + "0 st");
     // Set to D major by hand: two semitones down, shown on Follow.
     inspector.audioKey().setSelectedId(10 + 2, juce::sendNotificationSync);
     f.settle();
     CHECK(f.clip(keys).key == Key{2, "major"});
     CHECK_FALSE(f.clip(keys).keyFound);
     CHECK(inspector.audioKey().getText() == "D major");
-    CHECK(inspector.audioFollow().getButtonText() == juce::String::fromUTF8("Follow \xE2\x88\x92"
-                                                                            "2"));
+    CHECK(inspector.audioFollow().getButtonText() ==
+          "On" + dot + juce::String::fromUTF8("\xE2\x88\x92") + "2 st");
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
         dumpPng(dir, "audio-key-inspector@2x.png",
                 inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
