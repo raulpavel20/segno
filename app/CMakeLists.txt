@@ -67,6 +67,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSections.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionKey.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionRacks.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionKits.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SongKey.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionNotes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionPresets.cpp"

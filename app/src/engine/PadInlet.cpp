@@ -152,6 +152,8 @@ void PadInlet::applyToBuffer(const te::PluginRenderContext& fc)
             {
                 kept_.add(m);
                 kept_[kept_.size() - 1].setNoteNumber(plays);
+                if (m.isNoteOn())
+                    hits_.fetch_add(1, std::memory_order_relaxed);
             }
             else if (m.isNoteOn() && hasBit(chokes, key))
                 kept_.add({juce::MidiMessage::allSoundOff(m.getChannel()).withTimeStamp(m.getTimeStamp()),

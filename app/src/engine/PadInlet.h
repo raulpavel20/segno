@@ -65,6 +65,9 @@ public:
     static void updateChokes(te::RackType& rack);
     /// Whether a note-on of `note` chokes this pad (the audio thread's view).
     [[nodiscard]] bool chokedBy(int note) const noexcept;
+    /// How many times it's been hit (its note's note-ons that reached it): its panel lights the pad
+    /// when this moves.
+    [[nodiscard]] std::uint32_t hits() const noexcept { return hits_.load(std::memory_order_relaxed); }
 
     /// The most messages it filters in a block without allocating: the rest pass as they are.
     static constexpr int capacity = 1024;
@@ -77,6 +80,7 @@ private:
     // What the audio thread reads.
     std::atomic<int> liveNote_{-1}, livePlays_{60};
     std::array<std::atomic<std::uint64_t>, 2> chokedBy_{};
+    std::atomic<std::uint32_t> hits_{0};
     te::MidiMessageArray kept_; // a block's messages that go on, before they're copied back
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PadInlet)

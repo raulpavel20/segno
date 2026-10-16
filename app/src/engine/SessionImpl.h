@@ -8,6 +8,7 @@
 #include "engine/MidiMapper.h"
 #include "engine/MidiTap.h"
 #include "engine/Modulator.h"
+#include "engine/PadInlet.h"
 #include "engine/PreviewPlayer.h"
 #include "engine/RoundTrip.h"
 #include "engine/Session.h"
@@ -584,6 +585,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     {
         juce::ValueTree mixer; // its mixer's PLUGININSTANCE: the chain's name, on and solo
         te::VolumeAndPanPlugin* volume = nullptr;
+        PadInlet* inlet = nullptr; // a Drum Kit's pad: its inlet, ahead of its modules (not one of them)
         std::vector<te::Plugin*> modules;
         /// Its modulators (modulators.md §14), and everything in it in order as the views show it.
         std::vector<Modulator*> modulators;
@@ -669,6 +671,41 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// while it plays, and not at all for a macro Morph moves.
     void refreshMacroTargets(te::RackType& rack);
     bool morphCheckPending = false; // a lane came or went: a macro may now follow one
+    // ---- the Drum Kit (docs/design/drum-kit.md, ADR 0064) -----------------------------------
+    // A kit is a rack whose type says so (fdKit) and whose chains are its pads with sounds: each
+    // starts with a PadInlet (the pad's note, Plays and choke group), then its modules, then its
+    // mixer (the pad's name, on and solo, as a chain's). The track's own audio goes from the rack's
+    // input to its output once, round the pads (wireRack). The selected pad and the lowest of the
+    // 16 shown are view state on the instance.
+    static inline const juce::Identifier kitId{"fdKit"}, selectedPadId{"fdSelectedPad"},
+        padsFromId{"fdPadsFrom"};
+    [[nodiscard]] static bool isKit(const te::RackType& rack);
+    [[nodiscard]] static bool isKit(const te::Plugin* plugin); // a kit's instance
+    /// A new kit's type: its eight macros, no pads.
+    te::RackType::Ptr makeKit();
+    /// The chain of the pad on `note`; -1 while it's empty.
+    [[nodiscard]] static int padChain(const te::RackType& kit, int note);
+    /// The pad on `note`'s chain, made (its inlet and its mixer) while it's empty.
+    int ensurePad(te::RackType& kit, int note);
+    /// Removes a chain whole (its modules, modulators, inlet and mixer, their lanes and routes);
+    /// the chains after it move up. Not wired again.
+    void removeChain(te::RackType& rack, int chain);
+    /// A kit's pads that have nothing left on them go (an empty pad has no chain), then it's
+    /// wired again.
+    void prunePads(te::RackType& kit);
+    /// A pad's chain, copied whole (its inlet, modules and mixer), to place on a pad.
+    [[nodiscard]] static juce::ValueTree padState(te::RackType& kit, int chain);
+    /// Places a pad's state on `note`, over what's there, its plugins new copies with new ids.
+    bool placePad(te::RackType& kit, int note, const juce::ValueTree& pad);
+    juce::ValueTree padClipboard; // Copy pad's (drum-kit.md §12)
+    /// A kit's whole state as its presets hold it (drum-kit.md §9): its macros' positions as its
+    /// parameters; its pads, each with its modules' states, and the macros' names and mappings in
+    /// its extra state.
+    [[nodiscard]] DeviceState kitState(Session& session, te::RackInstance& kit);
+    /// Sets a kit from such a state, in the step under way: its pads made again, its macros set.
+    void applyKitState(Session& session, te::RackInstance& kit, const DeviceState& state, const PresetMemo& memo);
+    static inline const juce::Identifier kitPresetId{"fdPreset"}; // the kit's PresetMemo, on its instance
+
     /// The rack's info for the snapshot.
     [[nodiscard]] std::shared_ptr<const model::RackInfo>
     rackInfo(te::RackInstance& instance, const std::function<model::DeviceSlot(te::Plugin&)>& slotOf) const;

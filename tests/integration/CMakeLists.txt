@@ -1,7 +1,7 @@
 # Integration tests: devices inside tracktion_engine (JUCE line, needs FD_BUILD_APP).
 fd_add_test(NAME fd_integration_tests
     SOURCES EngineNullTests.cpp AppSmokeTests.cpp AudioEditorTests.cpp WarpSpikeTests.cpp WarpPlayerTests.cpp SessionTests.cpp MixerTests.cpp AutomationEngineTests.cpp RecordingTests.cpp TakeStackTests.cpp BounceTests.cpp FadeTests.cpp ArrangementBenchmark.cpp WaveformTilesTests.cpp CrossfadeSumsTests.cpp ExportTests.cpp TrackEditTests.cpp NoteContinuityTests.cpp PresetTests.cpp SettingsPageTests.cpp BrowserEngineTests.cpp BrowserPanelTests.cpp ClipLoopEngineTests.cpp AudioSoundEngineTests.cpp SectionTests.cpp SongKeyTests.cpp PianoRollTests.cpp ChanceEngineTests.cpp
-        McpToolTests.cpp RackSpikeTests.cpp RackUiTests.cpp RackTests.cpp DrumKitSpikeTests.cpp DrumKitUiTests.cpp ModulatorSpikeTests.cpp ModulatorUiTests.cpp ModulatorEngineTests.cpp ModulatorSessionTests.cpp ModulatorChainTests.cpp
+        McpToolTests.cpp RackSpikeTests.cpp RackUiTests.cpp RackTests.cpp DrumKitSpikeTests.cpp DrumKitUiTests.cpp DrumKitTests.cpp ModulatorSpikeTests.cpp ModulatorUiTests.cpp ModulatorEngineTests.cpp ModulatorSessionTests.cpp ModulatorChainTests.cpp
         PluginScanTests.cpp RecordingLatencyTests.cpp MidiLearnTests.cpp Main.cpp
     LIBS fd_app_ui fd::testkit_device fd_dep_httplib juce::juce_recommended_config_flags
     JUCE OWN_MAIN)

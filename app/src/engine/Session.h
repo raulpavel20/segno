@@ -246,6 +246,9 @@ public:
         /// In that chain, counted as a drag's gaps are, with a module being moved still in its
         /// place: 0 before the first, the count after the last; -1 its end.
         int index = -1;
+        /// On a Drum Kit: the pad (its note) whose chain it is, made while it's empty; `chain` is
+        /// then the pad's own. -1 elsewhere.
+        int pad = -1;
     };
     /// Wraps modules of one channel's chain into a new rack, one chain holding them in their order,
     /// where the first of them was ("Group into rack"). Their automation, sidechains and settings
@@ -324,6 +327,52 @@ public:
     /// amount up to ±`amount` of its travel. False while Morph is on, or when nothing can move.
     bool varyRack(std::uint64_t rack, float amount);
     static constexpr float varyAmount = 0.15f, varyMoreAmount = 0.4f; // Vary, Vary more
+    // ---- the Drum Kit (docs/design/drum-kit.md, ADR 0064; each edit one undoable step) ---------
+    // A kit is the module "fd:drum-kit", an instrument, and a rack underneath: its pads are chains,
+    // a note each. Modules on a pad keep their ids, so every module call above reaches them; a
+    // ChainPlace with `pad` puts one on a pad. openRack gives its panel's macros, as a rack's.
+
+    /// A pad's settings, each set if given: its name, the note it plays into its instrument
+    /// (Plays), its choke group (0 none, 1 .. 16), on, solo (as a chain's: an undo step, never
+    /// kept in a kit preset), volume (dB) and pan (-1 .. 1). False for an empty pad.
+    /// An empty Drum Kit at `index` of a channel's chain ("fd:drum-kit" added does this).
+    std::uint64_t addDrumKit(std::uint64_t channel, int index = -1);
+    struct PadEdit
+    {
+        std::optional<std::string> name;
+        std::optional<int> plays, choke;
+        std::optional<bool> on, solo;
+        std::optional<float> volumeDb, pan;
+    };
+    bool setPad(std::uint64_t kit, int note, const PadEdit& edit);
+    /// Samples (or SFZ files) onto pads from `note` up, one a pad (drum-kit.md §6): into the pad's
+    /// Sampler, its settings kept, or a Sampler of their own in One-shot mode in place of the pad's
+    /// instrument. Each plays at its own pitch: its Root Key at the pad's Plays. A new pad is named
+    /// for its sample. One step; the notes loaded.
+    std::vector<int> loadPads(std::uint64_t kit, int note, const std::vector<juce::File>& files);
+    /// A pad's sound and settings to another pad (a drag): swapped with what's there, or copied
+    /// over it. False if `from` is empty or they're the same pad.
+    bool movePad(std::uint64_t kit, int from, int to, bool copy);
+    /// A pad's modules and settings go: it's empty.
+    bool clearPad(std::uint64_t kit, int note);
+    /// Copy pad and Paste pad (drum-kit.md §12): the pad's sound and settings, kept by the session
+    /// (any kit, any project open), pasted over a pad.
+    bool copyPad(std::uint64_t kit, int note);
+    bool pastePad(std::uint64_t kit, int note);
+    [[nodiscard]] bool canPastePad() const;
+    /// Puts a module on a pad (its place's `pad`), made if it's empty: an instrument in place of the
+    /// pad's own, first; anything else where it's put. ChainPlace's pad is how addDevice and
+    /// moveDevice reach these.
+    std::uint64_t addToPad(const ChainPlace& place, const std::string& key);
+    bool moveToPad(std::uint64_t deviceId, const ChainPlace& place);
+    /// The selected pad, and the lowest of the 16 shown (made a row's first): view state, never an
+    /// undo step.
+    void selectPad(std::uint64_t kit, int note);
+    void showPads(std::uint64_t kit, int from);
+    /// How many times each pad has been hit since the kit was made (its inlet counts, on the audio
+    /// thread): its panel lights the pads whose count moved. Zero for empty pads.
+    [[nodiscard]] std::array<std::uint32_t, 128> padHits(std::uint64_t kit) const;
+
     /// A rack's panel context: its eight macros as parameters "macro1" .. "macro8", 0 .. 100 %,
     /// automated like any module's. Null if it isn't a rack.
     [[nodiscard]] std::unique_ptr<DeviceHandle> openRack(std::uint64_t rack);

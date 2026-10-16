@@ -383,7 +383,7 @@ Kept as tests (`tests/integration/DrumKitSpikeTests.cpp`). The pad inlet is buil
 - **A pad's mixer uses the balance pan law,** as a rack chain's and every channel's do.
 - **A kit's state read in gets new item ids,** as a rack file's does (the Session's loads already do this).
 
-## 21. Step 0, drawn (2026-10-16), for approval
+## 21. Step 0, drawn (2026-10-16; approved by the product owner the same day)
 
 Every state of §17 step 0, drawn with the real panel kit and module panels from a stub (`tests/integration/DrumKitUiTests.cpp`, `FD_DUMP_DIR`). Each state passes the module panel lint, the pads' own checks (inside the grid, apart by the gap, name and note inside each pad and clear of each other, the choke number beside the note) and the frame's checks:
 - a new, empty kit;

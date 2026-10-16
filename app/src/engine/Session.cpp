@@ -569,6 +569,11 @@ void Session::Impl::rebuildSnapshot()
             slot.deviceId = "rack";
             if (rack->type != nullptr)
                 slot.name = rack->type->rackName.get().toStdString();
+            if (rack->type != nullptr && isKit(*rack->type)) // drum-kit.md §14
+            {
+                slot.deviceId = "drum-kit";
+                slot.name = "Drum Kit";
+            }
             slot.rack = rackInfo(*rack, slotOf);
         }
         else if (auto* native = dynamic_cast<DevicePlugin*>(p))
@@ -1650,6 +1655,8 @@ std::vector<AvailableDevice> Session::availableDevices() const
         out.push_back({"fd:" + std::string(f->info().id), std::string(f->info().name),
                        instrument ? "Instruments" : "Audio effects", true, instrument});
     }
+    // The Drum Kit, after our instruments (drum-kit.md, ADR 0064): a rack underneath, the DAW's.
+    out.push_back({.key = "fd:drum-kit", .name = "Drum Kit", .category = "Instruments", .instrument = true});
     for (const auto kind : model::allModulators) // modulators.md §14: after the audio effects
     {
         const auto& info = model::modulatorInfo(kind);
@@ -1671,6 +1678,8 @@ const DeviceInfo* Session::nativeInfo(std::string_view key)
     const auto id = key.substr(3);
     if (const auto kind = model::modulatorKind(id))
         return &model::modulatorInfo(*kind);
+    if (id == drumKit().id)
+        return &drumKit();
     const auto* factory = fd::findDevice(id);
     return factory != nullptr ? &factory->info() : nullptr;
 }
@@ -1680,6 +1689,8 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
     if (key.starts_with("fd:"))
         if (const auto kind = model::modulatorKind(std::string_view(key).substr(3)))
             return addModulator(trackId, *kind, index);
+    if (key == "fd:drum-kit")
+        return addDrumKit(trackId, index); // drum-kit.md §4
     auto* list = impl_->plugins(trackId); // any channel: tracks, returns, the master
     if (list == nullptr)
         return 0;
@@ -1784,6 +1795,8 @@ void Session::removeDevice(std::uint64_t deviceId)
             impl_->arrangeRackChain(*rack, order->first, order->second);
         else if (rack != nullptr)
             Impl::wireRack(*rack, &impl_->edit->getUndoManager()); // its chain closes up
+        if (rack != nullptr && Impl::isKit(*rack))
+            impl_->prunePads(*rack); // a pad with nothing left on it is empty (drum-kit.md §4)
     }
 }
 
@@ -2160,6 +2173,14 @@ std::string Session::moduleType(std::uint64_t deviceId) const
             if (part.isNotEmpty())
                 text << juce::String::fromUTF8(" \xc2\xb7 ") << part;
         return text.toStdString();
+    }
+    if (Impl::isKit(p)) // drum-kit.md §8: what it holds
+    {
+        size_t pads = 0;
+        if (auto* type = Impl::rackTypeOf(p))
+            for (const auto& c : Impl::rackChains(*type))
+                pads += c.inlet != nullptr ? 1 : 0;
+        return "Drum Kit \xc2\xb7 " + std::to_string(pads) + (pads == 1 ? " pad" : " pads");
     }
     if (dynamic_cast<te::RackInstance*>(p) != nullptr)
     {

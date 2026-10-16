@@ -5,6 +5,7 @@
 #include "engine/DevicePlugin.h"
 #include "engine/SessionImpl.h"
 #include "model/Modulators.h"
+#include "model/DrumKit.h"
 #include "model/Racks.h"
 
 #include <fd/device/Registry.h>
@@ -122,6 +123,8 @@ std::vector<Session::Impl::RackChain> Session::Impl::rackChains(const te::RackTy
             chain.mixer = place;
             chain.volume = dynamic_cast<te::VolumeAndPanPlugin*>(p);
         }
+        else if (auto* inlet = dynamic_cast<PadInlet*>(p))
+            chain.inlet = inlet; // a Drum Kit's pad (drum-kit.md §15)
         else
             chain.modules.push_back(p);
     }
@@ -134,7 +137,7 @@ std::vector<Session::Impl::RackChain> Session::Impl::rackChains(const te::RackTy
     std::vector<RackChain> chains;
     for (auto& [number, chain] : byNumber)
     {
-        if (!chain.mixer.isValid() && chain.volume == nullptr && chain.modules.empty())
+        if (!chain.mixer.isValid() && chain.volume == nullptr && chain.modules.empty() && chain.inlet == nullptr)
         {
             // Modulators of a chain that's gone: the last chain's, at its end.
             if (!chains.empty())
@@ -180,13 +183,23 @@ void Session::Impl::wireRack(te::RackType& rack, juce::UndoManager* um)
     const auto chains = rackChains(rack);
     const bool soloed =
         std::any_of(chains.begin(), chains.end(), [](const RackChain& c) { return c.solo(); });
+    const bool kit = isKit(rack);
+    if (kit) // the track's own audio, once, round the pads (drum-kit.md §15)
+        for (int pin = 1; pin <= 2; ++pin)
+            wanted.insert({te::EditItemID(), pin, te::EditItemID(), pin});
     for (const auto& c : chains)
     {
         if (c.modules.empty() && c.volume == nullptr)
             continue;
         // MIDI (pin 0) and audio (1, 2) from the rack's input, module to module, to its output. A
-        // modulator takes what comes where it sits, and passes nothing on.
+        // modulator takes what comes where it sits, and passes nothing on. A pad's chain starts
+        // with its inlet, which takes the kit's notes alone: its sound starts from silence.
         te::EditItemID from; // the rack's input
+        if (c.inlet != nullptr)
+        {
+            wanted.insert({from, 0, c.inlet->itemID, 0});
+            from = c.inlet->itemID;
+        }
         for (const auto& item : c.items)
         {
             const auto to = item.plugin != nullptr ? item.plugin->itemID : item.modulator->itemID;
@@ -217,6 +230,8 @@ void Session::Impl::wireRack(te::RackType& rack, juce::UndoManager* um)
         rack.removeConnection(src, srcPin, dst, dstPin);
     for (const auto& [src, srcPin, dst, dstPin] : wanted)
         rack.addConnection(src, srcPin, dst, dstPin);
+    if (kit)
+        PadInlet::updateChokes(rack); // which notes choke each pad, after any change to its pads
 }
 
 te::RackInstance* Session::Impl::rackInstance(std::uint64_t id) const
@@ -254,6 +269,8 @@ bool Session::Impl::playsNotes(te::Plugin& plugin)
 {
     if (auto* rack = rackTypeOf(&plugin))
     {
+        if (isKit(*rack))
+            return true;
         for (const auto& chain : rackChains(*rack))
             if (!chain.modules.empty() && chain.modules.front()->isSynth())
                 return true;
@@ -413,7 +430,22 @@ Session::Impl::rackInfo(te::RackInstance& instance,
         for (const auto& item : c.items) // its modulators where they sit (modulators.md §14)
             chain.devices.push_back(item.plugin != nullptr ? slotOf(*item.plugin)
                                                            : modulatorSlot(*item.modulator));
+        if (c.inlet != nullptr) // a Drum Kit's pad (drum-kit.md §14)
+        {
+            chain.note = c.inlet->note();
+            chain.plays = c.inlet->plays();
+            chain.choke = c.inlet->choke();
+            if (c.mixer[chainNameId].toString().isEmpty())
+                chain.name = model::kit::noteName(chain.note);
+        }
         info->chains.push_back(std::move(chain));
+    }
+    if (isKit(*type))
+    {
+        info->kit = true;
+        info->selectedPad = std::clamp(static_cast<int>(instance.state.getProperty(selectedPadId, model::kit::firstShown)),
+                                       0, model::kit::padCount - 1);
+        info->padsFrom = model::kit::shownFrom(instance.state.getProperty(padsFromId, model::kit::firstShown));
     }
     info->shownChain = std::clamp(static_cast<int>(instance.state.getProperty(shownChainId, 0)), 0,
                                   std::max(0, static_cast<int>(info->chains.size()) - 1));
@@ -753,6 +785,25 @@ private:
     ui::DeviceUiContext context_;
 };
 
+/// A Drum Kit's panel context (drum-kit.md §8): the module "Drum Kit", its macros a rack's, its
+/// presets its kits (§9).
+class KitHandle final : public DeviceHandle
+{
+public:
+    KitHandle(Session& session, te::RackInstance& kit)
+        : binding_(session, kit), presets_(session.presetHost(kit.itemID.getRawID())),
+          context_{Session::drumKit(), binding_, nullptr, nullptr, nullptr, presets_.get()}
+    {
+    }
+    ui::DeviceUiContext& context() override { return context_; }
+    std::string_view deviceId() const override { return "drum-kit"; }
+
+private:
+    RackMacroBinding binding_;
+    std::unique_ptr<PresetHost> presets_;
+    ui::DeviceUiContext context_;
+};
+
 std::uint64_t idOf(const te::Plugin& p)
 {
     return p.itemID.getRawID();
@@ -787,6 +838,8 @@ const DeviceInfo& Session::drumKit()
 
 std::unique_ptr<DeviceHandle> Session::openRack(std::uint64_t rack)
 {
+    if (auto* instance = impl_->rackInstance(rack); instance != nullptr && Impl::isKit(instance))
+        return std::make_unique<KitHandle>(*this, *instance);
     if (auto* instance = impl_->rackInstance(rack))
         return std::make_unique<RackHandle>(*this, *instance);
     return nullptr;
@@ -927,8 +980,8 @@ std::vector<std::uint64_t> Session::ungroupRack(std::uint64_t rackId)
 {
     auto* instance = impl_->rackInstance(rackId);
     auto* list = instance != nullptr ? instance->getOwnerList() : nullptr;
-    if (instance == nullptr || instance->type == nullptr || list == nullptr)
-        return {};
+    if (instance == nullptr || instance->type == nullptr || list == nullptr || Impl::isKit(*instance->type))
+        return {}; // a kit isn't a group of modules
     const te::Plugin::Ptr keepInstance = instance;
     const te::RackType::Ptr type = instance->type;
     const auto chains = Impl::rackChains(*type);
@@ -1059,8 +1112,8 @@ std::optional<Session::ChainPlace> Session::placeOf(std::uint64_t deviceId) cons
         for (size_t c = 0; c < chains.size(); ++c)
             for (size_t i = 0; i < chains[c].items.size(); ++i) // its modulators counted (§14)
                 if (chains[c].items[i].plugin == p)
-                    return ChainPlace{channelOf(*rack), idOf(*rack), static_cast<int>(c),
-                                      static_cast<int>(i)};
+                    return ChainPlace{channelOf(*rack), idOf(*rack), static_cast<int>(c), static_cast<int>(i),
+                                      chains[c].inlet != nullptr ? chains[c].inlet->note() : -1};
         return std::nullopt;
     }
     if (auto* track = impl_->chainTrackOf(*p))
@@ -1081,6 +1134,8 @@ std::uint64_t Session::addDevice(const ChainPlace& place, const std::string& key
     if (instance == nullptr || instance->type == nullptr)
         return 0;
     auto& rack = *instance->type;
+    if (place.pad >= 0 && Impl::isKit(rack))
+        return addToPad(place, key);
     if (place.chain < 0 || place.chain >= static_cast<int>(Impl::rackChains(rack).size()))
         return 0;
     // Made in the track's chain, as any module (your default applies), then moved into the rack's,
@@ -1103,6 +1158,8 @@ std::uint64_t Session::addDevice(const ChainPlace& place, const std::string& key
 
 bool Session::moveDevice(std::uint64_t deviceId, const ChainPlace& place)
 {
+    if (place.pad >= 0)
+        return moveToPad(deviceId, place);
     const auto from = placeOf(deviceId);
     if (auto* m = impl_->modulator(deviceId))
     {
@@ -1200,6 +1257,8 @@ bool Session::moveDevice(std::uint64_t deviceId, const ChainPlace& place)
     }
     if (source != nullptr && source != target)
         Impl::wireRack(*source->type, um);
+    if (source != nullptr && Impl::isKit(*source->type))
+        impl_->prunePads(*source->type); // a pad with nothing left on it is empty (drum-kit.md §4)
     return true;
 }
 
@@ -1208,8 +1267,8 @@ bool Session::moveDevice(std::uint64_t deviceId, const ChainPlace& place)
 int Session::addRackChain(std::uint64_t rackId)
 {
     auto* instance = impl_->rackInstance(rackId);
-    if (instance == nullptr || instance->type == nullptr)
-        return -1;
+    if (instance == nullptr || instance->type == nullptr || Impl::isKit(*instance->type))
+        return -1; // a kit's chains are its pads (drum-kit.md)
     const int count = static_cast<int>(Impl::rackChains(*instance->type).size());
     if (count >= maxRackChains)
         return -1;
@@ -1220,10 +1279,50 @@ int Session::addRackChain(std::uint64_t rackId)
     return count;
 }
 
+void Session::Impl::removeChain(te::RackType& rack, int chain)
+{
+    const auto chains = rackChains(rack);
+    if (chain < 0 || chain >= static_cast<int>(chains.size()))
+        return;
+    auto* um = &edit->getUndoManager();
+    const auto& c = chains[static_cast<size_t>(chain)];
+    // Its modulators and their routes go with it (modulators.md §14).
+    for (auto* m : c.modulators)
+    {
+        dropLanesOf(m->itemID.getRawID());
+        for (const auto& r : routesOf(*m))
+            r.param.param->removeModifier(*r.assignment);
+        auto state = m->state;
+        state.getParent().removeChild(state, um);
+    }
+    for (auto* m : c.modules)
+    {
+        dropLanesOf(m->itemID.getRawID());
+        m->removeFromParent();
+    }
+    if (c.inlet != nullptr)
+        c.inlet->removeFromParent();
+    if (c.volume != nullptr)
+    {
+        dropLanesOf(c.volume->itemID.getRawID()); // a pad's volume and pan, automated
+        c.volume->removeFromParent();
+    }
+    // The chains after it move up one, their modulators with them.
+    for (auto* p : rack.getPlugins())
+    {
+        auto place = p->state.getParent();
+        if (const int n = place.getProperty(chainId, 0); n > chain)
+            place.setProperty(chainId, n - 1, um);
+    }
+    for (auto* m : rack.getModifierList().getModifiers())
+        if (const int n = m->state.getProperty(Modulator::rackChainId, 0); n > chain)
+            m->state.setProperty(Modulator::rackChainId, n - 1, um);
+}
+
 bool Session::removeRackChain(std::uint64_t rackId, int chain)
 {
     auto* instance = impl_->rackInstance(rackId);
-    if (instance == nullptr || instance->type == nullptr)
+    if (instance == nullptr || instance->type == nullptr || Impl::isKit(*instance->type))
         return false;
     auto& rack = *instance->type;
     const auto chains = Impl::rackChains(rack);
@@ -1231,33 +1330,7 @@ bool Session::removeRackChain(std::uint64_t rackId, int chain)
         return false;
     impl_->beginEdit("Remove chain");
     auto* um = &impl_->edit->getUndoManager();
-    const auto& c = chains[static_cast<size_t>(chain)];
-    // Its modulators and their routes go with it (modulators.md §14).
-    for (auto* m : c.modulators)
-    {
-        impl_->dropLanesOf(m->itemID.getRawID());
-        for (const auto& r : impl_->routesOf(*m))
-            r.param.param->removeModifier(*r.assignment);
-        auto state = m->state;
-        state.getParent().removeChild(state, um);
-    }
-    for (auto* m : c.modules)
-    {
-        impl_->dropLanesOf(idOf(*m));
-        m->removeFromParent();
-    }
-    if (c.volume != nullptr)
-        c.volume->removeFromParent();
-    // The chains after it move up one, their modulators with them.
-    for (auto* p : rack.getPlugins())
-    {
-        auto place = p->state.getParent();
-        if (const int n = place.getProperty(Impl::chainId, 0); n > chain)
-            place.setProperty(Impl::chainId, n - 1, um);
-    }
-    for (auto* m : rack.getModifierList().getModifiers())
-        if (const int n = m->state.getProperty(Modulator::rackChainId, 0); n > chain)
-            m->state.setProperty(Modulator::rackChainId, n - 1, um);
+    impl_->removeChain(rack, chain);
     Impl::wireRack(rack, um);
     const int shown = instance->state.getProperty(Impl::shownChainId, 0);
     if (shown >= chain && shown > 0)
@@ -1323,8 +1396,8 @@ bool Session::renameRack(std::uint64_t rackId, const std::string& name)
 {
     auto* instance = impl_->rackInstance(rackId);
     const auto trimmed = juce::String::fromUTF8(name.c_str()).trim();
-    if (instance == nullptr || instance->type == nullptr || trimmed.isEmpty())
-        return false;
+    if (instance == nullptr || instance->type == nullptr || trimmed.isEmpty() || Impl::isKit(*instance->type))
+        return false; // a kit is called Drum Kit; its kits are presets
     impl_->beginEdit("Rename rack");
     instance->type->state.setProperty(te::IDs::name, trimmed, &impl_->edit->getUndoManager());
     return true;
@@ -1656,8 +1729,8 @@ bool Session::saveRack(std::uint64_t rackId, const juce::File& file, std::string
         return false;
     };
     auto* instance = impl_->rackInstance(rackId);
-    if (instance == nullptr || instance->type == nullptr)
-        return fail("It isn't a rack.");
+    if (instance == nullptr || instance->type == nullptr || Impl::isKit(*instance->type))
+        return fail("It isn't a rack."); // a kit is kept as a preset (drum-kit.md §9)
     updateSnapshotNow();
     const model::DeviceSlot* slot = nullptr;
     for (const auto* list : {&impl_->snapshot->tracks, &impl_->snapshot->returns})

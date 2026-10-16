@@ -160,6 +160,36 @@ private:
     te::Modifier::Ptr keepAlive_;
     Modulator& m_;
 };
+/// A Drum Kit's presets (drum-kit.md §9): its whole kit, pads and macros.
+class KitPresetHost final : public BrowsingPresetHost
+{
+public:
+    KitPresetHost(Session& session, te::RackInstance& kit) : BrowsingPresetHost(session), keepAlive_(&kit), kit_(kit) {}
+
+    DeviceState state() const override { return session_.impl().kitState(session_, kit_); }
+
+    PresetMemo memo() const override
+    {
+        const auto text = kit_.state.getProperty(Session::Impl::kitPresetId).toString();
+        return text.isEmpty() ? PresetMemo{}
+                              : PresetMemo::fromJson(nlohmann::json::parse(text.toStdString(), nullptr, false));
+    }
+
+    void setMemo(const PresetMemo& memo) override
+    {
+        kit_.state.setProperty(Session::Impl::kitPresetId, juce::String(memo.toJson().dump()),
+                               &session_.impl().edit->getUndoManager());
+    }
+
+private:
+    void applyState(const DeviceState& state, const PresetMemo& memo) override
+    {
+        session_.impl().applyKitState(session_, kit_, state, memo);
+    }
+
+    te::Plugin::Ptr keepAlive_;
+    te::RackInstance& kit_;
+};
 } // namespace
 
 PresetMemo Session::Impl::presetMemo(const DevicePlugin& plugin)
@@ -302,6 +332,8 @@ std::unique_ptr<PresetHost> Session::presetHost(std::uint64_t deviceId)
         return std::make_unique<SessionPresetHost>(*this, *native);
     if (auto* m = impl_->modulator(deviceId))
         return std::make_unique<ModulatorPresetHost>(*this, *m);
+    if (auto* kit = impl_->rackInstance(deviceId); kit != nullptr && Impl::isKit(kit))
+        return std::make_unique<KitPresetHost>(*this, *kit);
     return nullptr;
 }
 } // namespace fd::engine
