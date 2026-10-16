@@ -504,12 +504,11 @@ std::shared_ptr<const GrainSourceSet> GrainSourceSet::load(const std::string& st
             z.hiKey = r->hiKey; // every velocity: one layer was kept
             z.root = (r->rootFromSample && audio->rootKey ? *audio->rootKey : r->root) - r->transpose -
                      r->tune / 100.0;
+            // Each zone brought to full scale on its own, so grains play evenly across the
+            // keyboard (ADR 0069): a recording's balance between registers, which a Sampler keeps,
+            // isn't kept here, nor the file's volumes, which only level its recordings.
             z.audio = GrainSource::build(*audio, r->sample.stem().string(), r->sample.string(),
                                          {.compact = true, .analyse = false});
-            // Each zone's audio was brought to full scale: its level in the set is what the file
-            // asks (its volume) over what that took.
-            z.gain =
-                static_cast<float>(std::pow(10.0, r->volume / 20.0) / std::max(1e-6f, z.audio->normalise));
             set->zones.push_back(std::move(z));
         }
         if (set->zones.empty())
@@ -518,14 +517,6 @@ std::shared_ptr<const GrainSourceSet> GrainSourceSet::load(const std::string& st
                 *error = "None of " + file.filename().string() + "'s samples could be read";
             return nullptr;
         }
-        // The set brought to full scale as one: its loudest zone there, the rest as the file
-        // balances them.
-        float loudest = 0.0f;
-        for (const auto& z : set->zones)
-            loudest = std::max(loudest, z.gain);
-        if (loudest > 0.0f)
-            for (auto& z : set->zones)
-                z.gain /= loudest;
     }
     else
     {

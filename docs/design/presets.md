@@ -251,6 +251,11 @@ The commands act on the **selected module**, or the one whose header was used la
   - Each set is checked by rendering: every preset loads, makes sound within level, and is distinct from the others.
   - The product owner signs each set off by ear, as a module is signed off. What they'd change, Claude changes.
   - A changed factory preset is a reviewed change, committed with its reason.
+- **The quality bar** ([ADR 0069](../decisions/0069-factory-presets-are-designed-and-never-clip.md), the product owner, 2026-10-16): presets are sound design, not values.
+  - **Research, then a brief:** how this kind of instrument is programmed well, from its manuals, the best factory libraries and sound designers' techniques, written into `devices/<name>/presets/BRIEF.md` (the categories, each preset's idea and the technique it shows, its macros) before the recipes.
+  - **Each preset a finished, compelling sound** that shows what the instrument does best; across the set, the whole feature set used where it makes musical sense, never to tick it off.
+  - **Made to be played:** named macros on what you'd want to move, velocity, the mod wheel and pressure where they're natural; sounds that live in a space also as factory racks with a reverb or a delay.
+  - **Never clips, level-matched, even:** at full velocity, a single note in every octave and four-note chords on five roots, each held 4 s, the song playing, and the chord on C3 again with every macro at 0, every macro at full, and the mod wheel and pressure at full: no take above −1 dBFS; about −24 dB RMS for a single C3; the notes in the preset's range within 12 dB (its recipe's `"keys": [low, high]`, the middle five octaves unless it says; a set's `"keyboardSpread"` where its multisamples keep their recordings' balance, B93). `fd-presets check <recipes.json> [name]` reports it, `fd-presets level <recipes.json> <param>` sets each preset's level by it, and `fd-presets make` refuses a set that fails it.
 - **Names** say what it's for or how it sounds ("Glue", "Vocal presence", "Wide pad"). Per ADR 0008, no other vendor's names, products or famous hardware.
 - **Tags** come from a short vocabulary per kind of module:
   - **use:** Drums, Bass, Vocals, Keys, Guitar, Bus, Master;
@@ -262,7 +267,8 @@ The commands act on the **selected module**, or the one whose header was used la
 - **Lint:** a test loads every factory preset and checks:
   - its device and version;
   - no unknown parameters;
-  - a render without NaNs and below 0 dBFS (instruments: a C3 note);
+  - a render without NaNs and below 0 dBFS (instruments: a C3 note, and a four-note chord on C3 at full velocity below −1 dBFS);
+  - for instruments, in the Release suite (`ctest -L presets`), the whole keyboard check above;
   - its name against a list of banned words.
 
 ## 14. Assistants (MCP)

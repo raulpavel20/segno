@@ -369,7 +369,8 @@ private:
         CDrive0 = CRes0 + numFilters,
         CShape0 = CDrive0 + numFilters,
         CRouting = CShape0 + numFilters,
-        CAmp, // velocity, modulation and Density Gain
+        CAmp,   // velocity, modulation (Amp, Volume) and Density Gain
+        CWidth, // the note's width (mid and side), as Width and its modulation set
         NumControls
     };
     /// Where the voice stage's controls change in a block: at each tick, and where a note starts.
@@ -494,7 +495,6 @@ private:
     int sinceDisplay_ = 0;
     std::array<GrainMark, maxGrains> shownMarks_{}; // the audio thread's, before publishing
     dsp::LinearSmoother volume_;
-    dsp::LinearSmoother width_;
     std::vector<float> spareRight_;
     double cpuLoad_ = 0.0;
 

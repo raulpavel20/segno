@@ -3,6 +3,7 @@
 
 #include "Sampler.h"
 #include "fd/device/Library.h"
+#include "fd/device/PresetCheck.h"
 #include "fd/device/Presets.h"
 #include "fd/device/Registry.h"
 #include "fd/device/State.h"
@@ -659,6 +660,20 @@ TEST_CASE("conformance: every factory preset loads, plays cleanly within level a
                 return it != p.state.params.end() && it->second > 0.5f;
             };
             CHECK((rmsDb(out) > -60.0 || on("flip") || on("mute")));
+            // A chord at full velocity keeps its headroom (ADR 0069; the whole keyboard is checked in
+            // the Release suite).
+            if (isInstrument(info))
+            {
+                auto chordDevice = create(*factory);
+                REQUIRE(applyState(*chordDevice, p.state) == ApplyResult::Ok);
+                std::vector<TimedEvent> chord;
+                for (const std::uint8_t key : {60, 64, 67, 72})
+                {
+                    chord.push_back({0, {.type = EventType::NoteOn, .key = key, .value = 1.0f}});
+                    chord.push_back({72000, {.type = EventType::NoteOff, .key = key}});
+                }
+                CHECK(peakDb(renderWithTail(*chordDevice, 96000, chord)) <= -1.0);
+            }
             if (std::getenv("FD_PRESET_REPORT") != nullptr) // for level matching by hand
                 std::cout << id << " | " << p.name << " | level " << rmsDb(out) - inputRms << " dB, peak "
                           << peakDb(out) << " dBFS\n";
@@ -713,6 +728,45 @@ TEST_CASE("conformance: the Sampler's presets play their instruments from the Li
     }
     CHECK(heard == 48);
     fd::library::setRoot({});
+}
+
+TEST_CASE("conformance: every instrument's factory preset plays cleanly anywhere on the keyboard",
+          "[.presets]")
+{
+    // ADR 0069: a note in every octave and four-note chords on five roots at full velocity, none
+    // above -1 dBFS, the notes in the preset's range (its recipe's "keys", or 36 to 84) within its
+    // set's spread (12 dB, or the recipes' "keyboardSpread"). The Release suite runs it.
+    for (const auto& file : factoryPresetFiles())
+    {
+        const auto p = parsePresetFile(file.text, std::string(file.name));
+        REQUIRE(p);
+        const auto* factory = findDevice(p->state.deviceId);
+        REQUIRE(factory != nullptr);
+        if (!isInstrument(factory->info()) || soundNotHere(p->state))
+            continue;
+        std::ifstream in(std::string(FD_SOURCE_DIR) + "/devices/" + p->state.deviceId +
+                         "/presets/recipes.json");
+        std::stringstream text;
+        text << in.rdbuf();
+        const auto recipes = nlohmann::json::parse(text.str(), nullptr, false);
+        double spread = 12.0;
+        int low = 36, high = 84;
+        if (recipes.is_object())
+        {
+            spread = recipes.value("keyboardSpread", 12.0);
+            for (const auto& r : recipes["presets"])
+                if (r.value("name", std::string()) == p->name && r.contains("keys"))
+                {
+                    low = r["keys"][0].get<int>();
+                    high = r["keys"][1].get<int>();
+                }
+        }
+        INFO(p->state.deviceId << ": " << p->name);
+        const auto problems = checkKeyboard(*factory, p->state).problems(-1.0, spread, low, high);
+        for (const auto& problem : problems)
+            UNSCOPED_INFO(problem);
+        CHECK(problems.empty());
+    }
 }
 
 TEST_CASE("conformance: the factory presets are what their recipes make", "[fast][conformance]")

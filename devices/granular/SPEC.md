@@ -527,12 +527,12 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)), on 
 
 ## Factory presets
 
-About 56, built and named by Claude from the Library's instruments and a few sources of Segno's own (rendered from its synths into the Library, so they're ours), signed off by ear:
-- Pad (12), Texture (10), Drone (6), Keys and Plucks (6), Rhythm and Glitch (8);
-- Live (8, step 2): granular delay, freeze, shimmer, stutter, reverse cloud, live chords;
-- Spectral (6, step 3).
+Designed to [ADR 0069](../../docs/decisions/0069-factory-presets-are-designed-and-never-clip.md)'s bar, from research into how granular instruments are programmed well: [presets/BRIEF.md](presets/BRIEF.md) holds the research, the set's design, how the presets are played (eight macros in the same roles in every preset, the mod wheel as the "more granular" axis) and the catalogue; `presets/make_recipes.py` writes the recipes. Signed off by ear.
+- **Step 1:** 60 from the Library's instruments, in nine families: pads, atmospheres and textures, drones, keys and plucks, leads, basses, rhythm and glitch, effects (risers, stops, freezes), experiments; every mode of step 1 and Fire.
+- **Ten factory racks** pair a preset with the Reverb or the Delay and the Reverb (the Library's Instruments), its own macros on the rack beside Space and Echoes, since many granular sounds live in a space (G15).
+- Live (step 2): granular delay, freeze, shimmer, stutter, reverse cloud, live chords. Spectral (step 3).
 
-Tags from the shared list, with **Texture**, **Drone** and **Live** added. Presets sound finished through the instrument alone. A few factory racks pair Granular with the Reverb or the Delay, since many granular sounds live in a space (G15).
+Tags from the shared list. Presets sound finished through the instrument alone; the racks give them their space.
 
 ## Automated test targets
 
@@ -634,7 +634,7 @@ Every state drawn with the real panel kit: Granular's own panel, from its approv
 
 ## Built (step 1, the instrument, 2026-10-16)
 
-The engine, the panel on live data, the DAW's menus, browser drops and assistants' tools, the plugin and 44 factory presets. Tests: `devices/granular/tests/GranularTests.cpp` (16 cases), the conformance suite, the panel lint, `tests/integration` (the Module menu, MCP).
+The engine, the panel on live data, the DAW's menus, browser drops and assistants' tools, the plugin and 60 factory presets with ten racks. Tests: `devices/granular/tests/GranularTests.cpp` (16 cases), the conformance suite, the panel lint, `tests/integration` (the Module menu, MCP).
 
 **Measured** (Release, `[.benchmark]`, this laptop, 48 kHz, one core):
 
@@ -664,17 +664,20 @@ Two budgets aren't met yet (B74): Normal by 15 %, the filtered and coloured ster
 - **Rhythm and the Song playhead follow the song's samples,** not its beats, so a step lands on the same sample whatever the block. Swing makes every second step late by Swing × half a step (67 %: a triplet's feel); Jitter doesn't move Rhythm's grains, which are on the grid.
 - **The plain pyramid's 8-tap sinc** is cut at 0.42 of each level's rate with a Kaiser β of 8.6 (−65 dB, the band kept to 20 kHz at 48 kHz), each output one 8-wide dot product.
 - **The voice filters keep their last coefficients** (`dsp::VoiceFilter`: a tan and a pow a sample saved while the cutoff holds still), which the Wavetable shares, its output unchanged bit for bit.
-- **A multisample is brought to full scale as one:** each zone's audio is normalised, then given the level its SFZ file asks over what that took, and the set scaled so its loudest zone is at full scale (the instrument's balance between keys and layers kept; not each zone at full scale, which doubled the Library's own gains).
+- **A multisample's zones are each brought to full scale,** the file's volumes not applied on top (which doubled the Library's own gains): grains play evenly across the keyboard (ADR 0069), where a Sampler keeps each recording's balance between registers.
 - **Loading is the pyramid's build** (97 % of it): its filters are Granular's own, in floats with their symmetric taps folded, and the loader is optimised in Debug builds too. A Library instrument loads in under a second in Debug, a tenth of that in Release.
 - **One way to load a source** (`Granular::sourcePatch`, `sourceSettings`): from the panel, the browser and the assistants alike, the Library's as a `library:` reference, the root found again, the source on and playing all of the file (a clip's part from `load_granular_source`). The display says why a file didn't load.
 - **The DAW:** Module ▸ Load Source 1…, Load Source 2…, Swap sources, and Keep as played for a Granular; a sample or multisample dropped from the browser goes into the source the panel shows (Source 1 when it's folded). Edit Source, Capture and Freeze Input come with step 2. `load_granular_source` takes a file, an SFZ or an audio clip (its part of its file); `get_granular_source` returns the kind, length, root, part, transients and beats.
 - **The plugin** is built (`Fgrn`: VST3, CLAP, LV2), its sidechain bus ready for step 2's live input.
-- **The factory presets:** 44 from the Library's instruments, across the five modes of step 1, each level-matched by measurement to about −20 dB RMS on a held C3 (the other instruments' presets' level), its peak under −1.5 dBFS. A drum kit isn't a source (its SFZ has one drum a key, so a note plays one drum). Pitched wants a source with harmonics: it reads the source at its own pitch, so a nearly pure tone in long grains mostly cancels. The sources of Segno's own (rendered into the Library) wait for a Library build that adds them; the Live and Spectral presets and the factory racks with a space come with steps 2 and 3.
+- **The factory presets** (replaced 2026-10-16 after the product owner's verdict on the first set, ADR 0069): 60, designed from research ([presets/BRIEF.md](presets/BRIEF.md)), each passing the keyboard check (no take above −1 dBFS at full velocity anywhere on the keyboard, in four-note chords, or with its macros and the mod wheel at their ends; about −24 dB RMS at C3; even within 12 dB in its range). A drum kit isn't a source (its SFZ has one drum a key, so a note plays one drum). Pitched wants a source with harmonics: it reads the source at its own pitch, so a nearly pure tone in long grains mostly cancels. Ten factory racks give the pads their space. The sources of Segno's own (rendered into the Library) wait for a Library build that adds them; the Live and Spectral presets come with steps 2 and 3.
+- **Width and Volume are targets** the matrix offers that hadn't been wired: each note's width is now its own (the voice stage's mid and side), and Volume moves a note against the instrument's level.
 
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators; the CPU benchmarks
-- [ ] Layout lint passes (`fd_panel_tests`), every page
-- [ ] Snapshots reviewed (100 % / 200 %; every page; expanded, collapsed, folded)
-- [ ] Sound signed off by the product owner (date):
-- [ ] Feel signed off by the product owner (date):
+Step 1, the instrument:
+- [x] Automated: unit and conformance tests, the CPU benchmarks (two budgets short, B74); the plugin validators not yet run
+- [x] Layout lint passes (`fd_panel_tests`), every page
+- [x] Snapshots reviewed (100 % / 200 %; every page; expanded, collapsed, folded): the visual mockup, approved
+- [x] Sound signed off by the product owner (2026-10-16: "The instrument is good! It can be signed off.")
+- [x] Feel signed off by the product owner (2026-10-16)
+- [ ] The factory presets signed off by ear: the first set rejected (2026-10-16, ADR 0069), the second for review

@@ -31,7 +31,7 @@
       "filter.on": 0.0,
       "filter.res": 20.0,
       "filter.type": 1.0,
-      "gain": 0.0,
+      "gain": -7.6,
       "loop": 0.0,
       "loop.start": 0.0,
       "loop.xfade": 2.0,

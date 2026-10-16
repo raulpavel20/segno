@@ -127,13 +127,13 @@ struct Racks
         return 0.0f;
     }
 
-    /// The mix, rendered offline.
-    AudioBuffer render()
+    /// The mix, rendered offline (`seconds` of it).
+    AudioBuffer render(double seconds = kSeconds)
     {
         juce::TemporaryFile out(".wav");
         bool done = false;
         std::string error;
-        auto job = session->render({0.0, kSeconds, std::nullopt, 48000.0}, out.getFile(),
+        auto job = session->render({0.0, seconds, std::nullopt, 48000.0}, out.getFile(),
                                    [&](const std::string& e)
                                    {
                                        error = e;
@@ -861,7 +861,28 @@ TEST_CASE(
 #include "RackRecipes.h"
 #include "engine/PresetPreview.h"
 
+#include <fd/device/Library.h>
+#include <filesystem>
 #include <fstream>
+
+namespace
+{
+/// Whether a rack plays a sound from the Library that isn't here (ADR 0055): heard where the
+/// Library is, as the conformance suite hears such presets.
+bool soundNotHere(const std::string& rackText)
+{
+    for (size_t at = rackText.find("\"library:"); at != std::string::npos;
+         at = rackText.find("\"library:", at + 1))
+    {
+        const auto end = rackText.find('"', at + 1);
+        const auto file = fd::library::resolve(rackText.substr(at + 1, end - at - 1));
+        std::error_code ec;
+        if (file.empty() || !std::filesystem::exists(file, ec))
+            return true;
+    }
+    return false;
+}
+} // namespace
 
 TEST_CASE("racks: every factory rack loads, plays cleanly within level, and its first macro moves the sound; "
           "Verse to drop morphs; an instrument rack previews",
@@ -870,14 +891,16 @@ TEST_CASE("racks: every factory rack loads, plays cleanly within level, and its 
     std::ifstream in(FD_RACK_RECIPES);
     const auto made = fd::library_build::racksFromRecipes(nlohmann::json::parse(in, nullptr, false));
     REQUIRE(made.problems.empty());
-    REQUIRE(made.racks.size() == 12);
+    REQUIRE(made.racks.size() == 22); // Granular's ten with a space among them (ADR 0069)
 
     Racks r;
     auto& s = *r.session;
-    // Effect racks process the noise on the first track; instrument racks play a note on another.
+    // Effect racks process the noise on the first track; instrument racks play a note on another,
+    // held long enough for a slow pad to swell (Granular's take up to two seconds).
     const auto instruments = r.track(1);
-    const auto clip = s.createMidiClip(instruments, 0.0, kSeconds);
-    s.setNotes(clip, {{.pitch = 48, .start = 0.0, .length = 0.8, .velocity = 0.8f}});
+    constexpr double held = 3.0;
+    const auto clip = s.createMidiClip(instruments, 0.0, held);
+    s.setNotes(clip, {{.pitch = 48, .start = 0.0, .length = held - 0.2, .velocity = 0.8f}});
     const auto peakOf = [](const AudioBuffer& b)
     {
         float peak = 0.0f;
@@ -893,6 +916,12 @@ TEST_CASE("racks: every factory rack loads, plays cleanly within level, and its 
     for (const auto& rack : made.racks)
     {
         INFO(rack.name);
+        // A Granular rack's sound is all in the Library: without it, nothing to hear.
+        if (rack.text.find("\"granular\"") != std::string::npos && soundNotHere(rack.text))
+        {
+            WARN(rack.name << " plays a sound from the Library, which isn't here");
+            continue;
+        }
         const auto file = r.root.getChildFile(juce::String(rack.name) + ".segnorack");
         REQUIRE(file.replaceWithText(juce::String::fromUTF8(rack.text.c_str())));
         const bool instrument = rack.folder == "Instruments";
@@ -904,13 +933,14 @@ TEST_CASE("racks: every factory rack loads, plays cleanly within level, and its 
         CHECK(r.slot(loaded.rack).instrument == instrument);
         // As the recipe left it, then with its first macro all the way, and back to nothing.
         const auto info = r.rack(loaded.rack);
-        const auto first = r.render();
+        const double seconds = instrument ? held : kSeconds;
+        const auto first = r.render(seconds);
         INFO("peak " << peakOf(first) << ", level " << fd::testkit::rmsDb(first) << " dB");
         CHECK(peakOf(first) <= 1.0f);
         CHECK(fd::testkit::rmsDb(first) > -50.0);
         const float was = info.macros[0].value;
         REQUIRE(s.setMacro(loaded.rack, 0, was < 0.5f ? 1.0f : 0.0f));
-        const auto moved = r.render();
+        const auto moved = r.render(seconds);
         CHECK(peakOf(moved) <= 1.0f);
         INFO("moved against first: " << fd::testkit::nullResidualDb(moved, first) << " dB");
         CHECK(fd::testkit::nullResidualDb(moved, first) >

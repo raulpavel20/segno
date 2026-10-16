@@ -21,7 +21,8 @@
                 "env1.r": 1400,
                 "mod1.src": "Macro 1",
                 "mod1.dst": "Filter 1 Cutoff",
-                "mod1.amt": 40
+                "mod1.amt": 40,
+                "out.volume": -16.2
             },
             "extra": {
                 "osc1.table": "basic/saw",
@@ -49,7 +50,8 @@
                 "lfo1.poly": false,
                 "mod1.src": "LFO 1",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 45
+                "mod1.amt": 45,
+                "out.volume": -13.0
             },
             "extra": {
                 "osc1.table": "formant/vowels"
@@ -84,7 +86,8 @@
                 "rnd1.rate": 0.3,
                 "mod2.src": "Random 1",
                 "mod2.dst": "Osc 2 Position",
-                "mod2.amt": 40
+                "mod2.amt": 40,
+                "out.volume": -7.6
             },
             "extra": {
                 "osc1.table": "texture/random-b",
@@ -109,7 +112,8 @@
                 "env1.r": 1500,
                 "mod1.src": "Mod Wheel",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 80
+                "mod1.amt": 80,
+                "out.volume": -15.1
             },
             "extra": {
                 "osc1.table": "formant/choir"
@@ -139,7 +143,8 @@
                 "lfo1.mode": "Free",
                 "mod1.src": "LFO 1",
                 "mod1.dst": "Osc 2 Position",
-                "mod1.amt": 50
+                "mod1.amt": 50,
+                "out.volume": -17.8
             },
             "extra": {
                 "osc1.table": "spectral/octaves",
@@ -164,7 +169,8 @@
                 "env1.r": 2000,
                 "env2.a": 1500,
                 "env2.d": 3000,
-                "env2.s": 40
+                "env2.s": 40,
+                "out.volume": -14.3
             },
             "extra": {
                 "osc1.table": "analog/rounded"
@@ -185,7 +191,8 @@
                 "filter1.env": 0,
                 "env1.a": 300,
                 "env1.s": 95,
-                "env1.r": 800
+                "env1.r": 800,
+                "out.volume": -15.6
             },
             "extra": {
                 "osc1.table": "harmonic/strings"
@@ -216,7 +223,8 @@
                 "rnd1.rate": 0.5,
                 "mod2.src": "Random 1",
                 "mod2.dst": "Filter 1 Cutoff",
-                "mod2.amt": 15
+                "mod2.amt": 15,
+                "out.volume": -13.2
             },
             "extra": {
                 "osc1.table": "spectral/disperse"
@@ -242,7 +250,8 @@
                 "mod1.amt": 50,
                 "voice.mode": "Mono",
                 "voice.glide": 40,
-                "voice.glidemode": "Legato"
+                "voice.glidemode": "Legato",
+                "out.volume": -15.3
             },
             "extra": {
                 "osc1.table": "basic/saw"
@@ -265,7 +274,8 @@
                 "mod1.dst": "Osc 1 Position",
                 "mod1.amt": 35,
                 "voice.mode": "Mono",
-                "voice.glide": 30
+                "voice.glide": 30,
+                "out.volume": -5.4
             },
             "extra": {
                 "osc1.table": "formant/talk"
@@ -287,7 +297,8 @@
                 "mod1.dst": "Osc 1 Warp 1",
                 "mod1.amt": 50,
                 "voice.mode": "Legato",
-                "voice.glide": 60
+                "voice.glide": 60,
+                "out.volume": -20.6
             },
             "extra": {
                 "osc1.table": "basic/square"
@@ -312,7 +323,8 @@
                 "voice.glide": 20,
                 "mod1.src": "Mod Wheel",
                 "mod1.dst": "Osc 1 Warp 1",
-                "mod1.amt": 40
+                "mod1.amt": 40,
+                "out.volume": -19.1
             },
             "extra": {
                 "osc1.table": "basic/sine",
@@ -336,7 +348,8 @@
                 "filter1.drive": 45,
                 "filter1.env": 20,
                 "voice.mode": "Mono",
-                "voice.glide": 25
+                "voice.glide": 25,
+                "out.volume": -9.8
             },
             "extra": {
                 "osc1.table": "analog/sync"
@@ -362,7 +375,8 @@
                 "mod2.dst": "Pitch",
                 "mod2.amt": 1,
                 "voice.mode": "Mono",
-                "voice.glide": 50
+                "voice.glide": 50,
+                "out.volume": -15.3
             },
             "extra": {
                 "osc1.table": "formant/vowels-high"
@@ -375,6 +389,10 @@
                 "Heavy"
             ],
             "description": "Two saws a little apart through a ladder: weight, and slow movement.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc2.on": true,
                 "osc2.level": 0,
@@ -385,7 +403,7 @@
                 "filter1.res": 30,
                 "filter1.env": 15,
                 "voice.mode": "Mono",
-                "out.volume": -9
+                "out.volume": -12.6
             },
             "extra": {
                 "osc1.table": "basic/saw",
@@ -399,6 +417,10 @@
                 "Heavy"
             ],
             "description": "An FM growl swept in eighths, driven through a resonant low pass.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc1.oct": -1,
                 "filter1.cutoff": 1200,
@@ -412,7 +434,7 @@
                 "sub.on": true,
                 "sub.level": -10,
                 "voice.mode": "Mono",
-                "out.volume": -9
+                "out.volume": -17.1
             },
             "extra": {
                 "osc1.table": "fm/growl",
@@ -426,6 +448,10 @@
                 "Bright"
             ],
             "description": "A punchy FM bass that closes quickly.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc1.oct": -1,
                 "filter1.cutoff": 350,
@@ -435,7 +461,8 @@
                 "env2.s": 10,
                 "env1.d": 600,
                 "env1.s": 60,
-                "voice.mode": "Mono"
+                "voice.mode": "Mono",
+                "out.volume": -16.6
             },
             "extra": {
                 "osc1.table": "fm/bass"
@@ -448,6 +475,10 @@
                 "Clean"
             ],
             "description": "A plain sine an octave down, with a touch of its triangle sub.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc1.oct": -1,
                 "filter1.on": false,
@@ -457,7 +488,7 @@
                 "env1.a": 5,
                 "env1.r": 120,
                 "voice.mode": "Mono",
-                "out.volume": -4
+                "out.volume": -19.1
             },
             "extra": {
                 "osc1.table": "basic/sine"
@@ -470,6 +501,10 @@
                 "Heavy"
             ],
             "description": "Through the filter-sweep table in eighths, over a sine sub.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc1.uni": 2,
                 "osc1.detune": 10,
@@ -482,7 +517,7 @@
                 "sub.on": true,
                 "sub.level": -6,
                 "voice.mode": "Mono",
-                "out.volume": -9
+                "out.volume": -16.5
             },
             "extra": {
                 "osc1.table": "analog/filter-sweep",
@@ -496,6 +531,10 @@
                 "Dirty"
             ],
             "description": "A triangle folding over as the envelope opens.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc1.oct": -1,
                 "osc1.warp1": "Fold",
@@ -507,7 +546,8 @@
                 "mod1.amt": 45,
                 "env2.d": 350,
                 "env2.s": 10,
-                "voice.mode": "Mono"
+                "voice.mode": "Mono",
+                "out.volume": -16.7
             },
             "extra": {
                 "osc1.table": "basic/triangle"
@@ -520,6 +560,10 @@
                 "Dirty"
             ],
             "description": "A saw through a resonant diode ladder, the envelope biting on each note.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "filter1.type": "Diode",
                 "filter1.cutoff": 450,
@@ -531,7 +575,8 @@
                 "env1.s": 70,
                 "voice.mode": "Mono",
                 "voice.glide": 60,
-                "voice.glidemode": "Legato"
+                "voice.glidemode": "Legato",
+                "out.volume": -4.7
             },
             "extra": {
                 "osc1.table": "basic/saw"
@@ -553,7 +598,8 @@
                 "env2.s": 0,
                 "env1.d": 450,
                 "env1.s": 0,
-                "env1.r": 300
+                "env1.r": 300,
+                "out.volume": -17.3
             },
             "extra": {
                 "osc1.table": "basic/saw"
@@ -573,7 +619,8 @@
                 "env2.s": 10,
                 "env1.d": 900,
                 "env1.s": 0,
-                "env1.r": 700
+                "env1.r": 700,
+                "out.volume": -10.0
             },
             "extra": {
                 "osc1.table": "harmonic/bell"
@@ -594,7 +641,8 @@
                 "env1.r": 500,
                 "mod1.src": "Velocity",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 60
+                "mod1.amt": 60,
+                "out.volume": -13.3
             },
             "extra": {
                 "osc1.table": "fm/keys"
@@ -613,7 +661,7 @@
                 "env1.d": 3000,
                 "env1.s": 0,
                 "env1.r": 2500,
-                "out.volume": -8
+                "out.volume": -14.4
             },
             "extra": {
                 "osc1.table": "fm/bell"
@@ -633,7 +681,8 @@
                 "env2.s": 0,
                 "env1.d": 600,
                 "env1.s": 0,
-                "env1.r": 400
+                "env1.r": 400,
+                "out.volume": -14.3
             },
             "extra": {
                 "osc1.table": "harmonic/odd"
@@ -650,7 +699,7 @@
                 "env1.a": 5,
                 "env1.s": 100,
                 "env1.r": 80,
-                "out.volume": -8
+                "out.volume": -10.5
             },
             "extra": {
                 "osc1.table": "harmonic/organ"
@@ -672,7 +721,7 @@
                 "env1.d": 350,
                 "env1.s": 0,
                 "env1.r": 120,
-                "out.volume": 0
+                "out.volume": -0.7
             },
             "extra": {
                 "osc1.table": "basic/pulse-10"
@@ -694,7 +743,8 @@
                 "env2.d": 600,
                 "env2.s": 50,
                 "env1.a": 30,
-                "env1.s": 85
+                "env1.s": 85,
+                "out.volume": -17.7
             },
             "extra": {
                 "osc1.table": "harmonic/brass"
@@ -721,7 +771,8 @@
                 "lfo1.fade": 500,
                 "mod1.src": "LFO 1",
                 "mod1.dst": "Pitch",
-                "mod1.amt": 1
+                "mod1.amt": 1,
+                "out.volume": -17.4
             },
             "extra": {
                 "osc1.table": "harmonic/flute"
@@ -744,7 +795,8 @@
                 "env1.r": 200,
                 "mod1.src": "Note Random",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 40
+                "mod1.amt": 40,
+                "out.volume": -13.9
             },
             "extra": {
                 "osc1.table": "digital/stairs"
@@ -769,7 +821,7 @@
                 "env1.d": 2000,
                 "env1.s": 0,
                 "env1.r": 1500,
-                "out.volume": -8
+                "out.volume": -13.0
             },
             "extra": {
                 "osc1.table": "basic/sine",
@@ -787,7 +839,8 @@
                 "filter1.on": false,
                 "env1.d": 250,
                 "env1.s": 0,
-                "env1.r": 150
+                "env1.r": 150,
+                "out.volume": -14.3
             },
             "extra": {
                 "osc1.table": "fm/metal"
@@ -809,7 +862,8 @@
                 "filter1.env": 0,
                 "env1.a": 1500,
                 "env1.s": 100,
-                "env1.r": 3000
+                "env1.r": 3000,
+                "out.volume": -9.9
             },
             "extra": {
                 "osc1.table": "texture/air"
@@ -831,7 +885,8 @@
                 "filter1.env": 0,
                 "env1.a": 400,
                 "env1.s": 100,
-                "env1.r": 1500
+                "env1.r": 1500,
+                "out.volume": -0.3
             },
             "extra": {
                 "osc1.table": "texture/dust"
@@ -856,7 +911,8 @@
                 "lfo1.mode": "Free",
                 "mod1.src": "LFO 1",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 70
+                "mod1.amt": 70,
+                "out.volume": -13.9
             },
             "extra": {
                 "osc1.table": "spectral/comb"
@@ -887,7 +943,8 @@
                 "mod2.amt": 30,
                 "env1.a": 1500,
                 "env1.s": 100,
-                "env1.r": 800
+                "env1.r": 800,
+                "out.volume": -16.8
             },
             "extra": {
                 "osc1.table": "basic/saw"
@@ -917,7 +974,8 @@
                 "lfo2.rate": 0.8,
                 "mod2.src": "LFO 2",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 40
+                "mod2.amt": 40,
+                "out.volume": -13.5
             },
             "extra": {
                 "osc1.table": "analog/pwm"
@@ -930,6 +988,10 @@
                 "Vocals"
             ],
             "description": "The formant filter saying a and o in quarter notes.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc1.oct": -1,
                 "filter1.type": "Formant",
@@ -940,7 +1002,8 @@
                 "mod1.src": "LFO 1",
                 "mod1.dst": "Filter 1 Shape",
                 "mod1.amt": 60,
-                "voice.mode": "Mono"
+                "voice.mode": "Mono",
+                "out.volume": -8.8
             },
             "extra": {
                 "osc1.table": "analog/double-saw",
@@ -962,7 +1025,8 @@
                 "lfo1.sync": "1/16",
                 "mod1.src": "LFO 1",
                 "mod1.dst": "Amp",
-                "mod1.amt": -80
+                "mod1.amt": -80,
+                "out.volume": -19.3
             },
             "extra": {
                 "osc1.table": "analog/saw-square",
@@ -992,7 +1056,8 @@
                 "mod1.amt": 1,
                 "mod2.src": "Mod Wheel",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 70
+                "mod2.amt": 70,
+                "out.volume": -14.8
             },
             "extra": {
                 "osc1.table": "acoustic/cello"
@@ -1021,7 +1086,8 @@
                 "mod1.amt": 1,
                 "mod2.src": "Velocity",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 60
+                "mod2.amt": 60,
+                "out.volume": -16.4
             },
             "extra": {
                 "osc1.table": "acoustic/violin"
@@ -1050,7 +1116,8 @@
                 "mod1.amt": 1,
                 "mod2.src": "Velocity",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 50
+                "mod2.amt": 50,
+                "out.volume": -17.2
             },
             "extra": {
                 "osc1.table": "acoustic/breathy-flute"
@@ -1073,7 +1140,8 @@
                 "env1.r": 150,
                 "mod1.src": "Mod Wheel",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 80
+                "mod1.amt": 80,
+                "out.volume": -19.7
             },
             "extra": {
                 "osc1.table": "acoustic/reed"
@@ -1099,7 +1167,8 @@
                 "mod1.amt": 1,
                 "mod2.src": "Velocity",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 40
+                "mod2.amt": 40,
+                "out.volume": -15.5
             },
             "extra": {
                 "osc1.table": "acoustic/oboe"
@@ -1131,7 +1200,8 @@
                 "mod1.amt": 1,
                 "mod2.src": "Velocity",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 60
+                "mod2.amt": 60,
+                "out.volume": -14.5
             },
             "extra": {
                 "osc1.table": "acoustic/alto-sax"
@@ -1161,7 +1231,8 @@
                 "mod1.amt": 55,
                 "mod2.src": "Velocity",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 25
+                "mod2.amt": 25,
+                "out.volume": -11.8
             },
             "extra": {
                 "osc1.table": "acoustic/piano"
@@ -1187,7 +1258,8 @@
                 "env3.s": 0,
                 "mod1.src": "Env 3",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 60
+                "mod1.amt": 60,
+                "out.volume": -11.3
             },
             "extra": {
                 "osc1.table": "acoustic/guitar"
@@ -1200,6 +1272,10 @@
                 "Clean"
             ],
             "description": "A round electric bass, played with the fingers; harder is brighter.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc1.oct": -1,
                 "voice.mode": "Mono",
@@ -1213,7 +1289,8 @@
                 "env1.r": 150,
                 "mod1.src": "Velocity",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 50
+                "mod1.amt": 50,
+                "out.volume": -11.2
             },
             "extra": {
                 "osc1.table": "acoustic/electric-bass"
@@ -1234,7 +1311,8 @@
                 "env1.r": 500,
                 "mod1.src": "Velocity",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 70
+                "mod1.amt": 70,
+                "out.volume": -10.3
             },
             "extra": {
                 "osc1.table": "acoustic/electric-piano"
@@ -1262,7 +1340,8 @@
                 "mod1.amt": 1.5,
                 "mod2.src": "Mod Wheel",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 60
+                "mod2.amt": 60,
+                "out.volume": -19.9
             },
             "extra": {
                 "osc1.table": "acoustic/theremin"
@@ -1290,7 +1369,8 @@
                 "lfo1.poly": false,
                 "mod1.src": "LFO 1",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 50
+                "mod1.amt": 50,
+                "out.volume": -15.2
             },
             "extra": {
                 "osc1.table": "formant/human-voice"
@@ -1307,7 +1387,7 @@
                 "env1.a": 3,
                 "env1.s": 100,
                 "env1.r": 60,
-                "out.volume": -8,
+                "out.volume": -19.5,
                 "mod1.src": "Mod Wheel",
                 "mod1.dst": "Osc 1 Position",
                 "mod1.amt": 80
@@ -1337,7 +1417,8 @@
                 "lfo1.poly": false,
                 "mod1.src": "LFO 1",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 60
+                "mod1.amt": 60,
+                "out.volume": -11.8
             },
             "extra": {
                 "osc1.table": "harmonic/overtones"
@@ -1361,7 +1442,8 @@
                 "env3.s": 0,
                 "mod1.src": "Env 3",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 70
+                "mod1.amt": 70,
+                "out.volume": -11.7
             },
             "extra": {
                 "osc1.table": "fm/fm-synth"
@@ -1388,7 +1470,8 @@
                 "mod1.amt": 1,
                 "mod2.src": "Mod Wheel",
                 "mod2.dst": "Osc 1 Position",
-                "mod2.amt": 70
+                "mod2.amt": 70,
+                "out.volume": -14.8
             },
             "extra": {
                 "osc1.table": "digital/chip"
@@ -1407,7 +1490,7 @@
                 "env1.d": 250,
                 "env1.s": 0,
                 "env1.r": 80,
-                "out.volume": -4,
+                "out.volume": -12.0,
                 "rnd1.mode": "Per Note",
                 "mod1.src": "Random 1",
                 "mod1.dst": "Osc 1 Position",
@@ -1424,6 +1507,10 @@
                 "Dirty"
             ],
             "description": "A crushed bass with a snappy filter.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "osc1.oct": -1,
                 "voice.mode": "Mono",
@@ -1436,7 +1523,8 @@
                 "env1.r": 120,
                 "mod1.src": "Velocity",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 50
+                "mod1.amt": 50,
+                "out.volume": -16.0
             },
             "extra": {
                 "osc1.table": "digital/bit-reduced"
@@ -1464,7 +1552,8 @@
                 "rnd1.poly": false,
                 "mod1.src": "Random 1",
                 "mod1.dst": "Osc 1 Position",
-                "mod1.amt": 50
+                "mod1.amt": 50,
+                "out.volume": -14.4
             },
             "extra": {
                 "osc1.table": "texture/granular"
@@ -1492,7 +1581,7 @@
                 "mod1.src": "Mod Wheel",
                 "mod1.dst": "Osc 1 Position",
                 "mod1.amt": 80,
-                "out.volume": -2
+                "out.volume": -9.7
             },
             "extra": {
                 "osc1.table": "texture/distorted"

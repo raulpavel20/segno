@@ -1,6 +1,7 @@
 {
     "device": "sampler",
     "author": "Segno",
+    "keyboardSpread": 32,
     "presets": [
         {
             "name": "Violins",
@@ -12,7 +13,8 @@
             "params": {
                 "amp.a": 30,
                 "amp.r": 450,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -11.6
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Violin section/Sustain.sfz"
@@ -28,7 +30,8 @@
             "description": "The violin section plucking, a different pluck at random each note.",
             "params": {
                 "amp.r": 250,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -12.7
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Violin section/Pizzicato.sfz"
@@ -43,7 +46,8 @@
             "description": "Short bounced bows from the violin section, two takes in turn.",
             "params": {
                 "amp.r": 200,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -7.8
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Violin section/Spiccato.sfz"
@@ -59,7 +63,8 @@
             "params": {
                 "amp.a": 40,
                 "amp.r": 450,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -14.6
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Violin section/Tremolo.sfz"
@@ -76,7 +81,8 @@
             "params": {
                 "amp.a": 30,
                 "amp.r": 450,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -6.8
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Viola section/Sustain.sfz"
@@ -93,7 +99,8 @@
             "params": {
                 "amp.a": 30,
                 "amp.r": 500,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -9.0
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Cello section/Sustain.sfz"
@@ -109,7 +116,8 @@
             "description": "The cello section plucking, round and woody.",
             "params": {
                 "amp.r": 350,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -7.2
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Cello section/Pizzicato.sfz"
@@ -124,7 +132,8 @@
             "description": "Short bounced bows from the cello section, for driving rhythms.",
             "params": {
                 "amp.r": 250,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -11.4
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Cello section/Spiccato.sfz"
@@ -141,7 +150,8 @@
             "params": {
                 "amp.a": 20,
                 "amp.r": 400,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -7.9
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Solo violin/Sustain.sfz"
@@ -156,7 +166,8 @@
             "description": "One violin plucked, light and dry.",
             "params": {
                 "amp.r": 250,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -11.9
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Solo violin/Pizzicato.sfz"
@@ -170,10 +181,15 @@
                 "Orchestral"
             ],
             "description": "A double bass bowing with vibrato, the floor of the strings.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "amp.a": 30,
                 "amp.r": 500,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -7.8
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Double bass/Sustain.sfz"
@@ -187,9 +203,14 @@
                 "Pluck"
             ],
             "description": "A double bass plucked, for walking lines and slow ballads.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "amp.r": 400,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -15.5
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Double bass/Pizzicato.sfz"
@@ -206,7 +227,8 @@
             "params": {
                 "amp.r": 1500,
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -15.7
             },
             "extra": {
                 "sample.path": "library:Samples/Strings/Harp/Harp.sfz"
@@ -223,7 +245,8 @@
             "params": {
                 "amp.a": 20,
                 "amp.r": 300,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -23.6
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Flute/Sustain.sfz"
@@ -238,7 +261,8 @@
             "description": "Short flute notes, a different take at random each note.",
             "params": {
                 "amp.r": 150,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -24.0
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Flute/Staccato.sfz"
@@ -255,7 +279,8 @@
             "params": {
                 "amp.a": 15,
                 "amp.r": 250,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -10.6
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Piccolo/Sustain.sfz"
@@ -272,7 +297,8 @@
             "params": {
                 "amp.a": 15,
                 "amp.r": 250,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -9.3
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Oboe/Sustain.sfz"
@@ -289,7 +315,8 @@
             "params": {
                 "amp.a": 15,
                 "amp.r": 300,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -10.2
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Clarinet/Sustain.sfz"
@@ -304,7 +331,8 @@
             "description": "Short clarinet notes, a different take at random each note.",
             "params": {
                 "amp.r": 150,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -10.4
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Clarinet/Staccato.sfz"
@@ -318,10 +346,15 @@
                 "Orchestral"
             ],
             "description": "A bassoon held long, the low reed of the woodwinds.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "amp.a": 20,
                 "amp.r": 300,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -8.4
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Bassoon/Sustain.sfz"
@@ -335,9 +368,14 @@
                 "Orchestral"
             ],
             "description": "Short bassoon notes, playful in the low register.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "amp.r": 150,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -7.6
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Bassoon/Staccato.sfz"
@@ -354,7 +392,8 @@
             "params": {
                 "amp.a": 30,
                 "amp.r": 450,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -10.3
             },
             "extra": {
                 "sample.path": "library:Samples/Brass/French horn/Sustain.sfz"
@@ -370,7 +409,8 @@
             "params": {
                 "amp.a": 25,
                 "amp.r": 350,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -7.1
             },
             "extra": {
                 "sample.path": "library:Samples/Brass/French horn/Muted.sfz"
@@ -387,7 +427,8 @@
             "params": {
                 "amp.a": 10,
                 "amp.r": 300,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -13.5
             },
             "extra": {
                 "sample.path": "library:Samples/Brass/Trumpet/Sustain.sfz"
@@ -403,7 +444,8 @@
             "params": {
                 "amp.a": 10,
                 "amp.r": 250,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -20.4
             },
             "extra": {
                 "sample.path": "library:Samples/Brass/Trumpet/Muted.sfz"
@@ -419,7 +461,8 @@
             "description": "Short trumpet notes for fanfares, a different take at random each note.",
             "params": {
                 "amp.r": 150,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -20.5
             },
             "extra": {
                 "sample.path": "library:Samples/Brass/Trumpet/Staccato.sfz"
@@ -435,7 +478,8 @@
             "params": {
                 "amp.a": 20,
                 "amp.r": 350,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -9.0
             },
             "extra": {
                 "sample.path": "library:Samples/Brass/Trombone/Sustain.sfz"
@@ -450,7 +494,8 @@
             "description": "Short trombone notes, punchy in the middle register.",
             "params": {
                 "amp.r": 150,
-                "vel.amp": 60
+                "vel.amp": 60,
+                "gain": -7.6
             },
             "extra": {
                 "sample.path": "library:Samples/Brass/Trombone/Staccato.sfz"
@@ -464,10 +509,15 @@
                 "Orchestral"
             ],
             "description": "A tuba held long, the bottom of the brass.",
+            "keys": [
+                24,
+                60
+            ],
             "params": {
                 "amp.a": 30,
                 "amp.r": 350,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -17.1
             },
             "extra": {
                 "sample.path": "library:Samples/Brass/Tuba/Sustain.sfz"
@@ -483,7 +533,8 @@
             "params": {
                 "amp.r": 500,
                 "vel.amp": 70,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -12.6
             },
             "extra": {
                 "sample.path": "library:Samples/Keys/Upright piano/Upright piano.sfz"
@@ -499,7 +550,8 @@
             "params": {
                 "amp.r": 500,
                 "vel.amp": 70,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -8.4
             },
             "extra": {
                 "sample.path": "library:Samples/Keys/Grand piano/Grand piano.sfz"
@@ -515,7 +567,8 @@
             "params": {
                 "amp.r": 300,
                 "vel.amp": 10,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -8.4
             },
             "extra": {
                 "sample.path": "library:Samples/Keys/Harpsichord/Harpsichord.sfz"
@@ -531,7 +584,8 @@
             "params": {
                 "amp.a": 30,
                 "amp.r": 500,
-                "vel.amp": 0
+                "vel.amp": 0,
+                "gain": -7.5
             },
             "extra": {
                 "sample.path": "library:Samples/Keys/Pipe organ/Loud.sfz"
@@ -547,7 +601,8 @@
             "params": {
                 "amp.a": 40,
                 "amp.r": 500,
-                "vel.amp": 0
+                "vel.amp": 0,
+                "gain": -8.5
             },
             "extra": {
                 "sample.path": "library:Samples/Keys/Pipe organ/Soft.sfz"
@@ -564,7 +619,8 @@
             "params": {
                 "amp.r": 2000,
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -8.5
             },
             "extra": {
                 "sample.path": "library:Samples/Tuned percussion/Glockenspiel/Glockenspiel.sfz"
@@ -580,7 +636,8 @@
             "params": {
                 "amp.r": 1200,
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -19.4
             },
             "extra": {
                 "sample.path": "library:Samples/Tuned percussion/Marimba/Marimba.sfz"
@@ -597,7 +654,8 @@
             "params": {
                 "amp.r": 600,
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -8.2
             },
             "extra": {
                 "sample.path": "library:Samples/Tuned percussion/Xylophone/Xylophone.sfz"
@@ -613,7 +671,8 @@
             "params": {
                 "amp.r": 2000,
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -11.6
             },
             "extra": {
                 "sample.path": "library:Samples/Tuned percussion/Vibraphone/Vibraphone.sfz"
@@ -629,7 +688,8 @@
             "params": {
                 "amp.r": 4000,
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -11.2
             },
             "extra": {
                 "sample.path": "library:Samples/Tuned percussion/Tubular bells/Tubular bells.sfz"
@@ -645,7 +705,8 @@
             "params": {
                 "amp.r": 1500,
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -8.8
             },
             "extra": {
                 "sample.path": "library:Samples/Tuned percussion/Kalimba/Kalimba.sfz"
@@ -661,7 +722,8 @@
             "params": {
                 "amp.r": 2000,
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -10.6
             },
             "extra": {
                 "sample.path": "library:Samples/Percussion/Timpani/Hits.sfz"
@@ -677,7 +739,8 @@
             "params": {
                 "amp.a": 50,
                 "amp.r": 800,
-                "vel.amp": 50
+                "vel.amp": 50,
+                "gain": -9.3
             },
             "extra": {
                 "sample.path": "library:Samples/Percussion/Timpani/Rolls.sfz"
@@ -693,7 +756,8 @@
             "params": {
                 "mode": "One-shot",
                 "vel.amp": 60,
-                "voice.count": 32
+                "voice.count": 32,
+                "gain": -4.0
             },
             "extra": {
                 "sample.path": "library:Samples/Percussion/Orchestral kit/Orchestral kit.sfz"
@@ -709,7 +773,8 @@
             "params": {
                 "amp.a": 15,
                 "amp.r": 200,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -21.6
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Recorder/Recorder.sfz"
@@ -725,7 +790,8 @@
             "params": {
                 "amp.a": 15,
                 "amp.r": 200,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -11.8
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Harmonica/Harmonica.sfz"
@@ -741,7 +807,8 @@
             "params": {
                 "amp.a": 10,
                 "amp.r": 250,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -6.3
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Tenor sax/Tenor sax.sfz"
@@ -757,7 +824,8 @@
             "params": {
                 "amp.a": 15,
                 "amp.r": 250,
-                "vel.amp": 40
+                "vel.amp": 40,
+                "gain": -3.1
             },
             "extra": {
                 "sample.path": "library:Samples/Woodwinds/Ocarina/Ocarina.sfz"
@@ -773,7 +841,8 @@
             "params": {
                 "amp.a": 300,
                 "amp.r": 2000,
-                "vel.amp": 30
+                "vel.amp": 30,
+                "gain": -10.5
             },
             "extra": {
                 "sample.path": "library:Samples/Tuned percussion/Wine glasses/Wine glasses.sfz"

@@ -994,7 +994,6 @@ void Granular::reset() noexcept
     if (!rollKept_.load(std::memory_order_relaxed))
         roll_.store(hash(kRollBase), std::memory_order_relaxed);
     volume_.reset(dsp::dbToGain(params().get(OutVolume), -70.0f));
-    width_.reset(params().get(OutWidth) * 0.01f);
 }
 
 double Granular::tailSeconds() const noexcept
@@ -1257,7 +1256,6 @@ void Granular::tick(const TransportInfo& transport, int offset) noexcept
         if (v.sounding)
             advanceEnvs(v, offset);
     volume_.setTarget(dsp::dbToGain(p.get(OutVolume), -70.0f), dsp::msToSamples(20.0, sampleRate_));
-    width_.setTarget(p.get(OutWidth) * 0.01f, dsp::msToSamples(20.0, sampleRate_));
     voices_.setVoiceCount(p.getInt(VoiceCount), listener_);
     voices_.setMode(static_cast<VoiceManager::Mode>(p.getInt(VoiceMode)), listener_);
 
@@ -1378,7 +1376,13 @@ void Granular::tickVoice(Voice& v, const TransportInfo& transport, int offset) n
     v.ctrlTo[CRouting] = moved(FiltersRouting, TargetRouting, mod) * 0.01f;
     const double velocity = 1.0 - smoothed_[AmpVelocity] * 0.01 * (1.0 - v.velocity);
     const double density = p.getBool(GrainComp) ? 1.0 / std::sqrt(std::max(1.0, expectedOverlap(v))) : 1.0;
-    v.ctrlTo[CAmp] = static_cast<float>(std::max(0.0, velocity * (1.0 + mod[TargetAmp]) * density));
+    // Volume's modulation moves this note against the instrument's Volume (which the output applies).
+    const double volume = mod[TargetVolume] != 0.0f
+                              ? dsp::dbToGain(moved(OutVolume, TargetVolume, mod), -70.0f) /
+                                    std::max(1e-6f, dsp::dbToGain(smoothed_[OutVolume], -70.0f))
+                              : 1.0;
+    v.ctrlTo[CAmp] = static_cast<float>(std::max(0.0, velocity * (1.0 + mod[TargetAmp]) * density * volume));
+    v.ctrlTo[CWidth] = moved(OutWidth, TargetWidth, mod) * 0.01f;
 
     // Envelope settings (new times from here).
     for (int n = 0; n < numEnvs; ++n)
@@ -2043,8 +2047,10 @@ void Granular::renderVoiceStage(Voice& v, float* outL, float* outR, int n) noexc
                 }
             }
             const float amp = c(CAmp) * v.amp[static_cast<size_t>(s)];
-            outL[s] += l * amp;
-            outR[s] += r * amp;
+            // Its width: the side scaled (0 mono, 1 as it is, 2 twice as wide).
+            const float mid = 0.5f * (l + r), side = 0.5f * (l - r) * c(CWidth);
+            outL[s] += (mid + side) * amp;
+            outR[s] += (mid - side) * amp;
         }
     }
 }
@@ -2269,15 +2275,13 @@ void Granular::process(ProcessContext& ctx) noexcept
             renderVoiceStage(v, outL, outR, n);
     }
 
-    // Width (mid and side), then the volume.
+    // The volume (each note's width is its own, in the voice stage).
     float peak = 0.0f;
     for (int s = 0; s < n; ++s)
     {
-        const float w = width_.next();
-        const float mid = 0.5f * (outL[s] + outR[s]), side = 0.5f * (outL[s] - outR[s]) * w;
         const float g = volume_.next();
-        outL[s] = (mid + side) * g;
-        outR[s] = (mid - side) * g;
+        outL[s] *= g;
+        outR[s] *= g;
         peak = std::max({peak, std::abs(outL[s]), stereo ? std::abs(outR[s]) : 0.0f});
     }
     blockStart_ += n;
