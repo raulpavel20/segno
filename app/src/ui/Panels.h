@@ -148,6 +148,8 @@ public:
     [[nodiscard]] LaneAssignments& assignments() noexcept { return assignments_; }
     /// What its sections hold (the controls in them), scrolled under its header (tests).
     [[nodiscard]] juce::Component& content() noexcept { return body_; }
+    /// A section's property rows (none for MIX and SENDS, which are components); tests read them.
+    [[nodiscard]] std::vector<ui::Property> properties(model::InspectorSection section) const;
     /// Puts the keyboard in the lane's name field (Rename).
     void focusLaneName();
     /// Puts the keyboard in the take's name field (Rename).
@@ -222,8 +224,6 @@ private:
     [[nodiscard]] bool showsNotes() const;
     /// "Notes · 4 selected · G7".
     [[nodiscard]] juce::String notesTitle() const;
-    /// A section's property rows (none for MIX and SENDS, which are components).
-    [[nodiscard]] std::vector<ui::Property> properties(model::InspectorSection section) const;
     /// Lays the sections out `width` wide from the top of the content; returns their height.
     int layoutSections(int width);
     /// Scrolls the sections so `c` (one of their controls) is in view.

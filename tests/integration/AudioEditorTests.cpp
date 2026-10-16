@@ -1051,8 +1051,8 @@ TEST_CASE(
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
         dumpPng(dir, "audio-key-no-song-key@2x.png",
                 inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
-    // The key's text as the list draws it: whole at the inspector's width; at its narrowest
-    // (200 px) "· found" gives way before the key is cut (fitQualified).
+    // The key's text as the list draws it: whole at the inspector's width; narrower (as a combo
+    // on a bar can be), "· found" gives way before the key is cut (fitQualified).
     const auto shown = [&inspector]
     {
         auto& box = inspector.audioKey();
@@ -1067,9 +1067,6 @@ TEST_CASE(
     const int width = inspector.getWidth();
     inspector.setSize(200, inspector.getHeight());
     CHECK(shown() == "A minor");
-    if (const char* dir = std::getenv("FD_DUMP_DIR"))
-        dumpPng(dir, "audio-key-narrowest@2x.png",
-                inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
     inspector.setSize(width, inspector.getHeight());
     CHECK(fd::ui::fitQualified("a" + dot + "b" + dot + "c", fd::ui::font(fd::ui::TextStyle::Control), 1.0f) ==
           "a");
@@ -1126,4 +1123,80 @@ TEST_CASE(
     REQUIRE(f.session->setWarp({keys}, {.on = true, .mode = fd::model::WarpMode::Repitch}, "Warp"));
     f.settle();
     CHECK_FALSE(inspector.audioFollow().isEnabled());
+}
+
+namespace
+{
+/// The texts the inspector cuts at its width (ui-foundations.md, "Nothing touches"): its painted
+/// values, and its number fields', toggles' and combo boxes' (a combo's after its qualifier gives way).
+std::vector<std::string> cutTexts(fd::app::InspectorPanel& inspector)
+{
+    std::vector<std::string> cut;
+    const auto width = [](const juce::Font& font, const juce::String& text)
+    { return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font, text))); };
+    const int values = inspector.audioKey().getWidth(); // the value column: a whole row's control
+    for (const auto section : inspector.sections())
+        for (const auto& p : inspector.properties(section))
+            if (width(fd::ui::font(p.number ? fd::ui::TextStyle::Value : fd::ui::TextStyle::Body), p.value) >
+                values)
+                cut.push_back(p.value.toStdString());
+    for (auto* c : inspector.content().getChildren())
+    {
+        if (!c->isVisible())
+            continue;
+        if (auto* n = dynamic_cast<fd::ui::NumberField*>(c))
+        {
+            if (n->widthFor(n->text()) > n->getWidth())
+                cut.push_back(n->text().toStdString());
+        }
+        else if (auto* b = dynamic_cast<fd::ui::Toggle*>(c))
+        {
+            if (fd::ui::Toggle::widthFor(b->getButtonText()) > b->getWidth())
+                cut.push_back(b->getButtonText().toStdString());
+        }
+        else if (auto* box = dynamic_cast<juce::ComboBox*>(c))
+            for (auto* child : box->getChildren())
+                if (auto* label = dynamic_cast<juce::Label*>(child))
+                {
+                    const auto font = fd::ui::font(fd::ui::TextStyle::Control);
+                    const auto text =
+                        fd::ui::fitQualified(label->getText(), font, static_cast<float>(label->getWidth()));
+                    if (width(font, text) > label->getWidth())
+                        cut.push_back(text.toStdString());
+                }
+    }
+    return cut;
+}
+} // namespace
+
+TEST_CASE("inspector: nothing an audio clip shows is cut at the inspector's narrowest",
+          "[integration][audio-p6c]")
+{
+    AudioFixture f;
+    REQUIRE(f.session->setKey(fd::music::Key{0, "major"}));
+    // Its widest values: a fade's length beside "Straight", the tempo with ×2 and ÷2, the found
+    // key and Follow with its step, the file's format.
+    f.session->setFades({f.clipId}, fd::model::Fade{1.999, 0.0}, fd::model::Fade{1.999, 0.0});
+    REQUIRE(f.session->setWarp({f.clipId}, {.on = true, .mode = fd::model::WarpMode::Beats}, "Warp"));
+    REQUIRE(f.session->setWarp({f.clipId}, {.key = std::optional(fd::music::Key{1, "minor"})}, "Key"));
+    REQUIRE(f.session->setWarp({f.clipId}, {.followKey = true}, "Follow key"));
+    f.select(f.clipId);
+    f.session->impl().analyser.waitUntilIdle();
+    f.settle();
+    auto& inspector = f.shell->inspector();
+    REQUIRE(inspector.audioKey().isVisible());
+    // At its narrowest, the width it opens at: nothing cut. Narrower, the tempo is the first.
+    const int narrowest = fd::ui::Theme::current().shell.inspectorWidth;
+    inspector.setSize(narrowest, inspector.getHeight());
+    CHECK(cutTexts(inspector).empty());
+    CHECK(inspector.audioKey().getText() == juce::String::fromUTF8("C\xE2\x99\xAF minor"));
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "audio-inspector-narrowest@2x.png",
+                inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+    inspector.setSize(narrowest - 10, inspector.getHeight());
+    CHECK_FALSE(cutTexts(inspector).empty());
+    // The shell keeps it there: a narrower width saved in a view state opens at the narrowest.
+    CHECK(fd::app::Shell::inspectorWidthWithin(200.0f) == static_cast<float>(narrowest));
+    CHECK(fd::app::Shell::inspectorWidthWithin(9000.0f) ==
+          static_cast<float>(fd::ui::Theme::current().shell.inspectorMaxWidth));
 }

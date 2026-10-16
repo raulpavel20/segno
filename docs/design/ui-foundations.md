@@ -131,6 +131,7 @@ Role functions for colours that depend on content:
 | `shell.padding` | 12 (inside side panels and popovers) |
 | `shell.rowHeight` | 20 (property rows, compact list rows) |
 | `shell.propertyLabelWidth` | 80 |
+| `shell.inspectorWidth` / `shell.inspectorMaxWidth` | 260 / 520 (the inspector as it opens, and its narrowest: nothing its rows show is cut there, which a test checks; then its widest) |
 | `shell.listRowHeight` | 28 (palette and browser results) |
 | `shell.listTextInset` | 10 (a list row's text from its edges; its headings line up with it) |
 | `shell.listIconSize` | 12 (an icon button at the end of a list row: a preset's star) |

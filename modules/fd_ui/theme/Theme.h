@@ -124,6 +124,9 @@ struct ShellMetrics
     int padding = 12;
     int rowHeight = 20;
     int propertyLabelWidth = 80;
+    // The inspector: its width when it opens and its narrowest, where nothing its rows show is cut
+    // (an audio clip's tempo beside ×2 and ÷2 needs 252); then its widest.
+    int inspectorWidth = 260, inspectorMaxWidth = 520;
     int listRowHeight = 28;
     int listTextInset = 10; // a list row's text from its edges (palette and preset rows, their headings)
     int popoverWidth = 560, popoverTop = 56;

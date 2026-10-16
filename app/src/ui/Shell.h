@@ -108,6 +108,8 @@ public:
     [[nodiscard]] DetailPanel& detail() noexcept { return detail_; }
     [[nodiscard]] ArrangementView& arrangement() noexcept { return arrangement_; }
     [[nodiscard]] InspectorPanel& inspector() noexcept { return inspector_; }
+    /// A width for the inspector within its narrowest and widest (ShellMetrics).
+    [[nodiscard]] static float inspectorWidthWithin(float width);
     [[nodiscard]] MixerView& mixer() noexcept { return mixer_; }
     [[nodiscard]] LanePicker& lanePicker() noexcept { return lanePicker_; }
     /// The Key popover (key-and-scale.md §6): under the top bar's key field, with the keys found
@@ -327,7 +329,8 @@ private:
     void assignToLane(std::uint64_t lane);
 
     Panel browserPanel_{.open = true, .shown = 1.0f, .size = 220.0f};
-    Panel inspectorPanel_{.open = true, .shown = 1.0f, .size = 260.0f};
+    Panel inspectorPanel_{
+        .open = true, .shown = 1.0f, .size = static_cast<float>(ui::Theme::current().shell.inspectorWidth)};
     Panel detailPanel_{.open = true, .shown = 1.0f, .size = 0.0f};
     bool focusMode_ = false;
     std::optional<bool> compact_;

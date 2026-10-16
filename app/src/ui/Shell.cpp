@@ -243,8 +243,9 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         browserPanel_.size = juce::jlimit(160.0f, 480.0f, browserPanel_.size + dx);
         resized();
     };
-    inspectorSplit_.onDrag = [this](float dx) {
-        inspectorPanel_.size = juce::jlimit(200.0f, 520.0f, inspectorPanel_.size - dx);
+    inspectorSplit_.onDrag = [this](float dx)
+    {
+        inspectorPanel_.size = inspectorWidthWithin(inspectorPanel_.size - dx);
         resized();
     };
 
@@ -2194,7 +2195,7 @@ void Shell::applyViewState(const std::string& json)
     applyPanel(inspectorPanel_, get("inspector", inspectorPanel_.open));
     applyPanel(detailPanel_, get("detail", detailPanel_.open));
     browserPanel_.size = get("browserWidth", browserPanel_.size);
-    inspectorPanel_.size = get("inspectorWidth", inspectorPanel_.size);
+    inspectorPanel_.size = inspectorWidthWithin(get("inspectorWidth", inspectorPanel_.size));
     clipViewHeight_ = get("clipViewHeight", clipViewHeight_);
     editorViewHeight_ = get("editorViewHeight", editorViewHeight_);
     mixerShown_ = v.value("view", std::string("arrange")) == "mix";
@@ -2801,6 +2802,13 @@ float Shell::minimumEditorView() const
     return detail_.editor() != nullptr
                ? static_cast<float>(detail_.editor()->minimumHeight() + DeviceChain::gap)
                : 0.0f;
+}
+
+float Shell::inspectorWidthWithin(float width)
+{
+    const auto& t = ui::Theme::current();
+    return juce::jlimit(static_cast<float>(t.shell.inspectorWidth),
+                        static_cast<float>(t.shell.inspectorMaxWidth), width);
 }
 
 float Shell::detailHeight() const
