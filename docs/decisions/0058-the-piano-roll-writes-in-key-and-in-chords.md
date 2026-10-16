@@ -1,6 +1,6 @@
 # 0058. The piano roll writes in key and in chords: one surface, chords read from the notes
 
-- **Status:** Accepted (product owner, 2026-10-14, with [piano-roll.md](../design/piano-roll.md)); per-note chance the same in every render superseded by [0062](0062-random-rolls-again-each-time-it-plays.md)
+- **Status:** Accepted (product owner, 2026-10-14, with [piano-roll.md](../design/piano-roll.md)); per-note chance the same in every render superseded by [0062](0062-random-rolls-again-each-time-it-plays.md); the in-key default for a Drum Kit's clips amended by [0066](0066-a-drum-kits-clips-open-on-its-pads.md)
 - **Date:** 2026-10-14
 - **Builds on:** [0057](0057-the-song-has-one-key.md) (the song's key), [0047](0047-the-editing-grid-in-each-editor.md) (each editor's grid), [0048](0048-clips-loop.md) (clip loops), [0027](0027-selection-and-context-panels.md) (one selection, context panels), [0028](0028-automation-lanes.md) (automation's gestures), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar, everything by mouse), [0021](0021-mcp-server.md) (assistants)
 - **Number:** taken on a branch beside main; renumbered at merge if main has used it

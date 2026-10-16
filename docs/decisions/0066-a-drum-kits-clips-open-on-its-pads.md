@@ -1,6 +1,6 @@
 # 0066. A Drum Kit's clips open on its pads, without the tools drums don't need
 
-- **Status:** Proposed (2026-10-16, with [drum-kit.md](../design/drum-kit.md) §23)
+- **Status:** Accepted (product owner, 2026-10-16, with [drum-kit.md](../design/drum-kit.md) §23)
 - **Date:** 2026-10-16
 - **Builds on:** [0064](0064-a-drum-kit-whose-pads-hold-any-instrument.md) (the Drum Kit), [0058](0058-the-piano-roll-writes-in-key-and-in-chords.md) (the piano roll writes in key and in chords), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar, everything by mouse), [0021](0021-mcp-server.md) (assistants)
 - **Amends:** [0058](0058-the-piano-roll-writes-in-key-and-in-chords.md): its in-key default, for a kit's clips. It also moves the drum view, which 0058 left for M4, to M3.
@@ -20,7 +20,7 @@
 - **A clip on a Drum Kit's track opens on its pads.**
   - Each row is a pad with a sound, named, lowest at the bottom.
   - A note on a pad without a sound keeps a hatched row, so nothing in the clip is hidden.
-  - Notes keep their lengths.
+  - Notes keep their lengths. A double-click dragged along a row paints a hit on each grid step.
 - **One toggle per clip: the pads, or the whole roll.** It takes In key's place, with In key's memory and menu item, so a clip has one switch whichever view it's for.
 - **On the pads, the surface shows what works on drums.** The chord lane, Draw's chords, In key, Others and the melodic tools leave the header, the Tools pane and the right-click menu. The menu bar keeps them, dimmed with the reason.
 - **Assistants see the pads:**

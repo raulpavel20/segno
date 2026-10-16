@@ -2,7 +2,7 @@
 
 The **Drum Kit** is an instrument with a pad for each note. Each pad holds a sound: a sample, played by the Sampler, or any other instrument, with effects after it if you want them. Drop a kick on a pad and the pad plays it. Drop a synth on the next one and that pad plays the synth. Hats choke each other. A whole kit is saved as one of the Drum Kit's presets.
 
-**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built and signed off by the product owner the same day (§22). Step 2a, macros on kits, built (§24). The piano roll's drum view, asked for at sign-off, designed for review with ADR 0066 proposed (§23, step 2b). Last, the factory kits. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
+**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built and signed off by the product owner the same day (§22). Step 2a, macros on kits, built (§24). The piano roll's drum view, asked for at sign-off, designed and approved by the product owner the same day with every recommendation of D1–D12, painting a row too, and ADR 0066 accepted (§23, step 2b); to be drawn for approval before it's built. Last, the factory kits. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
 
 What the product owner asked (2026-10-16):
 - A Drum Sampler module and a Drum Rack feature were "such a convoluted, roundabout way" of doing it. The Sampler already plays a single sample, and the rack "reads like something distinct from the collection of modules that the Rack feature is supposed to be".
@@ -429,7 +429,7 @@ The kit, built on the spike (§20) and the drawings (§21): `app/src/engine/Sess
 
 **Signed off by the product owner (2026-10-16).** Asked at sign-off: a drum view in the piano roll, for clips on a kit's track: only the lanes of the pads with sounds, named, and without the tools that make no sense for drums (chords and the like). Designed in §23 for review.
 
-## 23. The piano roll's drum view (for review, 2026-10-16)
+## 23. The piano roll's drum view (approved, 2026-10-16)
 
 The product owner asked for it at step 1's sign-off. A MIDI clip on a Drum Kit's track should show only the rows of the pads with sounds, so a beat can be written without hunting through the roll. Tools that make no sense for drums, such as making chords, shouldn't show there.
 
@@ -485,7 +485,7 @@ This brings the drum view from M4 ([piano-roll.md](piano-roll.md) §16) into ste
   - The row goes when its last note leaves it, once the gesture ends.
   - A pad that's off has its name dimmed, so a silent row says why.
 - **A row works as In key's rows do** ([piano-roll.md](piano-roll.md) §21.1):
-  - a double-click draws on the row clicked;
+  - a double-click draws on the row clicked, and held and dragged along the row it paints a hit on each grid step (D10, Live's draw mode); a hit is lengthened by its end afterwards, as any note is;
   - a drag moves notes from pad to pad;
   - ↑/↓ move the selection a row, to the next pad shown;
   - Ctrl+↑/↓ move it a semitone, which can leave the pads (the note's row then appears hatched);
@@ -564,7 +564,7 @@ On the pads, the surface shows only what works on drums. The menu bar keeps ever
 | Rows | `[fast]`: the pads with sounds in order; a note without a pad keeps a hatched row; ↑/↓ by rows, Ctrl+↑/↓ by semitones |
 | The view | A kit's clip opens on its pads; a clip turned to the whole roll stays so; another instrument puts In key back |
 | The surface | The header, the Tools pane and the right-click menu without the melodic tools; their menu bar items dimmed with the reason |
-| Drawing | A double-click draws on the row clicked; pressing a row's name plays its pad and selects it in the kit |
+| Drawing | A double-click draws on the row clicked; held and dragged, it paints a hit each grid step along the row, one undo step; pressing a row's name plays its pad and selects it in the kit |
 | Rhythm | Writes on the pad chosen |
 | UI | Drawn for review at standard and compact widths, zoomed; the layout checklist passes |
 | MCP | `get_clip` names the pads; `edit_notes` and `generate_notes` with a pad's name |
@@ -585,6 +585,8 @@ On the pads, the surface shows only what works on drums. The menu bar keeps ever
 | D10 | **Painting a row** | My verdict: yes, on the pads. A double-click held and dragged along a row paints a hit on each grid step, as Live's draw mode and Bitwig's spray can do. Sixteen hats would otherwise take sixteen double-clicks, and that's the hunting you want gone. The con: the same drag lengthens the drawn note in the whole roll, so the gesture differs between the views. A hit is lengthened by its end afterwards, as any note is |
 | D11 | **Assistants** | `get_clip` names the pads; `edit_notes` and `generate_notes` take a pad's name for a pitch |
 | D12 | **The ADR** | Proposed [ADR 0066](../decisions/0066-a-drum-kits-clips-open-on-its-pads.md): a kit's clips open on its pads, amending ADR 0058's in-key default for them, and the drum view moves from M4 to M3 with the kit |
+
+The product owner approved every recommendation, painting a row too (D10), and ADR 0066 (2026-10-16).
 
 ## 24. Step 2a, macros on kits, built (2026-10-16)
 
