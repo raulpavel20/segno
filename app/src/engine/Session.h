@@ -329,6 +329,10 @@ public:
     [[nodiscard]] std::unique_ptr<DeviceHandle> openRack(std::uint64_t rack);
     /// The rack's macros as a module's parameters (the panel's DeviceInfo).
     [[nodiscard]] static const DeviceInfo& rackMacros();
+    /// A Drum Kit as the panel kit sees a module (drum-kit.md §8, ADR 0064): the instrument "Drum
+    /// Kit" (type `drum-kit`), its parameters a rack's eight macros (no Morph: snapshots stay with
+    /// racks, §16).
+    [[nodiscard]] static const DeviceInfo& drumKit();
     /// What the pointer shows of a rack's macros (racks.md §5a), for the knobs of the modules in
     /// it: a macro hovered lights the knobs it sets and dims the other macros' rings; one dragged
     /// marks the knobs that can take it, and lights the one under the pointer. Never saved.

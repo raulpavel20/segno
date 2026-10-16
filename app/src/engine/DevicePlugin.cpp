@@ -1,6 +1,7 @@
 #include "DevicePlugin.h"
 
 #include "Modulator.h"
+#include "PadInlet.h"
 #include "SongKey.h"
 #include "SpecParameter.h"
 
@@ -359,6 +360,7 @@ void registerDevices(te::Engine& engine)
     for (const auto* factory : allDevices())
         registerDevice(engine, *factory);
     Modulator::registerType(); // the modulators: modifiers of our own type (modulators.md §22)
+    PadInlet::registerType(engine); // a Drum Kit pad's first plugin (drum-kit.md §15)
 }
 
 void registerDevice(te::Engine& engine, const DeviceFactory& factory)

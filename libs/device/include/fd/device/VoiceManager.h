@@ -12,7 +12,8 @@ namespace fd
 /// Poly: a free voice, else steal the oldest released voice, else the oldest playing one.
 /// Re-playing a held key retriggers its voice. Mono: last-note priority, every new note
 /// retriggers. Legato: overlapping notes change pitch without retriggering.
-/// The sustain pedal (CC 64) holds released notes; AllNotesOff releases everything.
+/// The sustain pedal (CC 64) holds released notes; AllNotesOff releases everything; AllSoundOff
+/// stops everything (Listener::voiceStop).
 ///
 /// The instrument implements Listener; stolen and legato voices are reported so the instrument
 /// can keep oscillator phase and envelope level continuous (click-free).
@@ -36,6 +37,9 @@ public:
         /// Legato: change the voice's pitch target without retriggering.
         virtual void voiceLegato(int v, int key, float velocity) = 0;
         virtual void voiceRelease(int v) = 0;
+        /// AllSoundOff: the voice stops now, within a short fade, released or not; it reports
+        /// voiceFinished as ever. An instrument without a quicker way releases it.
+        virtual void voiceStop(int v) { voiceRelease(v); }
     };
 
     struct Voice

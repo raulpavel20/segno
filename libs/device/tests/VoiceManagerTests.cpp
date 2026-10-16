@@ -103,6 +103,43 @@ TEST_CASE("all notes off releases everything, even sustained notes", "[fast]")
     CHECK(log.events == std::vector<std::string>{"start 0 60", "start 1 62", "release 0", "release 1"});
 }
 
+TEST_CASE("all sound off stops every sounding voice, released or held, through voiceStop", "[fast]")
+{
+    struct Stops final : VoiceManager::Listener
+    {
+        std::vector<std::string> events;
+        void voiceStart(int v, int key, float, int, std::int32_t, bool) override
+        {
+            events.push_back("start " + std::to_string(v) + " " + std::to_string(key));
+        }
+        void voiceLegato(int, int, float) override {}
+        void voiceRelease(int v) override { events.push_back("release " + std::to_string(v)); }
+        void voiceStop(int v) override { events.push_back("stop " + std::to_string(v)); }
+    };
+    VoiceManager vm;
+    Stops log;
+    vm.handle(pedal(true), log);
+    vm.handle(on(60), log);
+    vm.handle(on(62), log);
+    vm.handle(off(62), log); // sustained by the pedal
+    vm.handle(on(64), log);
+    vm.handle(off(64), log); // still sustained: the pedal's down
+    vm.handle({.type = EventType::AllSoundOff}, log);
+    CHECK(log.events ==
+          std::vector<std::string>{"start 0 60", "start 1 62", "start 2 64", "stop 0", "stop 1", "stop 2"});
+    // The pedal is up again: a new note isn't held by it.
+    vm.handle(on(65), log);
+    vm.handle(off(65), log);
+    CHECK(log.events.back() == "release 3");
+
+    // A listener without a quicker way releases its voices instead.
+    Log plain;
+    VoiceManager other;
+    other.handle(on(60), plain);
+    other.handle({.type = EventType::AllSoundOff}, plain);
+    CHECK(plain.events == std::vector<std::string>{"start 0 60", "release 0"});
+}
+
 TEST_CASE("held notes never stick when the mode or the voice count changes", "[fast]")
 {
     VoiceManager vm;

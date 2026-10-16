@@ -139,6 +139,7 @@ private:
     void voiceStart(int v, int key, float velocity, int channel, std::int32_t noteId, bool retrigger) override;
     void voiceLegato(int v, int key, float velocity) override;
     void voiceRelease(int v) override;
+    void voiceStop(int v) override;
 
     void startNote(Voice& v, int key, float velocity, int channel, bool released) noexcept;
     /// The zones a note plays, into the voice's layers (round robin and random choice applied).

@@ -17,7 +17,11 @@ std::optional<Event> toEvent(const juce::MidiMessage& m, int sampleOffset) noexc
         e.key = static_cast<std::uint8_t>(m.getNoteNumber());
         e.value = m.getFloatVelocity();
     }
-    else if (m.isAllNotesOff() || m.isAllSoundOff())
+    else if (m.isAllSoundOff())
+    {
+        e.type = EventType::AllSoundOff; // CC 120: stop now (a Drum Kit's choke, ADR 0064)
+    }
+    else if (m.isAllNotesOff())
     {
         e.type = EventType::AllNotesOff;
     }

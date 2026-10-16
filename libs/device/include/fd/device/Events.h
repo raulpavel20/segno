@@ -14,7 +14,10 @@ enum class EventType : std::uint8_t
     PitchBend,       // value -1..1
     ChannelPressure, // value 0..1
     PolyPressure,    // key = note, value 0..1
-    AllNotesOff
+    AllNotesOff,
+    /// Every sound stops now, within a short fade (MIDI CC 120): a Drum Kit's choke group
+    /// (ADR 0064). Added after M1's freeze (ADR 0034); a device that doesn't handle it ignores it.
+    AllSoundOff
 };
 
 /// A timestamped event within the current block.

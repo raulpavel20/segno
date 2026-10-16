@@ -116,6 +116,16 @@ void VoiceManager::handle(const Event& e, Listener& l) noexcept
                 l.voiceRelease(v);
             }
         break;
+    case EventType::AllSoundOff:
+        pedal_ = false;
+        stackSize_ = 0;
+        for (int v = 0; v < maxVoices; ++v)
+            if (auto& voice = voices_[static_cast<size_t>(v)]; voice.active)
+            {
+                voice.gate = voice.sustained = false;
+                l.voiceStop(v);
+            }
+        break;
     default:
         break;
     }

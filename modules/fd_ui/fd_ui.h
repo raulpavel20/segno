@@ -18,6 +18,7 @@ END_JUCE_MODULE_DECLARATION
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <bitset>
 #include <optional>
 
 #include "theme/Theme.h"
@@ -38,6 +39,7 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/ChoiceField.h"
 #include "controls/BarField.h"
 #include "controls/OctaveKeys.h"
+#include "controls/PadGrid.h"
 #include "controls/Labels.h"
 #include "controls/SearchField.h"
 #include "shell/ShellParts.h"

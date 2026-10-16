@@ -155,25 +155,26 @@ Sources: [Live: Drum Racks](https://www.ableton.com/en/manual/instrument-drum-an
 ## 8. In the chain: the kit's panel
 
 ```
- ┌ DRUM KIT ───────────────────────── ‹  808 Kit •   ▾  ›  [A] ┐ ┌ SAMPLER ──────────┐ ┌ COMPRESSOR ──┐  + │
- │ PADS                                 │ PAD · C1             │ │                   │ │              │    │
- │ ┌────┐┌────┐┌────┐┌────┐  ┌──┐       │ (Vol)  (Pan)         │ │   …               │ │   …          │    │
- │ │    ││    ││    ││    │  │▪▪│       │                      │ │                   │ │              │    │
- │ └────┘└────┘└────┘└────┘  │▪ │       │ [Choke  1      ▾]    │ │                   │ │              │    │
- │   …  (4 × 4)              └──┘       │ [Plays  C3     ▾]    │ │                   │ │              │    │
- │                                      │ [● On ]  [ Solo ]    │ │                   │ │              │    │
- └──────────────────────────────────────┴──────────────────────┘ └───────────────────┘ └──────────────┘    │
-  └───────────────────── PAD C1 · KICK 1 (the frame, under the selected pad's modules) ────────────────────┘
+ ┌ ‹ ● Drum Kit ──────── ‹  808 Kit        ▾  ›  [A] ┐ ┌ SAMPLER ──────────┐ ┌ COMPRESSOR ──┐  + │
+ │ PADS                                 │ ● PAD · C1   │ │                   │ │              │    │
+ │ ┌──────┐┌──────┐┌──────┐┌──────┐ ┌──┐│ [Vol  0.0 dB]│ │   …               │ │   …          │    │
+ │ │Crash ││      ││Ride  ││      │ │▪▪││ [Pan       C]│ │                   │ │              │    │
+ │ │C♯2   ││D2    ││D♯2   ││      │ │▫▪││ [Plays    C3]│ │                   │ │              │    │
+ │ └──────┘└──────┘└──────┘└──────┘ │▪▪││ [Choke None▾]│ │                   │ │              │    │
+ │   …  (4 × 4, the lowest at the   └──┘│ [Solo]       │ │                   │ │              │    │
+ │       bottom left)                   │              │ │                   │ │              │    │
+ └──────────────────────────────────────┴──────────────┘ └───────────────────┘ └──────────────┘    │
+  └──────────────── PAD C1 · KICK 1 (the frame, under the selected pad's modules) ─────────────────┘
 ```
 
 - **The kit's panel,** on the module grid like any module's ([device-panels.md](device-panels.md)):
-  - **PADS** [7]: the 4 × 4 pads across 6 columns and the content's 6 rows, then the overview in 1 column. A pad is about 74 × 37 px, room for a name of about ten characters, cut with an ellipsis after that, its whole name in the tooltip.
-  - **PAD** [4]: the selected pad's settings. Volume and Pan as knobs in row 0; Choke and Plays as combos, each with its name inside; On and Solo as toggles. The title names the pad ("PAD · C1"). The exact map is settled when it's drawn (§17).
+  - **PADS** [7]: the 4 × 4 pads across 6 columns and the content's 6 rows, then the overview in 1 column. A pad is 74 × 37 px, room for a name of about ten characters, cut with an ellipsis after that, its whole name in the tooltip.
+  - **PAD** [2]: the selected pad's settings, one a row: Vol, Pan and Plays as bars (as a chain's Vol and Pan, and the Sampler's Root Key), Choke as a combo with its name inside, Solo as a toggle. The pad's on is the section's power dot, and the title names the pad ("PAD · C1"). An empty pad has no settings: they show dimmed and can't be changed (settled while drawing, §21).
   - **MACROS** [4], from the first mapping (§10).
-- **The selected pad's modules follow the panel in the frame** that holds a rack's shown chain (racks.md §5), so modules inside a module look the same wherever they are. The frame's label names the pad: "PAD C1 · KICK 1", with "· OFF" and "SOLO" as a chain's does. The "+" at its end adds a module to the pad.
+- **The selected pad's modules follow the panel in the frame** that holds a rack's shown chain (racks.md §5), so modules inside a module look the same wherever they are. The frame's label always names the pad, even with one pad: "PAD C1 · KICK 1", with "· OFF" and "SOLO" as a chain's does. The "+" at its end adds a module to the pad.
 - **The header** is a module's: the name Drum Kit, then the preset group with the kit's name (§9).
 - **Folded,** the kit is one strip that says what it holds: "Drum Kit · 12 pads".
-- **Its width** is about 612 px before its pad's modules (PADS 384, PAD 228), and 840 px with MACROS.
+- **Its width** is 508 px before its pad's modules (PADS 384, PAD 124), and 736 px with MACROS.
 - **Every edit is one undo step,** as every chain edit is.
 
 ## 9. Kits: the Drum Kit's presets
@@ -349,3 +350,58 @@ Approved by the product owner (2026-10-16) with every recommendation.
 | K16 | **Several samples dropped in a chain** | Make a Drum Kit with them from C1 |
 | K17 | **Names** | Drum Kit, kit, pad, choke group, Plays. Never rack or chain in its UI |
 | K18 | **Building it** | The spike and the UI drawn for review first (step 0), then the kit (1), then macros (2), and last the factory kits, from CC0 sets searched for together (3) |
+
+## 20. Step 0, the spike (2026-10-16)
+
+Kept as tests (`tests/integration/DrumKitSpikeTests.cpp`). The pad inlet is built (`app/src/engine/PadInlet.h`), and so is All sound off: the device API's event, the shared `VoiceManager`'s `voiceStop`, the Sampler's stop with its steal fade, and CC 120 in the JUCE host.
+
+**What it found (§15's checks, each kept as a test):**
+1. **Notes:** each pad hears only its own note, rewritten to Plays, to the sample, mid-block too. Another pad's note, and a note with no pad, make no sound.
+2. **Pressure and bend:** polyphonic pressure reaches only its pad, at the note the pad plays; pitch bend reaches every pad.
+3. **Choke:** the closed hat stops the open hat within the Sampler's steal fade (1.5 ms), at two places in a block. No click: the largest step is under the tone's own and the fade's together. A pad in no group isn't choked, and a pad hit again never chokes itself.
+4. **The track's own audio** goes round sixteen pads once: the output nulls against the audio clip (below −100 dB).
+5. **Latency:** a pad with the Compressor's 10 ms lookahead beside a plain pad: both land on the note's sample.
+6. **A pad added while playing,** live through the hosted device: no gap. The quietest block around it is within 0.01 % of the steady level.
+7. **A kit's state read back** (16 Samplers with their samples) sounds the same (below −100 dB), its choke groups kept.
+8. **Undo:** swapping two pads' notes, and clearing a pad, are each one step back to the same sound (below −100 dB).
+9. **A pad sounds as the same instrument on a track does** (below −100 dB): the kit adds nothing and loses nothing. Added while building, because the live test (6) reads 3 dB lower than the offline ones. A pad and a track null offline, so those 3 dB come from somewhere on the live path, not from the kit. Not looked into further; the live test checks levels against each other, not absolutely.
+10. **CPU** (Release, offline renders of 8 s of sixteenth notes, every pad a Sampler with a sample):
+
+    | Pads | The kit | As many tracks | Kit / tracks | The kit, of real time |
+    |---|---|---|---|---|
+    | 16 | 675 ms | 578 ms | 1.17× | 8 % |
+    | 64 | 1,179 ms | 757 ms | 1.56× | 15 % |
+    | 128 | 1,866 ms | 960 ms | 1.94× | 23 % |
+
+    A pad costs about 0.13 % of real time on this machine. In this pattern most pads are silent most of the time, so that's mostly what an idle pad costs. Kits of 16 to 64 pads are cheap. A full 128 costs twice what as many tracks would. That's acceptable, but worth a look before kits that size are common: skipping idle pads, or the Sampler's idle cost.
+11. **A whole kit swapped** (A/B, a preset): 16 pads with half-second stereo samples are read back in 47 ms in Release (53 ms in Debug), under the 100 ms §15 asked for.
+
+**Settled while building it:**
+- **The inlet gets the kit's notes and nothing else.** Its audio out is silence, so a pad's sound starts from nothing. The track's own audio goes from the kit's input straight to its output, once, by one connection of its own: sixteen pads don't add the track's audio sixteen times.
+- **The inlet filters without allocating:** it copies what goes on into an array of its own, then back. An array that only gets shorter never reallocates; removing messages in place could shrink its storage, which allocates.
+- **Which notes choke a pad** is worked out on the message thread from every inlet's note and group (`PadInlet::updateChokes`), and read by the audio thread from two atomic words. An inlet works it out again when its own note or group changes (undo included) and when it's prepared. The kit does it after reading a kit in and after any change to its pads (step 1).
+- **A pad's mixer uses the balance pan law,** as a rack chain's and every channel's do.
+- **A kit's state read in gets new item ids,** as a rack file's does (the Session's loads already do this).
+
+## 21. Step 0, drawn (2026-10-16), for approval
+
+Every state of §17 step 0, drawn with the real panel kit and module panels from a stub (`tests/integration/DrumKitUiTests.cpp`, `FD_DUMP_DIR`). Each state passes the module panel lint, the pads' own checks (inside the grid, apart by the gap, name and note inside each pad and clear of each other, the choke number beside the note) and the frame's checks:
+- a new, empty kit;
+- 15 pads, the kick selected, its Sampler and Compressor in the frame;
+- a pad playing a synth;
+- a pad being renamed;
+- the pads shown moved up a page;
+- a sample over an empty pad, and a pad dragged onto another;
+- the hats in a choke group, a pad off, a pad soloed;
+- pads playing;
+- MACROS shown;
+- folded.
+
+**What drawing settled:**
+- **PAD is two columns, not four.** Vol, Pan and Plays are bars, as a chain's Vol and Pan and the Sampler's Root Key are. Choke is a combo and Solo a toggle. The pad's on is the section's power dot. With knobs, four columns were half empty. The panel is 508 px wide (736 with MACROS), not §8's first estimate of 612.
+- **An empty pad is a well** (`surface0`) with its note. A pad with a sound is raised, as a control is (`surface3`). An empty kit reads as empty at a glance.
+- **An empty pad's settings show dimmed and can't be changed:** PAD keeps its place, so the panel doesn't change width as pads are clicked.
+- **The frame's label always names the pad,** even in a kit of one pad. A rack's names a chain only from its second.
+- **The overview** sits in a well like a display's. A pad with a sound is a light cell, the selected pad's is in `active`, and the 16 shown are framed. At 1x a row is 3 px high.
+- **A pad's tooltip** names it whole ("Hat closed · F♯1"), as its name is cut to fit. An empty pad's says what it takes.
+- **The panel kit gained** `ui::PadGrid` and `ui::PadOverview` (`fd_ui`, shared, so Push 2's display and the piano roll's drum view can draw pads the same way), and the metrics `deviceGrid.padGap`, `padInset` and `overviewGap`.

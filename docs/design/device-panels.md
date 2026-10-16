@@ -62,6 +62,7 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
 | Display text | 6 inset, 14 tall | `DeviceGrid::displayInset`, `displayTextHeight`: a display's legend, readouts and axis labels |
 | Display handle | 11 | `DeviceGrid::displayHandle`: a point dragged on a display (the Compressor's threshold, the Filter's cutoff), filled `surface3` and ringed in the value colour, or `active` while held or hovered |
 | Source handle | 14 tall | `DeviceGrid::sourceHandle`: a modulation source's handle, a chip with its arrow and name ("Modulation", below) |
+| Pads | 4 / 5 / 1 | `DeviceGrid::padGap`, `padInset`, `overviewGap`: a Drum Kit's pads (`ui::PadGrid`, [drum-kit.md](drum-kit.md) §8): the gap between pads, a pad's name and note from its edges, the gap between the overview's cells (`ui::PadOverview`). Both are placed as displays: the pads over 6 columns and the 6 rows, the overview in 1 column |
 | Power | 14 | `DeviceGrid::power`: a power toggle's square (a module's, a section's, a rack's chain's) |
 | Modulation ring | 1.5, 1 apart | `Theme::knobRingThickness`, `knobRingGap`: the ring outside a modulated knob's arc |
 

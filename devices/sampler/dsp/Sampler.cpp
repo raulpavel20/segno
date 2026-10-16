@@ -557,6 +557,16 @@ void Sampler::voiceRelease(int index)
         releaseVoice(v);
 }
 
+void Sampler::voiceStop(int index)
+{
+    // As a stolen voice: the sound fades over the steal fade and ends; a note waiting for it
+    // never starts.
+    auto& v = voice_[static_cast<size_t>(index)];
+    v.pending = {};
+    if (v.sounding && v.fadeRemaining == 0)
+        v.fadeRemaining = fadeSamples_;
+}
+
 void Sampler::releaseVoice(Voice& v) noexcept
 {
     const auto& p = params();
@@ -637,6 +647,9 @@ void Sampler::handleEvent(const Event& e) noexcept
         forceRelease_ = true;
         voices_.handle(e, *this);
         forceRelease_ = false;
+        break;
+    case EventType::AllSoundOff:
+        voices_.handle(e, *this); // a choke (ADR 0064): every voice through voiceStop
         break;
     case EventType::Controller:
         if (e.key == 64)

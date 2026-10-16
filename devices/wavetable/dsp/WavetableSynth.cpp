@@ -949,6 +949,7 @@ void WavetableSynth::handleEvent(const Event& e) noexcept
     case EventType::NoteOn:
     case EventType::NoteOff:
     case EventType::AllNotesOff:
+    case EventType::AllSoundOff:
         voices_.handle(e, *this);
         break;
     case EventType::Controller:

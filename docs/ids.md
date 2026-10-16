@@ -59,6 +59,12 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 - In a project, on the rack's type (step 2): its snapshots (`fdSnapshots`, JSON: each a name and eight positions), the current one (`fdSnapshot`), Morph's on, A and B (`fdMorphOn`, `fdMorphA`, `fdMorphB`); Morph is the macro parameter marked `fdMorph`; a macro's lock, `fdLocked` on its state. In a `.segnorack` file: `snapshots`, `morph` (`on`, `a`, `b`, `position`) and `locked` on a macro, each left out while it has nothing to say.
 - In a project, a rack's chains are kept on its modules' places in tracktion's rack (`fdChain`, `fdChainMixer`, `fdChainName`, `fdChainOn`, `fdChainSolo`) and its shown chain on the rack (`fdShownChain`).
 
+## Drum Kit ([drum-kit.md](design/drum-kit.md), ADR 0064; approved 2026-10-16, permanent)
+
+- A Drum Kit is a module of type `drum-kit` (`DeviceSlot::deviceId`, MCP's `type`, a kit preset's `device`). Its macros are a rack's, `macro1` … `macro8`; it has no `morph`.
+- Its panel's sections (view state): `pads`, `pad`, `macros`.
+- In a project, a kit is a rack whose chains are its pads. Each pad's chain starts with a pad inlet, a plugin of type `fdPadInlet`, whose state keeps the pad's note (`fdPadNote`, 0 … 127), the note it plays (`fdPadPlays`) and its choke group (`fdPadChoke`, 0 for none, 1 … 16). The rest (the pad's name, the selected pad, the pads shown, a kit preset's form) is named here when step 1 builds it.
+
 ## Modulators ([modulators.md](design/modulators.md), ADR 0061; approved 2026-10-15, permanent)
 
 - A modulator is a module of one of the types `mod-lfo`, `mod-random`, `mod-envelope`, `mod-follower`, `mod-steps` (`DeviceSlot::deviceId`, MCP's `type`). The `mod-` prefix keeps them apart from device IDs.

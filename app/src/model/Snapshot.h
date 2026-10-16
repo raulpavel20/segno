@@ -177,13 +177,18 @@ struct RackMacro
     bool automated = false; // its lane plays: it follows that, as a locked one stays
 };
 
-/// One of a rack's chains: its mixer row and its modules, in order (racks.md §3).
+/// One of a rack's chains: its mixer row and its modules, in order (racks.md §3). A Drum Kit's
+/// chains are its pads with sounds (drum-kit.md §14): each also has its note, the note it plays
+/// and its choke group.
 struct RackChain
 {
-    std::string name; // "Chain 1" until renamed
+    std::string name; // "Chain 1" until renamed; a pad's: its sound's, or its own
     bool on = true, solo = false;
     float volumeDb = 0.0f, pan = 0.0f;
     std::vector<DeviceSlot> devices;
+    int note = -1;  // a pad's note, 0 … 127; -1 on a rack's chain
+    int plays = 60; // the note a pad plays into its instrument (Plays, drum-kit.md §6)
+    int choke = 0;  // a pad's choke group: 0 for none, 1 … 16 (§7)
 };
 
 /// A rack: chains side by side, summed, and eight macros (racks.md, ADR 0056).
@@ -195,6 +200,11 @@ struct RackInfo
     std::vector<RackChain> chains;
     std::array<RackMacro, macroCount> macros;
     int shownChain = 0; // the chain its frame shows (view state, kept with the project)
+    /// A Drum Kit (drum-kit.md, ADR 0064): its chains are its pads. View state, kept with the
+    /// project: the selected pad (its note, with a sound or not) and the lowest of the 16 shown.
+    bool kit = false;
+    int selectedPad = 36;
+    int padsFrom = 36;
 
     /// A snapshot of the macros' positions, with a name (racks.md §18.2).
     struct Snapshot

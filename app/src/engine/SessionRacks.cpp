@@ -774,6 +774,17 @@ const DeviceInfo& Session::rackMacros()
     return info;
 }
 
+const DeviceInfo& Session::drumKit()
+{
+    static const DeviceInfo info{.id = "drum-kit",
+                                 .name = "Drum Kit",
+                                 .category = "Instruments",
+                                 .kind = DeviceKind::Instrument,
+                                 .buses = {.inputChannels = 0, .acceptsMidi = true},
+                                 .params = std::span(kMacroSpecs.data(), model::RackInfo::macroCount)};
+    return info;
+}
+
 std::unique_ptr<DeviceHandle> Session::openRack(std::uint64_t rack)
 {
     if (auto* instance = impl_->rackInstance(rack))

@@ -21,6 +21,10 @@ struct DeviceGrid
     int displayTextHeight = 14; // a display's line of text (a legend, a readout, an axis label)
     int displayHandle = 11; // a point dragged on a display (the Compressor's threshold, the Filter's cutoff)
     int sourceHandle = 14;  // a modulation source's handle: a chip, its arrow and name ("Modulation")
+    // A Drum Kit's pads (drum-kit.md §5, ui::PadGrid): the gap between pads, a pad's name and note
+    // from its edges; the overview's cells (ui::PadOverview), the gap between them.
+    int padGap = 4, padInset = 5;
+    int overviewGap = 1;
     int power = 14;         // a power toggle's square: a module's, a section's, a rack's chain's
     int headerPadding = 8;
     int headerButton = 16;                          // a header's icon buttons: fold, previous and next preset

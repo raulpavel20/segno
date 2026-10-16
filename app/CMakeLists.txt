@@ -12,7 +12,7 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/mo
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp src/model/ModuleFacts.cpp src/model/RoundTrip.cpp src/model/MidiMap.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
     src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/AudioSound.cpp src/model/AudioToolkit.cpp src/model/Warp.cpp src/model/AudioAnalysis.cpp src/model/Export.cpp
-    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/SongKey.cpp src/model/Modulators.cpp)
+    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/SongKey.cpp src/model/Modulators.cpp src/model/DrumKit.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile fd::music fd::device fd::dsp nlohmann_json::nlohmann_json PRIVATE fd::warnings)
 # The modulators' factory presets (modulators.md §14, ADR 0044), from presets/<type>/.
@@ -23,7 +23,7 @@ if(FD_BUILD_TESTS)
         tests/SelectionTests.cpp tests/AutomationTests.cpp
         tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
         tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp tests/BrowserModelTests.cpp tests/ClipLoopsTests.cpp tests/MusicalTimeTests.cpp tests/BraceDragTests.cpp tests/SectionsTests.cpp
-        tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp tests/ModulatorPresetsTests.cpp
+        tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp tests/ModulatorPresetsTests.cpp tests/DrumKitModelTests.cpp
         tests/ModuleFactsTests.cpp tests/RoundTripTests.cpp tests/MidiMapTests.cpp
         tests/AudioSoundTests.cpp tests/WarpTests.cpp tests/AudioAnalysisTests.cpp
         LIBS fd_app_model)
@@ -46,6 +46,7 @@ add_library(fd_engine INTERFACE)
 target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/DevicePlugin.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/Modulator.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PadInlet.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionModulators.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/EngineBehaviour.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/Session.cpp"
@@ -192,6 +193,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/DeviceChain.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/RackPanel.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/DrumKitPanel.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ModulatorPanels.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MacroEditor.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CommandPalette.cpp"

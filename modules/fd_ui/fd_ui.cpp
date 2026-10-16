@@ -18,6 +18,7 @@
 #include "controls/ChoiceField.cpp"
 #include "controls/BarField.cpp"
 #include "controls/OctaveKeys.cpp"
+#include "controls/PadGrid.cpp"
 #include "controls/Labels.cpp"
 #include "controls/SearchField.cpp"
 #include "shell/ShellParts.cpp"
