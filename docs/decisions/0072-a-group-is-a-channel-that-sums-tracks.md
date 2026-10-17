@@ -1,6 +1,6 @@
 # 0072. A group is a channel that sums tracks
 
-- **Status:** Proposed
+- **Status:** Accepted (product owner, 2026-10-17), with editing on a group's row done by a time selection, designed and built first ([time-selection.md](../design/time-selection.md))
 - **Date:** 2026-10-17
 - **Amends:** [0026](0026-mixing-in-the-arrangement.md): a fourth kind of channel, the group; "group tracks wait for routing work with racks (M4)" is answered here. [0027](0027-selection-and-context-panels.md): the selection holds several channels.
 - **Builds on:** [0019](0019-one-kind-of-track.md) (one kind of track), [0025](0025-sidechain-routing.md) (sidechains), [0029](0029-independent-automation-lanes.md) and [0042](0042-every-row-moves-on-its-own.md) (lanes and rows), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar), [0043](0043-a-clips-colour-is-its-own.md) (colours are their own), [0049](0049-the-master-row-is-the-song-row.md) (the song row), [0021](0021-mcp-server.md) (assistants)
@@ -19,7 +19,7 @@
 - **Groups nest to any depth.** Return tracks and the master are never in a group.
 - **Members' sends go straight to the returns,** not through the group. Muting a group silences its members and their sends; soloing a member keeps its groups heard.
 - **Made from selected tracks** (Ctrl+G, Track > Group tracks), at the topmost one's place; **ungrouped** with Ctrl+Shift+G, which keeps the tracks and removes the group and its modules. Ctrl+G and Ctrl+Shift+G are shared with racks and act on what was used last. **Deleting a group deletes what's in it.** A group is never empty: it goes with its last member.
-- **Folding is view state:** each view (the arrangement, the mixer) folds on its own, as each keeps its own scroll; saved, never undone, never changing the selection. Alt+U folds, as Live's U does. A group's lane shows its members in miniature, drawn as the song row draws every track (a nested group as one line), and a drag in it selects their clips in that time.
+- **Folding is view state:** each view (the arrangement, the mixer) folds on its own, as each keeps its own scroll; saved, never undone, never changing the selection. Alt+U folds, as Live's U does. A group's lane shows its members in miniature, drawn as the song row draws every track (a nested group as one line), and a time selection on it covers every row in the group, folded or not.
 - **Several tracks can be selected** (Ctrl+click and Shift+click on headers and strips), built first, with what mixer.md §8 and tracks-and-clips.md §16 already describe.
 - **Stems** export groups whole by default, or every track alone.
 - **A group's colour is its own,** taken once from its topmost member; a one-off command gives its members and their clips its colour.

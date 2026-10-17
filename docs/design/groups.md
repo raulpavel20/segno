@@ -2,7 +2,7 @@
 
 A **group** holds tracks and sums them. Put the drums in a group and they share one fader, one chain of modules (a bus compressor, a saturator), one mute and solo, and the group's own sends. A group folds to a single row in the arrangement, or a single strip in the mixer, with its tracks drawn in miniature in its lane. Groups nest: a Drums group can sit inside a Rhythm group.
 
-**Status:** for review (2026-10-17): every recommendation of G1–G23 (§19), with [ADR 0072](../decisions/0072-a-group-is-a-channel-that-sums-tracks.md) proposed. Nothing is built until the product owner says go.
+**Status:** approved by the product owner (2026-10-17), every recommendation of G1–G23 but one, with [ADR 0072](../decisions/0072-a-group-is-a-channel-that-sums-tracks.md) accepted. The exception is editing on a group's row (G16, §6.5): a drag there selecting the members' clips was a stand-in for a time selection, which Segno lacks. The product owner chose the real thing: **selecting a stretch of time** is designed and built first, everywhere it makes sense ([time-selection.md](time-selection.md)), and a group's row uses it. Groups are built after it.
 
 What the product owner asked (2026-10-17):
 - "We need to implement a new feature. For a buss/group. I think calling it a group is fine."
@@ -83,7 +83,7 @@ Sources:
 - **Nesting.**
 - **No clips on a group, and no returns in one.**
 - **An overview of the members' clips** in the group's lane, with a nested group as one line (12.2) and a size that follows the row's height.
-- **Editing through the folded row,** done with a clip selection, because Segno has no time selection (§6.5).
+- **Editing through the folded row** with a time selection, as Live's, built first for the whole arrangement ([time-selection.md](time-selection.md), §6.5).
 - **Mute and solo** as Live has them.
 - **A group as a sidechain source.**
 - **The fold key, U,** as Alt+U, because a plain letter plays a note here.
@@ -224,11 +224,9 @@ Sources:
 ### 6.5 Working on a group's lane
 
 - **A click** in the lane selects the group, as a click in a track's empty lane selects the track.
-- **A drag across time selects every member's clips in that span,** folded or not, as a box over all its rows would.
-  - Then Delete, Ctrl+D, Ctrl+C, Ctrl+X, Ctrl+V and dragging act on them as on any selected clips.
-  - The selected clips show in the miniature in the selection colour.
-  - Live edits a folded group the same way: a time selection on the group's lane acts on everything in it (§2). Segno has no time selection yet, so the drag selects clips, which every clip command already acts on.
-  - Moving whole parts of the song stays the sections' job ([ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md)).
+- **A time selection on a group's row covers the group and every row in it,** folded or not ([time-selection.md](time-selection.md)). Every command on a time selection then acts on all of them, as Live's does (§2): select bars 9 to 17 on a folded Drums group and Ctrl+D duplicates those bars on every drum track.
+  - The selection shows in the miniature as it shows on any row.
+  - *(Approved 2026-10-17 in place of a stand-in: a drag that selected the members' whole clips. With long clips it acted on more than the stretch dragged across.)*
 - **A clip is never dropped on a group's lane:** the drag shows it can't land there. Files and instruments dropped there make a new track in the group (§11).
 
 ## 7. Signal flow and the mix
@@ -436,13 +434,15 @@ Grouping needs several tracks selected. [mixer.md](mixer.md) §8 and [tracks-and
 
 ## 17. Steps
 
+**First, time selection** ([time-selection.md](time-selection.md)), designed, built and signed off on its own (the product owner, 2026-10-17). Then:
+
 0. **The spike (§15) and the UI drawn,** both before anything is built. The UI is drawn with the real track header kit and mixer strips, in every state:
    - tracks selected, with Ctrl+G about to group them;
    - a group open and folded, with lanes among its members;
    - three levels of nesting at the narrowest header width;
    - a drag landing between members, on a group's header, and at a group's end, at both depths;
    - a muted group, a soloed member, and the group's half-lit solo;
-   - the group's lane with clips selected by a drag, and a selected member's line while folded;
+   - a time selection on a folded group's row, and a selected member's line while folded;
    - the mixer view with one group open and one folded;
    - the inspector for a group, a member and several tracks;
    - at standard and compact widths, zoomed.
@@ -492,7 +492,7 @@ Grouping needs several tracks selected. [mixer.md](mixer.md) §8 and [tracks-and
 | G13 | **Deleting a group** | Deletes everything in it, with a toast and Undo, as Live does. No question asked (§5.4) |
 | G14 | **An emptied group** | Goes with its last member, in the same undo step (§4) |
 | G15 | **Dropping at a group's end** | The pointer's left–right position picks inside or after; the line is drawn at that depth (§5.3) |
-| G16 | **The group's lane** | Its members in miniature, drawn as the song row is, with a nested group as one line. A drag selects their clips in that time, as Live's time selection does (§6.2, §6.5) |
+| G16 | **The group's lane** | Its members in miniature, drawn as the song row is, with a nested group as one line. ~~A drag selects their clips in that time~~ A time selection on it covers every row in the group, as Live's does; time selection is designed and built first (the product owner, 2026-10-17; §6.2, §6.5) |
 | G17 | **Folding** | View state, never undone. **Each view folds on its own** (Cubase's linked folding is a common complaint). Alt+U and Alt+click for all; the selection is never changed (§6.4) |
 | G18 | **How members look** | The group's colour bar down their left edge, their own beside it; one bar a level (§6.1) |
 | G19 | **A group's colour** | Its own, taken once from its topmost member; Give tracks the group's colour recolours its members and their clips once, as Live's command does (§4) |
