@@ -25,6 +25,9 @@ struct RulerOptions
     std::optional<double> playhead;                 // a marker at the bottom
     std::optional<std::pair<double, double>> range; // a strip along the bottom (a clip's extent)
     juce::Colour rangeColour;
+    /// A time selection's stretch: a band behind the numbers and ticks, without handles
+    /// (time-selection.md §7).
+    std::optional<std::pair<double, double>> selection;
 };
 
 /// The ruler row: bar numbers and ticks (and the range strip and playhead marker). The loop
@@ -41,6 +44,12 @@ void paintPlayhead(juce::Graphics& g, const model::Timeline& timeline, juce::Rec
 
 /// A rubber-band selection.
 void paintBoxSelection(juce::Graphics& g, juce::Rectangle<float> box);
+
+/// A time selection over one row (time-selection.md §7), the look of the audio editor's range:
+/// from `start` to `end` across `area`'s height, in selectionFill, a selectionStroke line at each
+/// edge; nothing outside `area`.
+void paintTimeSelection(juce::Graphics& g, const model::Timeline& timeline, juce::Rectangle<int> area,
+                        double start, double end);
 
 /// A selection's time handles in a ruler (piano-roll.md §9.2, audio-editor.md §7.6): one inside each
 /// end of the span from `x0` to `x1` (the view's x), in the ruler's lower half. Empty when there's no

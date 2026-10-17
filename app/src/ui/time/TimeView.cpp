@@ -38,6 +38,13 @@ void paintRuler(juce::Graphics& g, const std::vector<model::Timeline::GridLine>&
     g.fillRect(area);
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(area);
+    if (options.selection) // behind the ticks and numbers
+    {
+        const float x0 = xOf(timeline, area, options.selection->first),
+                    x1 = xOf(timeline, area, options.selection->second);
+        g.setColour(t.roles.selectionFill);
+        g.fillRect(x0, static_cast<float>(area.getY()), x1 - x0, static_cast<float>(area.getHeight()));
+    }
 
     // The range strip along the bottom; ticks stand on it.
     constexpr float rangeHeight = 3.0f;
@@ -108,6 +115,22 @@ void paintBoxSelection(juce::Graphics& g, juce::Rectangle<float> box)
     g.fillRect(box);
     g.setColour(roles.selectionStroke);
     g.drawRect(box, 1.0f);
+}
+
+void paintTimeSelection(juce::Graphics& g, const model::Timeline& timeline, juce::Rectangle<int> area,
+                        double start, double end)
+{
+    const auto& roles = ui::Theme::current().roles;
+    juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(area);
+    const float x0 = std::round(xOf(timeline, area, start)), x1 = std::round(xOf(timeline, area, end));
+    const auto box = juce::Rectangle<float>(x0, static_cast<float>(area.getY()), std::max(1.0f, x1 - x0),
+                                            static_cast<float>(area.getHeight()));
+    g.setColour(roles.selectionFill);
+    g.fillRect(box);
+    g.setColour(roles.selectionStroke);
+    g.fillRect(box.withWidth(1.0f));
+    g.fillRect(box.withX(box.getRight() - 1.0f).withWidth(1.0f));
 }
 
 std::pair<juce::Rectangle<int>, juce::Rectangle<int>> timeHandles(juce::Rectangle<int> ruler, int x0, int x1)

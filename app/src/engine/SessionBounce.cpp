@@ -505,11 +505,30 @@ std::string Session::bounceRefusal(const std::vector<std::uint64_t>& clips, mode
 std::shared_ptr<Session::RenderJob> Session::bounce(const std::vector<std::uint64_t>& clips, model::BounceMode mode,
                                                     std::function<void(const BounceResult&)> done, const std::string& undoName)
 {
-    auto& impl = *impl_;
     flushSnapshot();
+    return startBounce(model::bounceRuns(*snapshot(), {clips.begin(), clips.end()}, mode), mode,
+                       std::move(done), undoName);
+}
+
+std::shared_ptr<Session::RenderJob> Session::bounceStretch(const std::vector<std::uint64_t>& tracks,
+                                                           double from, double to, model::BounceMode mode,
+                                                           std::function<void(const BounceResult&)> done,
+                                                           const std::string& undoName)
+{
+    flushSnapshot();
+    return startBounce(model::stretchRuns(*snapshot(), {tracks.begin(), tracks.end()}, from, to, mode), mode,
+                       std::move(done), undoName);
+}
+
+std::shared_ptr<Session::RenderJob> Session::startBounce(std::vector<model::BounceRun> runs,
+                                                         model::BounceMode mode,
+                                                         std::function<void(const BounceResult&)> done,
+                                                         const std::string& undoName)
+{
+    auto& impl = *impl_;
     const auto snapshot = this->snapshot();
     auto job = std::make_shared<Impl::Bounce>(impl, mode);
-    job->runs = model::bounceRuns(*snapshot, {clips.begin(), clips.end()}, mode);
+    job->runs = std::move(runs);
     if (job->runs.empty())
         return nullptr;
     job->undoName = !undoName.empty() ? undoName : mode == model::BounceMode::InPlace ? "Bounce in place" : "Bounce to new track";

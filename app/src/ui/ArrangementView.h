@@ -210,6 +210,25 @@ public:
     /// A section was clicked, made or moved (Delete, Ctrl+D and F2 act on sections).
     std::function<void()> onSectionActivated;
 
+    // Time selection (docs/design/time-selection.md, ADR 0073): a stretch of time on chosen rows.
+    /// Selects a stretch on rows (tracks and lanes), as a drag across them does; started on
+    /// `channel`'s row. An empty or rowless one clears it.
+    void selectTime(model::TimeSpan span, const std::set<std::uint64_t>& tracks,
+                    const std::set<std::uint64_t>& lanes,
+                    std::optional<std::uint64_t> channel = std::nullopt);
+    [[nodiscard]] bool hasTimeSelection() const noexcept { return selection_.hasTime(); }
+    /// Whether a row is in the time selection.
+    [[nodiscard]] bool rowInTime(const model::ArrangementRow& row) const noexcept;
+    /// A selected stretch being dragged by a title strip inside it (§10): where it would land,
+    /// `seconds` later and `tracks` track rows down (lanes stay on their own rows). Drawn while set.
+    struct StretchMove
+    {
+        double seconds = 0.0;
+        int tracks = 0;
+        bool copy = false;
+    };
+    void previewStretchMove(std::optional<StretchMove> move);
+
     // Takes (C5b, ADR 0032, docs/design/recording.md §6): under their clip.
     /// Selects a take (with its track), as a click on its strip does.
     /// A click on a take's strip (ADR 0038): that take for the section of its clip at `seconds`;
@@ -629,6 +648,9 @@ private:
     int dragStartTrack_ = 0;
     bool dragMoved_ = false;
     std::vector<model::ClipEdit> preview_; // where dragged clips will land
+    std::optional<StretchMove> stretchMove_; // where a dragged stretch would land (time-selection.md §10)
+    /// The time selection over its rows, and a dragged stretch at its landing place.
+    void paintTimeSelection(juce::Graphics& g, juce::Rectangle<int> area, juce::Rectangle<int> visible);
     std::set<std::uint64_t> boxBase_;      // selection before a Shift box drag
     std::optional<std::uint64_t> boxChannel_; // the channel while a box holds no clips
     std::optional<std::uint64_t> clickedInSelection_; // a click without a drag selects just it

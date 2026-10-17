@@ -9,6 +9,14 @@
 
 namespace fd::model
 {
+/// A stretch of the song's time, in seconds (docs/design/time-selection.md, ADR 0073).
+struct TimeSpan
+{
+    double start = 0.0, end = 0.0;
+    [[nodiscard]] double length() const noexcept { return end - start; }
+    friend bool operator==(const TimeSpan&, const TimeSpan&) = default;
+};
+
 /// The window's one selection (M2 step A5, docs/design/selection.md, ADR 0027): a channel and
 /// clips, shared by the arrangement and the mixer view. The channel is always the channel of what
 /// was selected last, so a selected track and a selected clip never disagree; withClips() and
@@ -27,6 +35,18 @@ struct Selection
     /// Sections of the song (ADR 0049, arranger.md §10): a run of them. Never together with clips,
     /// a lane or takes; the channel is then the master.
     std::set<std::uint64_t> sections;
+    /// Rows chosen together (time-selection.md §4): tracks and automation lanes, next to each
+    /// other or not. With `time` it's a time selection on them, never together with clips, a
+    /// lane's points, takes or sections; the channel is the row it was started on (a lane's: its
+    /// first assignment's). Without `time`, several selected tracks (groups.md §8, later).
+    std::set<std::uint64_t> rowTracks, rowLanes;
+    std::optional<TimeSpan> time;
+
+    /// A time selection: a stretch on at least one row.
+    [[nodiscard]] bool hasTime() const noexcept
+    {
+        return time.has_value() && (!rowTracks.empty() || !rowLanes.empty());
+    }
 
     friend bool operator==(const Selection&, const Selection&) = default;
 };
@@ -38,6 +58,13 @@ struct Selection
 
 /// Sections, with the master as their channel (arranger.md §10).
 [[nodiscard]] Selection withSections(const Snapshot& snapshot, std::set<std::uint64_t> sections);
+
+/// A time selection (time-selection.md §4): `span` (start before end) on the rows that exist of
+/// `tracks` and `lanes`, its channel `channel` if it's one of them, else the topmost track's, else
+/// the first lane's first assignment's. An empty selection if no row exists or the span is empty.
+[[nodiscard]] Selection withTime(const Snapshot& snapshot, TimeSpan span,
+                                 const std::set<std::uint64_t>& tracks, const std::set<std::uint64_t>& lanes,
+                                 std::optional<std::uint64_t> channel = std::nullopt);
 
 /// A lane and points on it, with its first assignment's channel (none if it has none).
 [[nodiscard]] Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t> points = {});
@@ -60,7 +87,8 @@ enum class Subject
     Take,
     Takes,
     Section,
-    Sections
+    Sections,
+    Time // a time selection (time-selection.md §7)
 };
 
 /// The inspector's sections, top to bottom (selection.md §5).
@@ -78,6 +106,7 @@ enum class InspectorSection
     Notes, // the clip view's selected notes (piano-roll.md §9.6), added by the inspector
     Section,
     Sections,
+    Time, // a time selection's Start, End, Length and rows (time-selection.md §7)
     Track,
     Input,
     Return,
@@ -104,6 +133,8 @@ struct PanelContext
     int pointCount = 0;               // its selected points
     std::optional<SectionInfo> section; // the one selected section
     int sectionCount = 0;               // selected sections
+    std::optional<TimeSpan> time;       // a time selection's stretch
+    int timeTracks = 0, timeLanes = 0;  // ... and its rows
 
     bool clipViewOffered = false; // the detail panel has its Clip tab (the arrangement only)
     bool opensClipView =

@@ -147,6 +147,55 @@ std::vector<BounceRun> bounceRuns(const Snapshot& snapshot, const std::set<std::
     return out;
 }
 
+std::vector<BounceRun> stretchRuns(const Snapshot& snapshot, const std::set<std::uint64_t>& tracks,
+                                   double from, double to, BounceMode mode)
+{
+    std::vector<BounceRun> out;
+    if (!(to > from))
+        return out;
+    for (const auto& track : snapshot.tracks)
+    {
+        if (!tracks.contains(track.id) || !track.holdsClips())
+            continue;
+        BouncePiece piece{.start = from, .end = to, .limit = kInfinity};
+        bool midi = false, refused = false;
+        const ClipInfo* first = nullptr;
+        for (const auto& group : clipGroups(track))
+        {
+            if (group.start() >= to - kEpsilon)
+            {
+                // The first clip after the stretch: a bounce in place never runs past it.
+                if (mode == BounceMode::InPlace && piece.limit == kInfinity)
+                {
+                    piece.limit = group.start();
+                    piece.limitName = group.parts.front()->name;
+                }
+                continue;
+            }
+            if (group.start() < from - kEpsilon || group.end() > to + kEpsilon)
+                continue;
+            for (const auto* c : group.parts)
+            {
+                refused = refused || bounceRefusal(track, *c, mode) != BounceRefusal::None;
+                midi = midi || c->kind == ClipInfo::Kind::Midi;
+                piece.parts.push_back(c->id);
+                first = first != nullptr ? first : c;
+            }
+        }
+        if (first == nullptr || refused)
+            continue;
+        piece.name = first->name;
+        piece.colour = first->colour;
+        const auto kind = midi ? ClipInfo::Kind::Midi : ClipInfo::Kind::Audio;
+        out.push_back({.track = track.id,
+                       .kind = kind,
+                       .pieces = {std::move(piece)},
+                       .start = from,
+                       .renderEnd = to + tailAllowance(kind, mode)});
+    }
+    return out;
+}
+
 BounceEnd bounceEnd(const BounceRun& run, const BouncePiece& piece, const BlockLevels& levels, BounceMode mode)
 {
     const double allowance = tailAllowance(run.kind, mode);

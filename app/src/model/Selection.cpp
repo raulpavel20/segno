@@ -51,6 +51,45 @@ Selection withSections(const Snapshot& snapshot, std::set<std::uint64_t> section
     return s;
 }
 
+Selection withTime(const Snapshot& snapshot, TimeSpan span, const std::set<std::uint64_t>& tracks,
+                   const std::set<std::uint64_t>& lanes, std::optional<std::uint64_t> channel)
+{
+    Selection s;
+    if (!(span.end > span.start))
+        return s;
+    for (const auto id : tracks)
+        if (const auto* t = snapshot.channel(id); t != nullptr && t->holdsClips())
+            s.rowTracks.insert(id);
+    for (const auto id : lanes)
+        if (snapshot.automationLane(id) != nullptr)
+            s.rowLanes.insert(id);
+    if (s.rowTracks.empty() && s.rowLanes.empty())
+        return {};
+    s.time = span;
+    // The row it was started on; else the topmost track; else the first lane's first assignment's.
+    if (channel && snapshot.channel(*channel) != nullptr)
+        s.channel = channel;
+    else if (!s.rowTracks.empty())
+    {
+        for (const auto& t : snapshot.tracks)
+            if (s.rowTracks.contains(t.id))
+            {
+                s.channel = t.id;
+                break;
+            }
+    }
+    else
+        for (const auto& lane : snapshot.automationLanes)
+            if (s.rowLanes.contains(lane.id))
+            {
+                if (!lane.assignments.empty() &&
+                    snapshot.channel(lane.assignments.front().channel) != nullptr)
+                    s.channel = lane.assignments.front().channel;
+                break;
+            }
+    return s;
+}
+
 Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t> points)
 {
     Selection s{.lane = lane, .points = std::move(points)};
@@ -62,6 +101,10 @@ Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t
 
 Selection pruned(const Selection& selection, const Snapshot& snapshot)
 {
+    // A time selection keeps its stretch on the rows that still exist (time-selection.md §4).
+    if (selection.hasTime())
+        return withTime(snapshot, *selection.time, selection.rowTracks, selection.rowLanes,
+                        selection.channel);
     Selection s;
     for (const auto id : selection.clips)
         if (findClip(snapshot, id))
@@ -146,6 +189,28 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         if (ctx.takeCount != 1)
             ctx.take.reset();
     }
+    else if (selection.hasTime())
+    {
+        // A time selection (time-selection.md §7): its stretch and rows; its channel the row it was
+        // started on.
+        ctx.subject = Subject::Time;
+        ctx.time = selection.time;
+        for (const auto id : selection.rowTracks)
+            ctx.timeTracks += snapshot.channel(id) != nullptr ? 1 : 0;
+        for (const auto id : selection.rowLanes)
+            ctx.timeLanes += snapshot.automationLane(id) != nullptr ? 1 : 0;
+        // Inside one clip on one track, the clip view shows that clip (§14.3).
+        if (selection.rowTracks.size() == 1 && selection.rowLanes.empty())
+            if (const auto* track = snapshot.channel(*selection.rowTracks.begin()))
+                for (const auto& c : track->clips)
+                    if (c.start <= selection.time->start + 1e-9 && c.end() >= selection.time->end - 1e-9)
+                    {
+                        ctx.clip = c;
+                        if (c.kind == ClipInfo::Kind::Midi)
+                            ctx.midiClip = c;
+                        break;
+                    }
+    }
     else if (selection.clips.empty() && !selection.sections.empty())
     {
         // Sections (arranger.md §10): their channel is the master's.
@@ -201,6 +266,8 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         ctx.inspector.push_back(InspectorSection::Take);
     else if (ctx.subject == Subject::Takes)
         ctx.inspector.push_back(InspectorSection::Takes);
+    if (ctx.subject == Subject::Time)
+        ctx.inspector.push_back(InspectorSection::Time);
     if (ctx.subject == Subject::Section)
         ctx.inspector.push_back(InspectorSection::Section);
     else if (ctx.subject == Subject::Sections)

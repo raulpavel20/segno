@@ -2,7 +2,7 @@
 
 A **time selection** is a stretch of time on chosen rows. Drag across bars 9 to 17 over the drums and the bass, and those eight bars are selected on those rows, whatever clips lie there. Commands then act on exactly that stretch. Delete clears it. Ctrl+D repeats it right after itself. Ctrl+E splits the clips at its edges. Ctrl+L loops it. Export renders it. Song-wide versions insert or remove time across the whole song. The same idea works inside a clip: the audio editor already selects time this way, and the piano roll gains it.
 
-**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 (drawn, and the one check) is next. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
+**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 drawn and checked (2026-10-18, §24), for the product owner's approval. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
 
 What the product owner asked (2026-10-17), on reviewing the groups design:
 - "I think we need to implement selecting a stretch of time."
@@ -489,3 +489,35 @@ Then groups ([groups.md](groups.md), P9).
 | T22 | **From the arrangement to the clip view** | A selection inside one clip shows it in the clip view with the stretch selected; then each is its own (§14.3) |
 | T23 | **Rows shared with selected tracks** | One set of rows, with or without a stretch, also used for groups' several selected tracks (§4, [groups.md](groups.md) §8) |
 | T24 | **Building it** | Drawn and checked first (step 0), then the arrangement (1), then what waited and the clip view (2), each signed off; groups after (§21) |
+
+## 24. Step 0, drawn and checked (2026-10-18; for the product owner's approval)
+
+**The check passed** (`TimeSelectionSpikeTests`). `Session::bounceStretch` bounces a stretch on each track as one piece (`model::stretchRuns`), using the bounce's own machinery.
+- Two MIDI clips with a gap between them, bounced in place over a stretch that starts and ends in empty time, become one audio clip spanning it.
+- That clip's "Before bounce" take holds both clips where they were, gap and all. Switching to it and back plays the same as before (a null under −100 dB each time), and so does the bounce.
+- Saved and opened, the take and its gap are kept, and switching still works.
+- One undo step takes the bounce back to the two plain clips.
+- A stretch with nothing in it, or with only part of a clip, bounces nothing: clips crossing an edge are split first, by the command (step 2).
+
+**Drawn** with the real arrangement, inspector, piano roll and audio editor (`TimeSelectionUiTests`, with FD_DUMP_DIR), on three tracks and a lane:
+- a stretch on Drums, Keys and the lane, with Bass between them left out, at 1800 and 1280 px wide;
+- the stretch moved two bars later, and copied a bar later and a track down;
+- every track and lane selected, then one left out;
+- a selection inside one clip, opening the clip view, with the piano roll's stretch under a box of notes;
+- the audio editor's selection.
+
+**Settled while drawing:**
+- **One function draws every time selection** (`time::paintTimeSelection`): the arrangement's rows, the piano roll's notes, the audio editor's waveform, and the song row. The ruler's band is the shared ruler's (`RulerOptions::selection`), behind its numbers.
+- **Clips under the fill take its tint.** They're never drawn as selected clips, which are lighter and outlined: what's selected is the time.
+- **The fill covers a track's own lane,** not its open takes, and stops above the row's separator.
+- **A dragged stretch lands looking as the stretch does:** its fill and edge lines at the landing place, the pieces it carries drawn there as dragged clips are. A frame in the accent colour was tried first and dropped: it doubled the pieces' outlines and looked like nothing else in Segno.
+- **TIME's Rows** reads in the proportional face ("2 tracks, 1 lane"); Start, End and Length are fields, as SECTION's are. They move the selection on its rows and are never an undo step.
+- **The song row is tinted only when every track and lane is in the selection.**
+- **In the piano roll** the stretch fills the notes' rows only, not the velocity lane. The selected notes' time handles keep the ruler to themselves.
+- **The audio editor** draws its selection through the shared function and reads "Selection −4.5 dB" on its gain handle. Its menu items are renamed: Crop to selection, Fade to selection, Clip loop to selection.
+
+**Not drawn yet:**
+- **The right-click menu on a selection:** its commands come with step 1, and it's the shared menu's look.
+- **A lane's curve at its landing place** while a stretch is dragged: the drag itself comes with step 1.
+
+**Found for step 2:** a stretch holding both MIDI and audio clips on one track, bounced in place, would render the audio through the modules before the instrument. It's refused there, as a bounce in place already refuses modules before the instrument ([bounce.md](bounce.md) §3), with "Bounce to new track" offered instead.

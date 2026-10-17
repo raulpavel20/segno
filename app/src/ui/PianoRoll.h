@@ -4,6 +4,7 @@
 #include "model/NoteEditing.h"
 #include "model/NoteTools.h"
 #include "model/PianoRollOptions.h"
+#include "model/Selection.h"
 #include "model/Timeline.h"
 #include "ui/AutomationLane.h"
 #include "ui/ClipLoopBrace.h"
@@ -149,6 +150,11 @@ public:
     [[nodiscard]] const std::set<std::size_t>& selection() const noexcept { return selection_; }
     [[nodiscard]] bool hasSelection() const noexcept { return !selection_.empty(); }
     void setSelection(std::set<std::size_t> selection);
+    /// The clip view's time selection (time-selection.md §14.1): a stretch of the song's time
+    /// across every row, under the notes; a box's span makes it, and the clip's time commands use
+    /// it. None clears it.
+    void setTimeSelection(std::optional<model::TimeSpan> span);
+    [[nodiscard]] const std::optional<model::TimeSpan>& timeSelection() const noexcept { return timeSpan_; }
     /// The notes or the selection changed (the inspector's NOTES section follows).
     std::function<void()> onSelectionChanged;
     /// Counts changes of the notes and the selection: the Tools pane shows its tool again on them.
@@ -410,6 +416,7 @@ private:
     model::PianoRollOptions options_;
     std::vector<model::Note> notes_;    // the clip's notes: the snapshot's, or our last edit
     std::set<std::size_t> selection_;   // indices into notes_
+    std::optional<model::TimeSpan> timeSpan_;       // the clip view's time selection (§14.1)
     std::optional<model::NoteEdit> preview_;        // during a gesture, or a tool's preview
     std::vector<int> rows_;                         // In key or on the pads: the pitches shown
     bool folded_ = false;                           // rows_ are the rows (else every pitch is one)

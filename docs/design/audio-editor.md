@@ -114,14 +114,15 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 |---|---|
 | Split (Ctrl+E) | Splits the clip at the range's edges; with no range, at the playhead, as today |
 | Delete | Removes that part of the clip; what's on either side stays where it is |
-| Crop to range | Moves the clip's edges to the range |
+| Crop to selection | Moves the clip's edges to the range |
 | Silence | The gain line falls to silence over the range, with a 4 ms ramp at each edge (the edge fades' length) |
 | The range's gain handle; Gain ▸ Up 1 dB, Down 1 dB | Raises or lowers the gain line over the range, with the same ramps |
-| Fade to range | A range at the clip's start becomes its fade-in; at its end, its fade-out |
-| Loop range | The clip loops the range |
+| Fade to selection | A range at the clip's start becomes its fade-in; at its end, its fade-out |
+| Clip loop to selection | The clip loops the range |
 | Markers at transients | A warp marker on every transient in the range (Live's) |
 
 - Edit's Split, Delete and Select all act here when the audio editor was used last, as they act on notes after the piano roll.
+- **The range is the clip view's time selection** ([time-selection.md](time-selection.md) §14.2, 2026-10-18): drawn as every time selection is, its commands renamed Crop to selection, Fade to selection and Clip loop to selection (they were Crop to range, Fade to range and Loop range), its gain handle's tag "Selection −4.5 dB".
 
 ## 6. The clip's sound
 
@@ -327,9 +328,9 @@ A new **Audio** menu (Alt+A), between Notes and Song. **The same menu opens from
 | Reverse | – |
 | Polarity | – |
 | — | |
-| Crop to range | – |
-| Fade to range | – |
-| Loop range | – |
+| Crop to selection | – |
+| Fade to selection | – |
+| Clip loop to selection | – |
 | Slice… (the Tools pane at Slice) | – |
 
 - **Shared keys:** Ctrl+U, Ctrl+Shift+U and the transpose keys are the Notes menu's. Each key goes to whichever kind of clip the clip view shows, so no key does two things at once; how both menus list them is settled while building, with the shortcut test.

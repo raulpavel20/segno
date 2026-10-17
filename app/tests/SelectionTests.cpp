@@ -301,3 +301,82 @@ TEST_CASE("selection: sections are the subject, with the master as their channel
     s.sections.clear();
     CHECK(pruned(one, s) == Selection{.channel = 9});
 }
+
+TEST_CASE("selection: a time selection is a stretch on rows, its channel the row it was started on "
+          "(time-selection.md §4)",
+          "[fast]")
+{
+    auto s = project();
+    s.automationLanes.push_back({.id = 40, .assignments = {{.channel = 2}}});
+
+    SECTION("made: the rows that exist, the channel asked for")
+    {
+        const auto sel = withTime(s, {1.0, 3.0}, {1, 2, 99}, {40, 77}, 2);
+        CHECK(sel.hasTime());
+        CHECK(sel.time == TimeSpan{1.0, 3.0});
+        CHECK(sel.rowTracks == std::set<std::uint64_t>{1, 2});
+        CHECK(sel.rowLanes == std::set<std::uint64_t>{40});
+        CHECK(sel.channel == 2u);
+        CHECK(sel.clips.empty());
+    }
+    SECTION("without a channel: the topmost track; on lanes alone, the first lane's assignment")
+    {
+        CHECK(withTime(s, {1.0, 3.0}, {2, 1}, {}).channel == 1u);
+        CHECK(withTime(s, {1.0, 3.0}, {}, {40}).channel == 2u);
+    }
+    SECTION("nothing: an empty stretch, no rows, or only rows that hold no clips")
+    {
+        CHECK_FALSE(withTime(s, {3.0, 3.0}, {1}, {}).hasTime());
+        CHECK_FALSE(withTime(s, {1.0, 3.0}, {}, {}).hasTime());
+        CHECK_FALSE(withTime(s, {1.0, 3.0}, {5, 9}, {}).hasTime()); // a return, the master
+        CHECK(withTime(s, {3.0, 1.0}, {1}, {}) == Selection{});
+    }
+    SECTION("after a change: rows that went are dropped, and with none left it goes")
+    {
+        auto sel = withTime(s, {1.0, 3.0}, {1, 2}, {40}, 1);
+        auto changed = s;
+        changed.tracks.erase(changed.tracks.begin()); // track 1 deleted
+        const auto kept = pruned(sel, changed);
+        CHECK(kept.rowTracks == std::set<std::uint64_t>{2});
+        CHECK(kept.rowLanes == std::set<std::uint64_t>{40});
+        CHECK(kept.channel == 2u);
+        CHECK(kept.time == TimeSpan{1.0, 3.0});
+        changed.tracks.clear();
+        changed.automationLanes.clear();
+        CHECK_FALSE(pruned(sel, changed).hasTime());
+    }
+}
+
+TEST_CASE("selection: a time selection is the subject, TIME over its channel's sections; inside one clip "
+          "it opens the clip view (time-selection.md §7, §14.3)",
+          "[fast]")
+{
+    auto s = project();
+    s.automationLanes.push_back({.id = 40, .assignments = {{.channel = 2}}});
+    auto in = [&](Selection sel) { return panelContext(sel, s, CentreView::Arrange); };
+
+    const auto across = in(withTime(s, {1.0, 5.0}, {1, 2}, {40}, 2));
+    CHECK(across.subject == Subject::Time);
+    CHECK(across.time == TimeSpan{1.0, 5.0});
+    CHECK(across.timeTracks == 2);
+    CHECK(across.timeLanes == 1);
+    CHECK(across.channel->id == 2);
+    CHECK(across.inspector ==
+          std::vector{Section::Time, Section::Track, Section::Input, Section::Mix, Section::Sends});
+    CHECK(!across.clip);
+    CHECK(!across.opensClipView);
+
+    // Bars inside clip 11 (0 .. 2) on track 1 alone: the clip view shows it.
+    const auto inside = in(withTime(s, {0.5, 1.5}, {1}, {}, 1));
+    CHECK(inside.subject == Subject::Time);
+    REQUIRE(inside.clip);
+    CHECK(inside.clip->id == 11);
+    CHECK(inside.midiClip);
+    CHECK(inside.opensClipView);
+    // Across a clip's edge, or with a lane too: not one clip.
+    CHECK(!in(withTime(s, {1.5, 2.5}, {1}, {}, 1)).clip);
+    CHECK(!in(withTime(s, {0.5, 1.5}, {1}, {40}, 1)).clip);
+
+    // The mixer view has no inspector.
+    CHECK(panelContext(withTime(s, {1.0, 5.0}, {1}, {}), s, CentreView::Mix).inspector.empty());
+}

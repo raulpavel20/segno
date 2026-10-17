@@ -464,13 +464,13 @@ TEST_CASE("audio editor: the bar's Gain, Reverse, Normalise and Audio menu", "[i
     const auto items = itemsOf(detail.audioMenu());
     for (const char* item :
          {"Gain \xE2\x96\xB8 Up 1 dB", "Normalise\xE2\x80\xA6", "Reverse", "Invert polarity",
-          "Channels \xE2\x96\xB8 Mono", "Crop to range", "Fade to range", "Loop range"})
+          "Channels \xE2\x96\xB8 Mono", "Crop to selection", "Fade to selection", "Clip loop to selection"})
         CHECK(items.contains(juce::String::fromUTF8(item)));
     CHECK(invoke(detail.audioMenu(), "Invert polarity"));
     f.settle();
     CHECK(f.clip().sound.inverted);
     // The range's commands are dimmed without a range.
-    CHECK_FALSE(invoke(detail.audioMenu(), "Crop to range"));
+    CHECK_FALSE(invoke(detail.audioMenu(), "Crop to selection"));
     CHECK(f.shell->actions().find("audio.crop")->whyNot().startsWith("Select a range"));
 }
 

@@ -195,6 +195,14 @@ void ArrangementView::paintSongRow(juce::Graphics& g)
         g.reduceClipRegion(lane);
         time::paintGrid(g, grid_, timeline_, lane);
         paintOverview(g, lane.withTrimmedTop(sh.songTitleHeight));
+        // A time selection on every track and lane tints its span here too (time-selection.md §7).
+        if (selection_.hasTime() &&
+            std::all_of(snapshot_->tracks.begin(), snapshot_->tracks.end(), [&](const auto& track)
+                        { return !track.holdsClips() || selection_.rowTracks.contains(track.id); }) &&
+            std::all_of(snapshot_->automationLanes.begin(), snapshot_->automationLanes.end(),
+                        [&](const auto& l) { return selection_.rowLanes.contains(l.id); }))
+            time::paintTimeSelection(g, timeline_, lane.withTrimmedTop(sh.songTitleHeight),
+                                     selection_.time->start, selection_.time->end);
         // Each section a bracket over its span, unlike a clip: a bar along the top, a tick down at
         // each end, its name under the bar in caps. Selected, its span is tinted.
         const auto sections = shownSections();

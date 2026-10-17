@@ -229,6 +229,99 @@ const model::AutomationLaneInfo* ArrangementView::selectedLane() const noexcept
     return selection_.lane ? snapshot_->automationLane(*selection_.lane) : nullptr;
 }
 
+void ArrangementView::selectTime(model::TimeSpan span, const std::set<std::uint64_t>& tracks,
+                                 const std::set<std::uint64_t>& lanes, std::optional<std::uint64_t> channel)
+{
+    setSelection(model::withTime(*snapshot_, span, tracks, lanes, channel));
+}
+
+bool ArrangementView::rowInTime(const model::ArrangementRow& row) const noexcept
+{
+    if (!selection_.hasTime())
+        return false;
+    if (row.isLane())
+        return selection_.rowLanes.contains(row.lane);
+    return row.holdsClips() && selection_.rowTracks.contains(row.channel);
+}
+
+void ArrangementView::previewStretchMove(std::optional<StretchMove> move)
+{
+    stretchMove_ = move;
+    repaint();
+}
+
+void ArrangementView::paintTimeSelection(juce::Graphics& g, juce::Rectangle<int> area,
+                                         juce::Rectangle<int> visible)
+{
+    if (!selection_.hasTime())
+        return;
+    const auto span = *selection_.time;
+    // On each of its rows: the fill over the main lane (open takes below aren't in it), its edges.
+    auto rowArea = [&](int i)
+    {
+        const bool track = rows_[static_cast<size_t>(i)].holdsClips();
+        const int h =
+            static_cast<int>(track ? layout_.baseHeight(i) : layout_.height(i)) - 1; // above the separator
+        return juce::Rectangle<int>(area.getX(), area.getY() + static_cast<int>(layout_.top(i)),
+                                    area.getWidth(), h)
+            .getIntersection(area);
+    };
+    std::vector<int> trackRows; // track rows in order, to land a moved stretch on
+    for (int i = 0; i < layout_.trackCount(); ++i)
+        if (rows_[static_cast<size_t>(i)].holdsClips())
+            trackRows.push_back(i);
+    for (int i = 0; i < layout_.trackCount(); ++i)
+        if (rowInTime(rows_[static_cast<size_t>(i)]))
+            time::paintTimeSelection(g, timeline_, rowArea(i), span.start, span.end);
+    if (!stretchMove_)
+        return;
+
+    // Where a dragged stretch lands (§10): what's in it on each track, cut at its edges, drawn at its
+    // new place as dragged clips are, under the stretch's own fill; lanes keep their rows.
+    const double dt = stretchMove_->seconds;
+    for (size_t k = 0; k < trackRows.size(); ++k)
+    {
+        const int from = trackRows[k];
+        if (!rowInTime(rows_[static_cast<size_t>(from)]))
+            continue;
+        const auto to = static_cast<long>(k) + stretchMove_->tracks;
+        if (to < 0 || to >= static_cast<long>(trackRows.size()))
+            continue;
+        const int row = trackRows[static_cast<size_t>(to)];
+        const auto& source = snapshot_->tracks[static_cast<size_t>(rows_[static_cast<size_t>(from)].track)];
+        const float y = static_cast<float>(area.getY() + layout_.top(row));
+        const float h = static_cast<float>(layout_.baseHeight(row));
+        for (const auto& c : source.clips)
+        {
+            const double a = std::max(c.start, span.start), b = std::min(c.end(), span.end);
+            if (b <= a)
+                continue;
+            auto piece = c; // its part inside the stretch
+            piece.offset += a - c.start;
+            piece.start = a + dt;
+            piece.length = b - a;
+            paintClip(g, piece, y, h, visible, {.selected = true});
+        }
+    }
+    for (int i = 0; i < layout_.trackCount(); ++i)
+    {
+        const auto& r = rows_[static_cast<size_t>(i)];
+        if (!rowInTime(r))
+            continue;
+        int row = i;
+        if (r.holdsClips())
+        {
+            const auto k =
+                std::find(trackRows.begin(), trackRows.end(), i) - trackRows.begin() + stretchMove_->tracks;
+            if (k < 0 || k >= static_cast<long>(trackRows.size()))
+                continue;
+            row = trackRows[static_cast<size_t>(k)];
+        }
+        // The landing place looks as the stretch does: one look for selected time.
+        time::paintTimeSelection(g, timeline_, rowArea(row), span.start + dt, span.end + dt);
+    }
+}
+
 bool ArrangementView::rowSelected(const model::ArrangementRow& row) const noexcept
 {
     if (row.isLane())
@@ -652,7 +745,10 @@ void ArrangementView::paintRuler(juce::Graphics& g)
 {
     auto area = rulerArea();
     time::paintLoopStrip(g, timeline_, area.removeFromTop(loopStripHeight()), loopPreview_.value_or(loop_), looping_);
-    time::paintRuler(g, grid_, timeline_, area, {.playhead = playhead_});
+    time::RulerOptions options{.playhead = playhead_};
+    if (selection_.hasTime()) // its stretch, a band (time-selection.md §7)
+        options.selection = std::pair{selection_.time->start, selection_.time->end};
+    time::paintRuler(g, grid_, timeline_, area, options);
 }
 
 void ArrangementView::paintHeaders(juce::Graphics& g)
@@ -920,6 +1016,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         paint.hint = selection_.lane == lane->id;
         paintAutomationLane(g, laneGeometry(i), paint, visible);
     }
+
+    // A time selection (time-selection.md §7), over the clips and curves on its rows.
+    paintTimeSelection(g, area, visible);
 
     // Box selection (of clips, or of a lane's points).
     if (drag_ == Drag::Box || (drag_ == Drag::Lane && laneGesture_.boxing() && dragMoved_))

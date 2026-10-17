@@ -72,6 +72,15 @@ struct BounceRun
 /// order then time.
 [[nodiscard]] std::vector<BounceRun> bounceRuns(const Snapshot& snapshot, const std::set<std::uint64_t>& clips, BounceMode mode);
 
+/// The runs for bouncing a stretch of time (docs/design/time-selection.md §13): on each of
+/// `tracks`, the clips lying within [from, to] as one piece spanning it, gaps and all, so a bounce
+/// in place keeps them as one "Before bounce" take. A clip with takes counts whole. Tracks with
+/// nothing there, or with a clip that can't be bounced, are left out. Clips crossing an edge are
+/// the caller's to split first.
+[[nodiscard]] std::vector<BounceRun> stretchRuns(const Snapshot& snapshot,
+                                                 const std::set<std::uint64_t>& tracks, double from,
+                                                 double to, BounceMode mode);
+
 /// The tail allowance after a clip: none for an audio clip bounced in place (nothing rings after
 /// it), else kBounceTailSeconds.
 [[nodiscard]] double tailAllowance(ClipInfo::Kind kind, BounceMode mode) noexcept;

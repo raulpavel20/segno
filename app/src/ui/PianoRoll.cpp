@@ -1414,6 +1414,16 @@ model::NoteEdit PianoRoll::drawnAt(juce::Point<float> local, bool bypass) const
 
 // ---- painting ------------------------------------------------------------------------------
 
+void PianoRoll::setTimeSelection(std::optional<model::TimeSpan> span)
+{
+    if (span && !(span->end > span->start))
+        span.reset();
+    if (span == timeSpan_)
+        return;
+    timeSpan_ = span;
+    repaint();
+}
+
 void PianoRoll::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
@@ -1491,6 +1501,9 @@ void PianoRoll::paintRows(juce::Graphics& g)
         g.fillRect(clipX1, static_cast<float>(area.getY()), x + w - clipX1, static_cast<float>(area.getHeight()));
 
     time::paintGrid(g, lines_, timeline_, area);
+    // The time selection across every row, under the notes (time-selection.md §14.1).
+    if (timeSpan_)
+        time::paintTimeSelection(g, timeline_, area, timeSpan_->start, timeSpan_->end);
 
     // An empty kit and clip: nothing to write on yet, and what to do (§23.2).
     if (pads && rows_.empty())

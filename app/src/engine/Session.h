@@ -871,6 +871,14 @@ public:
     /// thread. Null (with `done` not called) if there's nothing to bounce.
     std::shared_ptr<RenderJob> bounce(const std::vector<std::uint64_t>& clips, model::BounceMode mode,
                                       std::function<void(const BounceResult&)> done, const std::string& undoName = {});
+    /// Bounces a stretch of time on `tracks` (docs/design/time-selection.md §13): on each, the
+    /// clips within [from, to] as one clip spanning it (and its tail), gaps and all; in place, they
+    /// become its "Before bounce" take together. Clips crossing an edge are the caller's to split
+    /// first. As bounce() otherwise.
+    std::shared_ptr<RenderJob> bounceStretch(const std::vector<std::uint64_t>& tracks, double from, double to,
+                                             model::BounceMode mode,
+                                             std::function<void(const BounceResult&)> done,
+                                             const std::string& undoName = {});
     /// A clip being bounced now: its bounce's progress (0..1) and how long it has been running.
     struct Bouncing
     {
@@ -1553,6 +1561,10 @@ public:
 
 private:
     void replaceEdit(std::unique_ptr<tracktion::Edit> edit, std::optional<juce::File> file);
+    /// Starts a bounce of `runs` (bounce(), bounceStretch()); null if there are none.
+    std::shared_ptr<RenderJob> startBounce(std::vector<model::BounceRun> runs, model::BounceMode mode,
+                                           std::function<void(const BounceResult&)> done,
+                                           const std::string& undoName);
     // The clipboards' clips (SessionTracks.cpp).
     /// Every clip across `start` to `end`, whole, on its track's row (from the first track), its
     /// time from `from`.

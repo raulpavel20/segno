@@ -383,6 +383,12 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     detail_.pianoRoll().onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
     // MODULE's "Moved by": that modulator, selected in the chain (selection.md §8.2).
+    // TIME's fields move the time selection (time-selection.md §7), on the same rows.
+    inspector_.onTimeEdited = [this](model::TimeSpan span)
+    {
+        const auto& sel = arrangement_.selection();
+        arrangement_.selectTime(span, sel.rowTracks, sel.rowLanes, sel.channel);
+    };
     inspector_.onSelectModule = [this](std::uint64_t modulator)
     {
         detail_.chain().selectDevice(modulator);

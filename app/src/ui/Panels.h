@@ -156,6 +156,13 @@ public:
     void focusTakeName();
     /// The shell's actions, for the TAKE section's commands (they act on the selected take).
     void setActions(const ActionRegistry& actions);
+    /// TIME's fields moved the time selection (time-selection.md §7): its new stretch.
+    std::function<void(model::TimeSpan)> onTimeEdited;
+    /// TIME's fields (tests).
+    [[nodiscard]] ui::NumberField& timeField(int which) noexcept
+    {
+        return which == 0 ? timeStart_ : which == 1 ? timeEnd_ : timeLength_;
+    }
     /// The clip view's piano roll (piano-roll.md §9.6): a NOTES section after CLIP while it shows
     /// the selected clip with notes selected, edited through it.
     void setPianoRoll(PianoRoll& roll);
@@ -340,6 +347,14 @@ private:
     std::optional<engine::Session::EditGroup> audioGesture_;
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
+    /// A time selection (time-selection.md §7): Start, End and Length dragged or typed move it,
+    /// never the music; Rows says what it's on.
+    std::optional<model::TimeSpan> time_;
+    int timeTracks_ = 0, timeLanes_ = 0;
+    ui::NumberField timeStart_, timeEnd_, timeLength_;
+    void wireTime();
+    /// "2 tracks, 1 lane".
+    [[nodiscard]] juce::String timeRows() const;
     /// The selected section (arranger.md §10): its name typed, its colour, and its marks (Start,
     /// Length) dragged or typed; the music stays where it is. Each one undo step.
     std::optional<model::SectionInfo> section_;

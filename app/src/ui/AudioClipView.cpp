@@ -700,17 +700,10 @@ void AudioClipView::paintRange(juce::Graphics& g) const
         return;
     const auto& t = ui::Theme::current();
     const auto area = waveformArea();
-    const float x0 = static_cast<float>(area.getX() + timeline_.xForTime(range_->first));
-    const float x1 = static_cast<float>(area.getX() + timeline_.xForTime(range_->second));
+    // The clip view's time selection, drawn as every time selection is (time-selection.md §14.2).
+    time::paintTimeSelection(g, timeline_, area, range_->first, range_->second);
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(area);
-    const auto box = juce::Rectangle<float>(x0, static_cast<float>(area.getY()), x1 - x0,
-                                            static_cast<float>(area.getHeight()));
-    g.setColour(t.roles.selectionFill);
-    g.fillRect(box);
-    g.setColour(t.roles.selectionStroke);
-    g.fillRect(box.withWidth(1.0f));
-    g.fillRect(box.withX(x1 - 1.0f).withWidth(1.0f));
     // Its gain handle (§5), the fade squares' look.
     const auto handle = rangeHandle();
     g.setColour(t.textPrimary);
@@ -718,7 +711,7 @@ void AudioClipView::paintRange(juce::Graphics& g) const
     g.setColour(t.surface0);
     g.drawRect(handle, 1.0f);
     if (gesture_ == Gesture::RangeGain && moved_)
-        ui::paintValueTag(g, handle.getCentre(), getLocalBounds(), "Range " + dbText(rangeGainDb_));
+        ui::paintValueTag(g, handle.getCentre(), getLocalBounds(), "Selection " + dbText(rangeGainDb_));
 }
 
 void AudioClipView::paintLane(juce::Graphics& g)

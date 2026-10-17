@@ -511,6 +511,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     viewport_.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport_);
     wireSection();
+    wireTime();
     wireNotes();
     body_.addAndMakeVisible(mix_);
     body_.addAndMakeVisible(sends_);
@@ -973,6 +974,58 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     }
 }
 
+void InspectorPanel::wireTime()
+{
+    // A time selection's stretch (time-selection.md §7): typed or dragged, it moves the selection;
+    // the music stays. Not an undo step: the selection is view state.
+    for (auto* field : {&timeStart_, &timeEnd_, &timeLength_})
+    {
+        const bool length = field == &timeLength_;
+        field->setFontSize(ui::Theme::current().textXs);
+        field->setDragSensitivity(0.25); // a sixteenth a pixel
+        field->setTooltip(field == &timeStart_ ? "Where the selection starts: drag, or type \"9.1.1\""
+                          : field == &timeEnd_ ? "Where the selection ends: drag, or type \"17.1.1\""
+                                               : "How long the selection is: drag, or type \"8 bars\"");
+        field->textFromValue = [this, length](double beats)
+        {
+            return juce::String(length ? model::lengthText(beats, tempo_)
+                                       : model::positionText(beats, tempo_));
+        };
+        field->valueFromText = [this, length](const juce::String& text) -> std::optional<double>
+        {
+            const auto t = text.trim().toLowerCase().toStdString();
+            return length ? model::lengthFromText(t, tempo_) : model::positionFromText(t, tempo_);
+        };
+        field->onValueChange = [this, field](double beats)
+        {
+            if (!time_ || !onTimeEdited)
+                return;
+            const double seconds = tempo_.secondsForBeats(beats);
+            auto span = *time_;
+            if (field == &timeStart_) // the start moves, the length stays
+                span = {seconds, seconds + time_->length()};
+            else if (field == &timeEnd_)
+                span.end = seconds;
+            else
+                span.end = span.start + seconds;
+            if (span.end > span.start)
+                onTimeEdited(span);
+        };
+        body_.addChildComponent(*field);
+    }
+}
+
+juce::String InspectorPanel::timeRows() const
+{
+    auto count = [](int n, const char* one) { return juce::String(n) + " " + one + (n == 1 ? "" : "s"); };
+    juce::StringArray parts;
+    if (timeTracks_ > 0)
+        parts.add(count(timeTracks_, "track"));
+    if (timeLanes_ > 0)
+        parts.add(count(timeLanes_, "lane"));
+    return parts.joinIntoString(", ");
+}
+
 void InspectorPanel::wireSection()
 {
     // The selected section (arranger.md §10): name, colour, and its marks; the music stays.
@@ -1292,6 +1345,24 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     auto has = [this](model::InspectorSection s) { return std::find(sections_.begin(), sections_.end(), s) != sections_.end(); };
     section_ = context.section;
     sectionCount_ = context.sectionCount;
+    time_ = context.time;
+    timeTracks_ = context.timeTracks;
+    timeLanes_ = context.timeLanes;
+    {
+        const bool timeShown = has(model::InspectorSection::Time) && time_;
+        for (auto* field : {&timeStart_, &timeEnd_, &timeLength_})
+            field->setVisible(timeShown);
+        if (timeShown)
+        {
+            constexpr double kLongest = 4096.0 * 4.0; // beats: far past any song
+            timeStart_.setRange(0.0, kLongest, 0.25);
+            timeEnd_.setRange(0.25, kLongest, 0.25);
+            timeLength_.setRange(0.25, kLongest, 0.25);
+            timeStart_.setValue(tempo.beatsForSeconds(time_->start), juce::dontSendNotification);
+            timeEnd_.setValue(tempo.beatsForSeconds(time_->end), juce::dontSendNotification);
+            timeLength_.setValue(tempo.beatsForSeconds(time_->length()), juce::dontSendNotification);
+        }
+    }
     const bool sectionShown = has(model::InspectorSection::Section) && section_;
     for (auto* c : std::initializer_list<juce::Component*>{&sectionName_, &sectionColour_, &sectionStart_,
                                                            &sectionLength_})
@@ -1699,6 +1770,13 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                 {"Length", {}, false, "length"}};
     case S::Sections:
         return {{"Selected", juce::String(sectionCount_), true}};
+    case S::Time: // the fields, then what it's on (time-selection.md §7)
+        if (!time_)
+            return {};
+        return {{"Start", {}, false, "start"},
+                {"End", {}, false, "end"},
+                {"Length", {}, false, "length"},
+                {"Rows", timeRows()}};
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
     case S::Notes: // the fields, the mute (piano-roll.md §9.6)
         return {
@@ -1876,11 +1954,11 @@ int InspectorPanel::layoutSections(int width)
     auto r = juce::Rectangle<int>(0, t.shell.itemGap, width, std::numeric_limits<int>::max() / 2).reduced(t.shell.padding, 0);
 
     static const std::map<S, juce::String> titles{
-        {S::Point, "Point"},   {S::Points, "Points"}, {S::Lane, "Lane"},       {S::Assignments, "Assignments"},
-        {S::Input, "Input"},   {S::Take, "Take"},     {S::Takes, "Takes"},     {S::Clip, "Clip"},
-        {S::Audio, "Audio"},   {S::Clips, "Clips"},   {S::Section, "Section"}, {S::Sections, "Sections"},
-        {S::Track, "Track"},   {S::Return, "Return"}, {S::Master, "Master"},   {S::Mix, "Mix"},
-        {S::Sends, "Sends"},   {S::Module, "Module"}, {S::Routes, "Routes"}};
+        {S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},       {S::Assignments, "Assignments"},
+        {S::Input, "Input"}, {S::Take, "Take"},     {S::Takes, "Takes"},     {S::Clip, "Clip"},
+        {S::Audio, "Audio"}, {S::Clips, "Clips"},   {S::Section, "Section"}, {S::Sections, "Sections"},
+        {S::Time, "Time"},   {S::Track, "Track"},   {S::Return, "Return"},   {S::Master, "Master"},
+        {S::Mix, "Mix"},     {S::Sends, "Sends"},   {S::Module, "Module"},   {S::Routes, "Routes"}};
     std::vector<ui::SectionStack::Section> sections;
     for (const auto s : sections_)
     {
@@ -2063,6 +2141,20 @@ int InspectorPanel::layoutSections(int width)
             sectionColour_.setBounds(row("colour"));
             sectionStart_.setBounds(row("start").withTrimmedLeft(-ui::NumberField::textInset));
             sectionLength_.setBounds(row("length").withTrimmedLeft(-ui::NumberField::textInset));
+        }
+        else if (sections_[i] == S::Time) // Start, End, Length
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            const auto row = [&](const char* key)
+            {
+                const int n = rowOf(S::Time, key);
+                return n < 0 ? juce::Rectangle<int>()
+                             : content.withY(content.getY() + n * t.shell.rowHeight)
+                                   .withHeight(t.shell.rowHeight);
+            };
+            timeStart_.setBounds(row("start").withTrimmedLeft(-ui::NumberField::textInset));
+            timeEnd_.setBounds(row("end").withTrimmedLeft(-ui::NumberField::textInset));
+            timeLength_.setBounds(row("length").withTrimmedLeft(-ui::NumberField::textInset));
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(
@@ -2558,11 +2650,11 @@ void DetailPanel::updateAudioBar()
     const bool range = audio && audio_.range().has_value();
     // What each does, or why it can't now.
     static const std::map<A, juce::String> tips{
-        {A::Split, "Split the clip at the range's edges: the range becomes a clip of its own"},
-        {A::Crop, "Keep only the range"},
-        {A::Silence, "Silence the range: the gain line falls to silence over it"},
-        {A::Fade, "A range from the clip's start becomes its fade-in, one to its end its fade-out"},
-        {A::Loop, "Loop the range"}};
+        {A::Split, "Split the clip at the selection's edges: the selection becomes a clip of its own"},
+        {A::Crop, "Keep only the selection"},
+        {A::Silence, "Silence the selection: the gain line falls to silence over it"},
+        {A::Fade, "A selection from the clip's start becomes its fade-in, one to its end its fade-out"},
+        {A::Loop, "Loop the clip on the selection"}};
     for (const auto& [action, tip] : tips)
     {
         auto& button = rangeButton(action);

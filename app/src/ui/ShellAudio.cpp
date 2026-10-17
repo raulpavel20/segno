@@ -167,9 +167,9 @@ void Shell::registerAudioActions()
                       .whyNot = []
                       { return juce::String("Channels are for stereo files: select a stereo audio clip"); }});
     }
-    rangeAction("audio.crop", "Crop to range", A::Crop);
-    rangeAction("audio.fadeRange", "Fade to range", A::Fade);
-    rangeAction("audio.loopRange", "Loop range", A::Loop);
+    rangeAction("audio.crop", "Crop to selection", A::Crop); // time-selection.md §14.2
+    rangeAction("audio.fadeRange", "Fade to selection", A::Fade);
+    rangeAction("audio.loopRange", "Clip loop to selection", A::Loop);
 
     // Warping (§7, §13): Warp and its mode, ticked as the first clip has them; the tempo's ×2 and ÷2,
     // Detect… and the song's tempo from the clip.
