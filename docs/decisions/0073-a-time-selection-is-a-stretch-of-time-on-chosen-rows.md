@@ -1,6 +1,6 @@
 # 0073. A time selection is a stretch of time on chosen rows
 
-- **Status:** Proposed
+- **Status:** Accepted (product owner, 2026-10-17)
 - **Date:** 2026-10-17
 - **Amends:** [0027](0027-selection-and-context-panels.md): the selection gains rows and a stretch of time. [0028](0028-automation-lanes.md): "range editing … moving automation with clips … come later" is answered here. [0049](0049-the-master-row-is-the-song-row.md): Select clips in section becomes Select section's time; the song row's overview selects time on every row.
 - **Answers:** open question B30 (automation moving with clips).

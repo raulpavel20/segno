@@ -2,7 +2,7 @@
 
 A **time selection** is a stretch of time on chosen rows. Drag across bars 9 to 17 over the drums and the bass, and those eight bars are selected on those rows, whatever clips lie there. Commands then act on exactly that stretch. Delete clears it. Ctrl+D repeats it right after itself. Ctrl+E splits the clips at its edges. Ctrl+L loops it. Export renders it. Song-wide versions insert or remove time across the whole song. The same idea works inside a clip: the audio editor already selects time this way, and the piano roll gains it.
 
-**Status:** for review (2026-10-17): every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) proposed. Nothing is built until the product owner says go. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
+**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 (drawn, and the one check) is next. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
 
 What the product owner asked (2026-10-17), on reviewing the groups design:
 - "I think we need to implement selecting a stretch of time."
