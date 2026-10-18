@@ -65,7 +65,10 @@ bool ActionRegistry::perform(std::string_view id) const
 bool ActionRegistry::handleKey(const juce::KeyPress& key) const
 {
     const auto* a = actionOn(key);
-    return a != nullptr && perform(a->id);
+    if (a == nullptr)
+        return false;
+    const auto to = a->keyGoesTo ? a->keyGoesTo() : std::string();
+    return perform(to.empty() ? std::string_view(a->id) : std::string_view(to));
 }
 
 std::vector<juce::KeyPress> ActionRegistry::keysOf(std::string_view id) const

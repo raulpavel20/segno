@@ -74,21 +74,29 @@ void addMixTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"set_mix", "Set a channel's mix",
-         "Sets any of a channel's volume, pan, mute and solo: a track, a return track, or the master (volume and "
-         "pan only). Volume is in dB, from -inf to +6 (0 dB leaves the sound as it is). Pan is a balance: 0 dB at "
-         "the centre. Solo is in place: other tracks go silent, return tracks keep playing; it is exclusive unless "
+         "Sets any of a channel's volume, pan, mute and solo: a track, a group, a return track, or the "
+         "master "
+         "(volume and pan only). A group's mute silences what's in it; soloing it solos what's in it. Volume "
+         "is in dB, from -inf to +6 (0 dB leaves the sound as it is). Pan is a balance: 0 dB at "
+         "the centre. Solo is in place: other tracks go silent, return tracks keep playing; it is exclusive "
+         "unless "
          "exclusive is false, and it is never an undo step. The rest is one undo step.",
-         object({{"track", id(IdKind::Track, "The track, return track or master")},
+         object({{"track", id(IdKind::Track, "The track, group, return track or master")},
                  {"volume", levelSchema("dB (-inf .. +6), e.g. -6, \"-6 dB\", \"-inf\"")},
-                 {"pan", {{"type", {"number", "string"}}, {"description", "-1 (left) .. 1 (right), or \"C\", \"25L\", \"50R\""}}},
+                 {"pan",
+                  {{"type", {"number", "string"}},
+                   {"description", "-1 (left) .. 1 (right), or \"C\", \"25L\", \"50R\""}}},
                  {"mute", boolean("Muted")},
                  {"solo", boolean("Soloed")},
                  {"exclusive", boolean("Soloing clears the other solos (default true)")}},
                 {"track"}),
-         result({{"track", string("")}, {"mix", result({{"volume", {{"type", {"number", "null"}}, {"description", "dB; null is -inf"}}}})}},
+         result({{"track", string("")},
+                 {"mix",
+                  result({{"volume", {{"type", {"number", "null"}}, {"description", "dB; null is -inf"}}}})}},
                 {"track", "mix"}),
          changes},
-        [&env](const Json& args, CallContext&) {
+        [&env](const Json& args, CallContext&)
+        {
             const auto t = channel(env, args["track"]);
             const bool master = t.role == model::TrackInfo::Role::Master;
             if (master && (args.contains("mute") || args.contains("solo")))
@@ -132,20 +140,23 @@ void addMixTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"set_send", "Set a track's send",
-         "Sets how much of a track goes to a return track (from -inf, off, to 0 dB) and whether it is taken before "
+         "Sets how much of a track or group goes to a return track (from -inf, off, to 0 dB) and whether it "
+         "is taken before "
          "the track's volume (preFader) or after it (the default, so it follows the volume). One undo step.",
-         object({{"track", id(IdKind::Track, "The track (not a return or the master)")},
+         object({{"track", id(IdKind::Track, "The track or group (not a return or the master)")},
                  {"return", id(IdKind::Track, "The return track")},
                  {"level", levelSchema("dB (-inf .. 0), e.g. -12, \"-inf\"")},
                  {"preFader", boolean("Taken before the volume")}},
                 {"track", "return"}),
-         result({{"track", string("")}, {"return", string("")}, {"preFader", boolean("")}}, {"track", "return", "preFader"}),
+         result({{"track", string("")}, {"return", string("")}, {"preFader", boolean("")}},
+                {"track", "return", "preFader"}),
          changes},
-        [&env](const Json& args, CallContext&) {
+        [&env](const Json& args, CallContext&)
+        {
             const auto t = channel(env, args["track"]);
             const auto r = channel(env, args["return"]);
-            if (t.role != model::TrackInfo::Role::Track)
-                throw Problem{"Only tracks send; " + t.name + " is a " + kindName(t) + "."};
+            if (t.role != model::TrackInfo::Role::Track && t.role != model::TrackInfo::Role::Group)
+                throw Problem{"Only tracks and groups send; " + t.name + " is a " + kindName(t) + "."};
             if (r.role != model::TrackInfo::Role::Return)
                 throw Problem{r.name + " isn't a return track; add_return_track makes one."};
             std::optional<float> level;

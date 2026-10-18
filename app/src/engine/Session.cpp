@@ -428,7 +428,7 @@ void Session::Impl::attach(std::unique_ptr<te::Edit> e)
                 else if (auto* send = dynamic_cast<te::AuxSendPlugin*>(p))
                     send->setGainDb(oldDb(send->gain->getCurrentValue()));
         };
-        for (auto* t : te::getAudioTracks(*edit))
+        for (auto* t : channelTracks())
             convert(t->pluginList);
         convert(edit->getMasterPluginList());
     }
@@ -633,15 +633,47 @@ void Session::Impl::rebuildSnapshot()
     };
 
     const auto returnTracks = returns();
+    // A track's or group's sends: one per return, in return order (ADR 0026).
+    const auto sendsOf = [&returnTracks](te::Track& t)
+    {
+        std::vector<model::SendInfo> sends;
+        auto* volume = findIn<te::VolumeAndPanPlugin>(t.pluginList);
+        const int volumeAt = volume != nullptr ? t.pluginList.indexOf(volume) : -1;
+        for (auto* r : returnTracks)
+        {
+            model::SendInfo send{.returnId = r->itemID.getRawID()};
+            if (auto* plugin = sendIn(t.pluginList, busOf(*r)))
+            {
+                send.levelDb = std::max(model::minusInfinityDb, plugin->getGainDb());
+                send.preFader = t.pluginList.indexOf(plugin) < volumeAt;
+            }
+            sends.push_back(send);
+        }
+        return sends;
+    };
     int index = 0;
-    for (auto* t : te::getAudioTracks(*edit))
+    for (auto* channel : channelTracks())
     {
         model::TrackInfo info;
-        info.id = t->itemID.getRawID();
+        info.id = channel->itemID.getRawID();
+        info.name = channel->getName().toStdString();
+        info.colour = static_cast<int>(channel->state.getProperty(kColourId, index * 3 % kPaletteSize));
+        info.group = groupOf(*channel);
+        if (isGroup(*channel)) // a group (ADR 0072): its chain, its mix and sends; no clips
+        {
+            info.role = model::TrackInfo::Role::Group;
+            devicesOf(channel->pluginList, info, channel);
+            info.mix = mixOf(channel->pluginList);
+            info.mix.mute = channel->isMuted(false);
+            info.mix.solo = channel->isSolo(false);
+            info.mix.sends = sendsOf(*channel);
+            s->tracks.push_back(std::move(info));
+            ++index;
+            continue;
+        }
+        auto* t = static_cast<te::AudioTrack*>(channel);
         info.kind = kindOf(*t);
         info.role = isReturn(*t) ? model::TrackInfo::Role::Return : model::TrackInfo::Role::Track;
-        info.name = t->getName().toStdString();
-        info.colour = static_cast<int>(t->state.getProperty(kColourId, index * 3 % kPaletteSize));
         for (auto* c : t->getClips())
         {
             if (c->state.hasProperty(auditionId)) // an audition's copy: not the project (ADR 0038)
@@ -686,18 +718,7 @@ void Session::Impl::rebuildSnapshot()
         info.mix.solo = t->isSolo(false);
         if (info.role == model::TrackInfo::Role::Track)
         {
-            auto& volume = *t->getVolumePlugin();
-            const int volumeAt = t->pluginList.indexOf(&volume);
-            for (auto* r : returnTracks)
-            {
-                model::SendInfo send{.returnId = r->itemID.getRawID()};
-                if (auto* plugin = sendIn(t->pluginList, busOf(*r)))
-                {
-                    send.levelDb = std::max(model::minusInfinityDb, plugin->getGainDb());
-                    send.preFader = t->pluginList.indexOf(plugin) < volumeAt;
-                }
-                info.mix.sends.push_back(send);
-            }
+            info.mix.sends = sendsOf(*t);
             s->tracks.push_back(std::move(info));
         }
         else
@@ -772,27 +793,59 @@ int Session::Impl::nextRowColour() const
 
 std::uint64_t Session::Impl::lastTrack() const
 {
-    const auto all = tracks();
-    return all.empty() ? 0 : all.back()->itemID.getRawID();
+    // The last track or group outside any group: what a new track comes after.
+    std::uint64_t last = 0;
+    for (auto* t : rowTracks())
+        if (groupOf(*t) == 0)
+            last = t->itemID.getRawID();
+    return last;
 }
 
-te::AudioTrack* Session::Impl::channelTrack(std::uint64_t id) const
+bool Session::Impl::isGroup(const te::Track& track)
 {
-    for (auto* t : te::getAudioTracks(*edit))
+    const auto* folder = dynamic_cast<const te::FolderTrack*>(&track);
+    return folder != nullptr && folder->isSubmixFolder();
+}
+
+std::vector<te::Track*> Session::Impl::channelTracks() const
+{
+    std::vector<te::Track*> out;
+    for (auto* t : te::getAllTracks(*edit))
+        if (dynamic_cast<te::AudioTrack*>(t) != nullptr || isGroup(*t))
+            out.push_back(t);
+    return out;
+}
+
+std::vector<te::Track*> Session::Impl::rowTracks() const
+{
+    auto out = channelTracks();
+    std::erase_if(out, [](auto* t) { return isReturn(*t); });
+    return out;
+}
+
+te::Track* Session::Impl::channelTrack(std::uint64_t id) const
+{
+    for (auto* t : channelTracks())
         if (t->itemID.getRawID() == id)
             return t;
     return nullptr;
 }
 
-te::AudioTrack* Session::Impl::track(std::uint64_t id) const
+te::FolderTrack* Session::Impl::group(std::uint64_t id) const
 {
     auto* t = channelTrack(id);
+    return t != nullptr && isGroup(*t) ? dynamic_cast<te::FolderTrack*>(t) : nullptr;
+}
+
+te::AudioTrack* Session::Impl::track(std::uint64_t id) const
+{
+    auto* t = dynamic_cast<te::AudioTrack*>(channelTrack(id));
     return t != nullptr && !isReturn(*t) ? t : nullptr;
 }
 
 te::AudioTrack* Session::Impl::returnTrack(std::uint64_t id) const
 {
-    auto* t = channelTrack(id);
+    auto* t = dynamic_cast<te::AudioTrack*>(channelTrack(id));
     return t != nullptr && isReturn(*t) ? t : nullptr;
 }
 
@@ -834,8 +887,9 @@ std::vector<te::AudioTrack*> Session::Impl::returns() const
 
 void Session::Impl::ensureChannels(juce::UndoManager* undo)
 {
-    for (auto* t : te::getAudioTracks(*edit))
-        if (auto* v = t->getVolumePlugin(); v != nullptr && v->getPanLaw() != te::PanLawBalance)
+    for (auto* t : channelTracks())
+        if (auto* v = findIn<te::VolumeAndPanPlugin>(t->pluginList);
+            v != nullptr && v->getPanLaw() != te::PanLawBalance)
             v->state.setProperty(te::IDs::panLaw, static_cast<int>(te::PanLawBalance), undo);
     // The master: tracktion's master volume stays at unity (it starts at -3 dB); ours sits at
     // the end of the master chain with a meter after it, as on every track.
@@ -855,19 +909,19 @@ void Session::Impl::ensureChannels(juce::UndoManager* undo)
 std::vector<std::string> Session::Impl::trackNames() const
 {
     std::vector<std::string> names;
-    for (auto* t : te::getAudioTracks(*edit))
+    for (auto* t : channelTracks())
         names.push_back(t->getName().toStdString());
     return names;
 }
 
-te::AudioTrack* Session::Impl::insertTrack()
+te::AudioTrack* Session::Impl::insertTrack(te::FolderTrack* into)
 {
-    // After the last track and before the return tracks (ADR 0026).
-    const auto existing = tracks();
+    // After the last track or group and before the return tracks (ADR 0026); in a group, at its
+    // end (groups.md §11).
+    te::Track* last = into != nullptr ? into->getAllSubTracks(false).getLast() : channelTrack(lastTrack());
     const auto name = model::nextTrackName(trackNames());
     const int colour = nextRowColour(); // tracks and lanes take turns through the palette
-    auto track = edit->insertNewAudioTrack(te::TrackInsertPoint(nullptr, existing.empty() ? nullptr : existing.back()),
-                                           nullptr);
+    auto track = edit->insertNewAudioTrack(te::TrackInsertPoint(into, last), nullptr);
     if (track == nullptr)
         return nullptr;
     track->state.setProperty(kColourId, colour, &edit->getUndoManager());
@@ -947,7 +1001,7 @@ std::vector<te::Plugin*> Session::Impl::chain(te::PluginList& list)
 
 te::Plugin* Session::Impl::plugin(std::uint64_t id) const
 {
-    for (auto* t : te::getAudioTracks(*edit))
+    for (auto* t : channelTracks())
         for (auto* p : t->pluginList)
             if (p->itemID.getRawID() == id)
                 return p;
@@ -1106,10 +1160,13 @@ void Session::setTimeSignature(int numerator, int denominator)
     }
 }
 
-std::uint64_t Session::addTrack(const std::string& name)
+std::uint64_t Session::addTrack(const std::string& name, std::uint64_t inGroup)
 {
+    auto* group = inGroup != 0 ? impl_->group(inGroup) : nullptr;
+    if (inGroup != 0 && group == nullptr)
+        return 0;
     impl_->beginEdit("Add track");
-    auto* track = impl_->insertTrack();
+    auto* track = impl_->insertTrack(group);
     if (track == nullptr)
         return 0;
     if (!name.empty())
@@ -1704,11 +1761,28 @@ const DeviceInfo* Session::nativeInfo(std::string_view key)
     return factory != nullptr ? &factory->info() : nullptr;
 }
 
+bool Session::playsNotes(const std::string& key) const
+{
+    if (key == "fd:drum-kit")
+        return true;
+    if (key.starts_with("fd:"))
+        if (const auto* info = nativeInfo(key))
+            return info->kind == DeviceKind::Instrument;
+    if (key.starts_with("ext:"))
+        if (const auto desc =
+                impl_->engine.getPluginManager().knownPluginList.getTypeForIdentifierString(key.substr(4)))
+            return desc->isInstrument;
+    return false;
+}
+
 std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, int index)
 {
     if (key.starts_with("fd:"))
         if (const auto kind = model::modulatorKind(std::string_view(key).substr(3)))
             return addModulator(trackId, *kind, index);
+    // No notes reach a group: it takes no instrument (groups.md §4, §11).
+    if (impl_->group(trackId) != nullptr && playsNotes(key))
+        return 0;
     if (key == "fd:drum-kit")
         return addDrumKit(trackId, index); // drum-kit.md §4
     auto* list = impl_->plugins(trackId); // any channel: tracks, returns, the master
@@ -1894,14 +1968,19 @@ std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) con
         (m != nullptr && (m->kind() != model::ModulatorKind::Follower || impl_->rackOf(*m) != nullptr)))
         return {}; // a Follower in a rack listens where it sits
     // A track can't feed this module if its own sound already depends on the module's track:
-    // it, or a track it takes a sidechain from (and so on), is that track.
-    // Sources are tracks; returns wait for routing work with racks (ADR 0026).
-    const auto tracks = impl_->tracks();
+    // it, or a track it takes a sidechain from (and so on), is that track; a group's sound is made
+    // of what's in it, so a module can't hear its own group or one above it (groups.md §7.5).
+    // Sources are tracks and groups; returns wait for routing work with racks (ADR 0026).
+    const auto tracks = impl_->rowTracks();
     std::function<bool(te::Track&, int)> dependsOnOwner = [&](te::Track& t, int depth) {
         if (&t == owner)
             return true;
         if (depth > static_cast<int>(tracks.size()) + 64)
             return false;
+        if (auto* g = dynamic_cast<te::FolderTrack*>(&t); g != nullptr && Impl::isGroup(*g))
+            for (auto* inside : g->getAllSubTracks(false))
+                if (dependsOnOwner(*inside, depth + 1))
+                    return true;
         for (auto* q : t.getAllPlugins())
             if (const auto id = q->getSidechainSourceID(); id.isValid())
                 if (auto* source = te::findTrackForID(*impl_->edit, id))
@@ -1936,7 +2015,7 @@ bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint
             const auto allowed = sidechainSources(deviceId);
             if (std::find(allowed.begin(), allowed.end(), *trackId) == allowed.end())
                 return false;
-            source = impl_->track(*trackId)->itemID;
+            source = impl_->channelTrack(*trackId)->itemID;
         }
         if (m->getSidechainSourceID() == source)
             return true;
@@ -1956,7 +2035,7 @@ bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint
         const auto allowed = sidechainSources(deviceId);
         if (std::find(allowed.begin(), allowed.end(), *trackId) == allowed.end())
             return false;
-        source = impl_->track(*trackId)->itemID;
+        source = impl_->channelTrack(*trackId)->itemID;
     }
     if (p->getSidechainSourceID() == source)
         return true;
@@ -2053,7 +2132,7 @@ void Session::setSolo(std::uint64_t channelId, bool solo, bool exclusive)
     const bool wasChanged = edit.hasChangedSinceSaved();
     const bool wasDirty = impl_->dirty;
     if (exclusive)
-        for (auto* t : te::getAudioTracks(edit))
+        for (auto* t : impl_->channelTracks()) // groups' solos too
             if (t != target && t->isSolo(false))
                 t->state.setProperty(te::IDs::solo, false, nullptr);
     target->state.setProperty(te::IDs::solo, solo, nullptr);
@@ -2065,13 +2144,15 @@ void Session::setSolo(std::uint64_t channelId, bool solo, bool exclusive)
 bool Session::setSend(std::uint64_t trackId, std::uint64_t returnId, std::optional<float> levelDb,
                       std::optional<bool> preFader)
 {
-    auto* t = impl_->track(trackId);
+    te::Track* t = impl_->track(trackId); // a track's, or a group's (ADR 0072)
+    if (t == nullptr)
+        t = impl_->group(trackId);
     auto* r = impl_->returnTrack(returnId);
     if (t == nullptr || r == nullptr)
         return false;
     const int bus = busOf(*r);
     auto* send = sendIn(t->pluginList, bus);
-    auto* volume = t->getVolumePlugin();
+    auto* volume = findIn<te::VolumeAndPanPlugin>(t->pluginList);
     const bool wantPre = preFader.value_or(send != nullptr && volume != nullptr &&
                                            t->pluginList.indexOf(send) < t->pluginList.indexOf(volume));
     const float level = std::clamp(levelDb.value_or(send != nullptr ? send->getGainDb() : model::minusInfinityDb),
@@ -2259,7 +2340,7 @@ std::optional<Session::DelayNotice> Session::untoldDelay(double minMs) const
         }
         return std::nullopt;
     };
-    for (auto* t : te::getAudioTracks(*impl_->edit))
+    for (auto* t : impl_->channelTracks())
         if (auto notice = first(t->pluginList, t->getName()))
             return notice;
     return first(impl_->edit->getMasterPluginList(), "Master");
@@ -2473,7 +2554,7 @@ void followStoredValues(te::Edit& edit)
     for (auto* p : te::getAllPlugins(edit, false))
         if (auto* native = dynamic_cast<DevicePlugin*>(p))
             native->followStoredValues();
-    for (auto* t : te::getAudioTracks(edit))
+    for (auto* t : te::getAllTracks(edit)) // groups' too
         if (auto* list = t->getModifierList())
             for (auto* m : list->getModifiers())
                 if (auto* mod = dynamic_cast<Modulator*>(m))

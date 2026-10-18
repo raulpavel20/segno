@@ -234,7 +234,7 @@ std::optional<Session::Impl::Param> Session::Impl::param(const ParamTarget& targ
 std::vector<std::uint64_t> Session::Impl::channels() const
 {
     std::vector<std::uint64_t> out;
-    for (auto* t : te::getAudioTracks(*edit))
+    for (auto* t : channelTracks())
         out.push_back(t->itemID.getRawID());
     out.push_back(masterId());
     return out;
@@ -382,7 +382,7 @@ std::pair<std::uint64_t, int> Session::Impl::placeFor(std::uint64_t after) const
         return {0, -1};
     if (const auto lane = laneTree(after); lane.isValid())
         return {idProperty(lane[afterId]), lanesTree().indexOf(lane) + 1};
-    if (track(after) != nullptr)
+    if (track(after) != nullptr || group(after) != nullptr)
         return {after, -1};
     const auto all = tracks();
     return {all.empty() ? 0 : all.back()->itemID.getRawID(), -1};
@@ -468,6 +468,7 @@ std::vector<model::AutomationLaneInfo> Session::Impl::laneInfos() const
                                        .name = lane[nameId].toString().toStdString(),
                                        .colour = static_cast<int>(lane[colourId]),
                                        .after = idProperty(lane[afterId]),
+                                       .group = idProperty(lane[laneGroupId]), // else its row's
                                        .points = pointsOf(lane)};
         for (auto a : lane)
         {
@@ -495,8 +496,9 @@ std::vector<model::AutomationLaneInfo> Session::Impl::laneInfos() const
         }
         out.push_back(std::move(info));
     }
-    // Row order: those at the top, then each track's in track order, then those whose track is gone.
-    const auto all = tracks();
+    // Row order: those at the top, then each track's (or group's) in their order, then those whose
+    // track is gone.
+    const auto all = rowTracks();
     auto rank = [&all](std::uint64_t after) {
         if (after == 0)
             return -1;
@@ -596,7 +598,7 @@ void Session::Impl::loadLanes(bool convert)
 void Session::Impl::applyAutomationMode()
 {
     const auto mode = armed ? te::AutomationMode::touch : te::AutomationMode::read;
-    for (auto* t : te::getAudioTracks(*edit))
+    for (auto* t : channelTracks())
         if (t->automationMode.get() != mode)
             t->automationMode = mode;
     if (auto* master = edit->getMasterTrack(); master != nullptr && master->automationMode.get() != mode)
@@ -767,6 +769,9 @@ std::uint64_t Session::addAutomationLaneAfter(std::uint64_t after, const std::op
     impl_->beginEdit("Add automation lane");
     const auto [anchor, index] = impl_->placeFor(after);
     auto lane = impl_->makeLane(anchor, impl_->nextRowColour(), index, um);
+    // After a lane first in a group: in that group too (groups.md §20).
+    if (const auto before = impl_->laneTree(after); before.isValid() && before.hasProperty(Impl::laneGroupId))
+        lane.setProperty(Impl::laneGroupId, before[Impl::laneGroupId], um);
     if (first)
     {
         // A parameter on another lane brings its curve, so it sounds the same (full range here).

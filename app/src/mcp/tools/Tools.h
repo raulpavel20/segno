@@ -111,8 +111,10 @@ struct Problem
 [[nodiscard]] double beats(ToolEnv& env, double seconds);
 
 /// The track, clip or module an argument names (copies from the current snapshot), or a Problem.
-/// `track` is a track that holds clips; `channel` any channel: a track, a return or the master.
+/// `track` is a track that holds clips (a group refused, saying so); `trackOrGroup` a track or a
+/// group; `channel` any channel: a track, a group, a return or the master.
 model::TrackInfo track(ToolEnv& env, const Json& value);
+model::TrackInfo trackOrGroup(ToolEnv& env, const Json& value);
 model::TrackInfo channel(ToolEnv& env, const Json& value);
 model::ClipInfo clip(ToolEnv& env, const Json& value);
 /// The module and the track that holds it.

@@ -77,6 +77,7 @@ The bounced clip's takes follow ADR 0032:
 - **Mix:** it copies the source's volume, pan and sends (level and pre/post), so it sits in the mix where the source did and still feeds the returns.
 - **Automation:** where the source's volume, pan or a send is assigned to a lane, the new track's same parameter is assigned to that lane through the same range. A lane can drive any number of parameters on any channel (ADR 0029), so a volume ride keeps riding the bounce. Module automation is in the print already.
 - **The source** clips are muted (§6), so the mix sounds the same; unmuting them layers the two or compares them. The source track and its modules are untouched.
+- **A group** ([groups.md](groups.md) §11): Bounce to new track with a group selected prints its whole sound, its tracks through it and its modules, before its fader, from its tracks' first clip to the last one's tail, onto one new track right after the group. The new track copies the group's mix and lanes as above, and the group is muted instead of its clips.
 
 ## 6. Clip mute
 

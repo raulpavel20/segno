@@ -4,6 +4,7 @@
 // sections' plans (SessionSections.cpp).
 
 #include "engine/SessionImpl.h"
+#include "model/Groups.h"
 #include "model/TimeEdits.h"
 
 #include <algorithm>
@@ -146,9 +147,10 @@ Session::StretchResult Session::editStretch(const model::TimeSelection& stretch,
     if (!stretchRefusal(stretch, command).empty())
         return result;
     const auto span = stretch.span;
-    std::vector<std::uint64_t> trackIds;
+    std::vector<std::uint64_t>
+        trackIds; // its tracks that hold clips, a group's row its tracks (groups.md §6.5)
     for (const auto& t : snapshot()->tracks) // in the project's order
-        if (stretch.tracks.contains(t.id))
+        if (stretch.tracks.contains(t.id) && t.holdsClips())
             trackIds.push_back(t.id);
 
     // The clips on its tracks crossing `t`, split there; the right parts' ids.
@@ -285,12 +287,13 @@ Session::StretchClipboard Session::copyStretch(const model::TimeSelection& stret
     const auto& span = stretch.span;
     auto data = std::make_shared<StretchClipboard::Data>();
     data->length = span.length();
-    // From the earliest clip across its start, so those come whole and are cut once pasted.
+    // From the earliest clip across its start, so those come whole and are cut once pasted. Its
+    // rows are tracks that hold clips, groups skipped (groups.md §11).
     double from = span.start;
     int top = -1, index = 0;
-    for (const auto& track : s->tracks)
+    for (const int i : model::clipTracks(*s))
     {
-        if (stretch.tracks.contains(track.id))
+        if (const auto& track = s->tracks[static_cast<size_t>(i)]; stretch.tracks.contains(track.id))
         {
             top = top < 0 ? index : top;
             data->rows.push_back(index - top);
@@ -401,17 +404,18 @@ Session::StretchResult Session::moveStretch(const model::TimeSelection& stretch,
     const double at = span.start + seconds;
     if (at < -kEpsilon)
         return result;
-    // Each of its tracks lands `trackShift` tracks down; none may land past the list.
+    // Each of its tracks lands `trackShift` tracks that hold clips down, groups skipped (groups.md
+    // §6.5); none may land past the list.
     const auto& all = snapshot()->tracks;
+    const auto holders = model::clipTracks(*snapshot());
     std::map<std::uint64_t, std::uint64_t> target;
-    for (std::size_t i = 0; i < all.size(); ++i)
-        if (stretch.tracks.contains(all[i].id))
+    for (std::size_t i = 0; i < holders.size(); ++i)
+        if (const auto& from = all[static_cast<std::size_t>(holders[i])]; stretch.tracks.contains(from.id))
         {
             const auto to = static_cast<long>(i) + trackShift;
-            if (to < 0 || to >= static_cast<long>(all.size()) ||
-                !all[static_cast<std::size_t>(to)].holdsClips())
+            if (to < 0 || to >= static_cast<long>(holders.size()))
                 return result;
-            target[all[i].id] = all[static_cast<std::size_t>(to)].id;
+            target[from.id] = all[static_cast<std::size_t>(holders[static_cast<std::size_t>(to)])].id;
         }
     if (copy)
     {
@@ -445,7 +449,7 @@ Session::StretchResult Session::moveStretch(const model::TimeSelection& stretch,
     std::vector<model::ClipEdit> moves;
     std::set<std::uint64_t> moving;
     for (const auto& track : snapshot()->tracks)
-        if (stretch.tracks.contains(track.id))
+        if (target.contains(track.id))
             for (const auto& c : track.clips)
                 if (within(c, span))
                 {

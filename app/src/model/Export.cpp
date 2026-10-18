@@ -32,6 +32,8 @@ std::string nameOf(E value, std::initializer_list<std::pair<const char*, E>> nam
 
 const std::initializer_list<std::pair<const char*, ExportWhat>> kWhat{
     {"mix", ExportWhat::Mix}, {"selected", ExportWhat::SelectedTracks}, {"all", ExportWhat::AllTracks}};
+const std::initializer_list<std::pair<const char*, ExportStems>> kStems{{"groups", ExportStems::Groups},
+                                                                        {"tracks", ExportStems::Tracks}};
 const std::initializer_list<std::pair<const char*, ExportRange>> kRange{
     {"song", ExportRange::Song}, {"loop", ExportRange::Loop}, {"selection", ExportRange::Selection}};
 const std::initializer_list<std::pair<const char*, ExportFormat>> kFormat{
@@ -45,6 +47,30 @@ double levelOf(float db)
     return std::pow(10.0, static_cast<double>(db) / 20.0);
 }
 } // namespace
+
+std::vector<std::uint64_t> stemChannels(const Snapshot& snapshot, const ExportSettings& settings,
+                                        const std::vector<std::uint64_t>& selected)
+{
+    std::vector<std::uint64_t> out;
+    const auto chosen = [&](std::uint64_t id)
+    { return std::find(selected.begin(), selected.end(), id) != selected.end(); };
+    for (const auto* list : {&snapshot.tracks, &snapshot.returns})
+        for (const auto& t : *list)
+            switch (settings.what)
+            {
+            case ExportWhat::Mix:
+                break;
+            case ExportWhat::SelectedTracks:
+                if (chosen(t.id))
+                    out.push_back(t.id);
+                break;
+            case ExportWhat::AllTracks:
+                if (settings.stems == ExportStems::Tracks || t.group == 0)
+                    out.push_back(t.id);
+                break;
+            }
+    return out;
+}
 
 bool isLossy(ExportFormat format) noexcept
 {
@@ -181,6 +207,7 @@ std::string toJson(const ExportSettings& s)
     return nlohmann::json{
         {"what", nameOf(s.what, kWhat)},
         {"throughReturns", s.throughReturns},
+        {"stems", nameOf(s.stems, kStems)},
         {"range", nameOf(s.range, kRange)},
         {"format", nameOf(s.format, kFormat)},
         {"bitDepth", s.bitDepth},
@@ -209,6 +236,7 @@ ExportSettings exportSettingsFromJson(const std::string& text)
     s.normalise = enumFrom(j, "normalise", kNormalise, s.normalise);
     if (j.contains("throughReturns") && j["throughReturns"].is_boolean())
         s.throughReturns = j["throughReturns"].get<bool>();
+    s.stems = enumFrom(j, "stems", kStems, s.stems);
     if (j.contains("bitDepth") && j["bitDepth"].is_number_integer())
         s.bitDepth = j["bitDepth"].get<int>();
     if (j.contains("kbps") && j["kbps"].is_number_integer())

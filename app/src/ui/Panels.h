@@ -186,6 +186,9 @@ public:
     void setRoutes(std::vector<RouteRows::Route> routes, DeviceChain::RouteCallbacks callbacks);
     /// A "Moved by" line clicked: that modulator, to select.
     std::function<void(std::uint64_t modulator)> onSelectModule;
+    /// TRACK's Group row clicked: the group, to select (groups.md §10).
+    std::function<void(std::uint64_t group)> onSelectChannel;
+    [[nodiscard]] ui::Toggle& groupLink() noexcept { return groupLink_; }
     [[nodiscard]] const std::optional<ModuleShown>& module() const noexcept { return module_; }
     /// MODULE's controls and ROUTES' rows (tests).
     [[nodiscard]] const juce::OwnedArray<ui::Toggle>& movers() const noexcept { return movers_; }
@@ -308,6 +311,8 @@ private:
     /// clip's (with its parts), a lane's colour. Each one undo step.
     juce::TextEditor channelName_, clipName_;
     ui::ColourSwatch channelColour_, clipColour_, laneColour_;
+    /// TRACK's Group row: the group's name, a click selecting it (groups.md §10).
+    ui::Toggle groupLink_;
     /// The selected clip and every part of it (a comp).
     [[nodiscard]] std::vector<std::uint64_t> clipParts() const;
     /// An audio clip's fade lengths, dragged or typed in ms (fades.md §3), and beside each its

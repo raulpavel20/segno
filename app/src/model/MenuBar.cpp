@@ -92,10 +92,13 @@ std::vector<Menu> menuBar(MenuPlatform platform)
     menus.push_back(
         {"Track",
          't',
-         {action("track.add"), action("track.addReturn"), separator(), action("track.duplicate"),
-          action("track.delete"), submenu("Colour", {list("trackColour")}), separator(), action("track.arm"),
-          action("track.mute"), action("track.solo"), separator(), action("automation.addLane"),
-          action("automation.assign"), action("automation.showLastTouched")}});
+         {action("track.add"), action("track.addReturn"), separator(),
+          // Groups (groups.md §12).
+          action("track.group"), action("track.ungroup"), action("track.removeFromGroup"),
+          action("track.fold"), separator(), action("track.duplicate"), action("track.delete"),
+          submenu("Colour", {list("trackColour"), separator(), action("track.colourMembers")}), separator(),
+          action("track.arm"), action("track.mute"), action("track.solo"), separator(),
+          action("automation.addLane"), action("automation.assign"), action("automation.showLastTouched")}});
 
     menus.push_back(
         {"Clip",
@@ -241,8 +244,8 @@ std::vector<Menu> menuBar(MenuPlatform platform)
          {action("view.mixer"), separator(), action("view.browser"), action("browser.search"),
           action("browser.preview"), action("view.inspector"), action("view.detail"),
           action("view.detailMode"), separator(), action("view.lanes"), action("view.returns"),
-          action("module.fold"), action("module.expand"), action("module.nextPage"),
-          action("module.previousPage"), separator(),
+          action("view.foldGroups"), action("view.unfoldGroups"), action("module.fold"),
+          action("module.expand"), action("module.nextPage"), action("module.previousPage"), separator(),
           // The clip view's options (piano-roll.md §13).
           action("view.clipInKey"),
           submenu("Other tracks' notes", {action("view.clipOthers"), separator(), list("otherTracks")}),

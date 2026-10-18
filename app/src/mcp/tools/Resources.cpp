@@ -39,7 +39,7 @@ void addResources(Registry& registry, ToolEnv& env)
                 else if (uri == "segno://modules")
                     j = {{"types", moduleTypesJson(env)}};
                 else if (const auto id = after("segno://track/"))
-                    j = trackJson(env, track(env, *id));
+                    j = trackJson(env, channel(env, *id));
                 else if (const auto c = after("segno://clip/"))
                     j = clipJson(env, clip(env, *c), true);
                 else if (const auto m = after("segno://module/"))

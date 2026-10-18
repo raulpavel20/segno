@@ -53,7 +53,7 @@ struct Drag
     DragKind kind = DragKind::Move;
     std::uint64_t anchor = 0;  // the grabbed clip: it snaps; the others follow by the same amount
     double deltaSeconds = 0.0; // mouse movement in time
-    int deltaTracks = 0;       // mouse movement in tracks (moves only)
+    int deltaTracks = 0;       // mouse movement in tracks that hold clips, groups skipped (moves only)
     int seam = 0;              // LoopLength: the grabbed seam's number (model::Seam)
 };
 

@@ -86,6 +86,12 @@ struct BounceRun
                                                  const std::set<std::uint64_t>& tracks, double from,
                                                  double to, BounceMode mode, std::string* why = nullptr);
 
+/// The run for bouncing a group to a new track (groups.md §11): its whole sound before its fader,
+/// one piece named after it from its tracks' first clip to their last one's end (and the tail),
+/// whose parts are the clips of every track in it. None when it holds no clips (`why` says so).
+[[nodiscard]] std::optional<BounceRun> groupBounceRun(const Snapshot& snapshot, std::uint64_t group,
+                                                      std::string* why = nullptr);
+
 /// The tail allowance after a clip: none for an audio clip bounced in place (nothing rings after
 /// it), else kBounceTailSeconds.
 [[nodiscard]] double tailAllowance(ClipInfo::Kind kind, BounceMode mode) noexcept;

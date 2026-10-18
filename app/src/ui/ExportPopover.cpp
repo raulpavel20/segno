@@ -50,9 +50,6 @@ constexpr int kWhat[] = {static_cast<int>(ExportWhat::Mix), static_cast<int>(Exp
 ExportPopover::ExportPopover(engine::Session& session) : session_(session)
 {
     setWantsKeyboardFocus(true);
-    what_.addItem("The mix", 1);
-    what_.addItem("Selected tracks", 2);
-    what_.addItem("All tracks (and returns)", 3);
     for (const auto f : model::kExportFormats)
         format_.addItem(juce::String::fromUTF8(model::formatName(f).c_str()), static_cast<int>(f) + 1);
     depth_.addItem("16-bit", 16);
@@ -198,12 +195,24 @@ void ExportPopover::load()
 {
     loading_ = true;
     const auto s = session_.exportSettings();
-    what_.setSelectedId(static_cast<int>(s.what) + 1, juce::dontSendNotification);
+    session_.updateSnapshotNow();
+    const auto& snapshot = *session_.snapshot();
+    // With groups, all tracks is two choices (groups.md §11): each group whole, or every track.
+    const bool groups = std::any_of(snapshot.tracks.begin(), snapshot.tracks.end(),
+                                    [](const model::TrackInfo& t) { return t.isGroup(); });
+    what_.clear(juce::dontSendNotification);
+    what_.addItem("The mix", 1);
+    what_.addItem("Selected tracks", 2);
+    what_.addItem(groups ? "All tracks, groups whole (and returns)" : "All tracks (and returns)", 3);
+    if (groups)
+        what_.addItem("Every track and group, alone", 4);
+    what_.setSelectedId(groups && s.what == ExportWhat::AllTracks && s.stems == model::ExportStems::Tracks
+                            ? 4
+                            : static_cast<int>(s.what) + 1,
+                        juce::dontSendNotification);
     through_.setToggleState(s.throughReturns, juce::dontSendNotification);
     // The ranges, with what they'd export now.
     range_.clear(juce::dontSendNotification);
-    session_.updateSnapshotNow();
-    const auto& snapshot = *session_.snapshot();
     const double end = model::songEnd(snapshot);
     range_.addItem("Song  " + (end > 0.0 ? "0:00 - " + minutes(end) + " + tail" : juce::String("(no clips yet)")), 1);
     const auto [loopStart, loopEnd] = session_.loopRange();
@@ -252,6 +261,8 @@ void ExportPopover::store()
         return;
     auto s = session_.exportSettings();
     s.what = static_cast<ExportWhat>(kWhat[std::clamp(what_.getSelectedId() - 1, 0, 2)]);
+    if (s.what == ExportWhat::AllTracks)
+        s.stems = what_.getSelectedId() == 4 ? model::ExportStems::Tracks : model::ExportStems::Groups;
     s.throughReturns = through_.getToggleState();
     s.range = range_.getSelectedId() == 3   ? ExportRange::Selection
               : range_.getSelectedId() == 2 ? ExportRange::Loop

@@ -1,12 +1,15 @@
 // Groups (ADR 0072, docs/design/groups.md): what a group holds, read from the snapshot; the
 // arrangement's rows with groups, their depth and folding (§6); the header's and the strip's slots
 // at each depth (§6.1, §6.3, §9); a time selection on a group's row (§6.5); the inspector's
-// sections for a group, a member and several tracks (§8, §10).
+// sections for a group, a member and several tracks (§8, §10); clips moving across tracks with
+// groups skipped (§6.5); where a dragged header lands among groups (§5.3).
 
 #include "model/ArrangementRows.h"
 #include "model/ChannelStripLayout.h"
+#include "model/Editing.h"
 #include "model/Groups.h"
 #include "model/Selection.h"
+#include "model/TrackEdits.h"
 #include "model/TrackHeaderLayout.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -247,4 +250,102 @@ TEST_CASE("groups: several tracks chosen together: Ctrl+click in and out, Shift+
     // A clip or a time selection isn't several tracks.
     CHECK(selectedTracks(s, {.channel = 1, .clips = {99}}).empty());
     CHECK(selectedTracks(s, {.channel = 1, .rowTracks = {1, 2}, .time = TimeSpan{0.0, 1.0}}).empty());
+}
+
+TEST_CASE("groups: clips move down and up by tracks that hold clips, a group's row skipped", "[fast]")
+{
+    auto s = nested(); // All, Rhythm, Drums, 1, 2, 3, 4
+    s.tracks[3].clips = {ClipInfo{.id = 10, .start = 1.0, .length = 2.0}};
+    s.tracks[5].clips = {ClipInfo{.id = 11, .start = 4.0, .length = 1.0}};
+    CHECK(clipTracks(s) == std::vector<int>{3, 4, 5, 6});
+    CHECK(clipTrackRank(s, 0) == -1);
+    CHECK(clipTrackRank(s, 3) == 0);
+    CHECK(clipTrackRank(s, 6) == 3);
+    CHECK(clipTrackRank(s, 7) == -1);
+
+    const auto same = [](double t) { return t; };
+    // Track 1's clip down one: onto track 2, then onto 3 (past no group's row); never past the last.
+    auto edits = dragClips(s, {10}, {.anchor = 10, .deltaTracks = 1}, same);
+    REQUIRE(edits.size() == 1);
+    CHECK(edits[0].track == 2);
+    edits = dragClips(s, {10, 11}, {.anchor = 10, .deltaTracks = 5}, same);
+    REQUIRE(edits.size() == 2);
+    CHECK(edits[0].track == 2); // the lower one stopped at the last track, the other kept its distance
+    CHECK(edits[1].track == 4);
+    edits = dragClips(s, {11}, {.anchor = 11, .deltaTracks = -9}, same);
+    CHECK(edits[0].track == 1); // the first track, not a group
+}
+
+TEST_CASE(
+    "groups: a dragged header lands between members in their group; at a group's end the pointer's depth "
+    "chooses; on a group's header, at its end; never inside itself",
+    "[fast]")
+{
+    const auto s = nested();
+    // 0 All, 1 Rhythm, 2 Drums, 3 T1, 4 T2, 5 T3 (in Rhythm), 6 T4 (in none)
+    const auto rows = arrangementRows(s, false);
+    REQUIRE(rows.size() == 7);
+    // Between T1 and T2: in Drums, whatever the pointer's depth.
+    auto d = dropRow(rows, 6, 4, 0);
+    CHECK(d.moves);
+    CHECK(d.group == 102);
+    CHECK(d.depth == 3);
+    CHECK(d.before == 2);
+    // At Drums' end, above T3: in Drums at its end, or in Rhythm above T3.
+    d = dropRow(rows, 6, 5, 3);
+    CHECK(d.group == 102);
+    CHECK(d.before == 0);
+    d = dropRow(rows, 6, 5, 0);
+    CHECK(d.depth == 2);
+    CHECK(d.group == 101);
+    CHECK(d.before == 3);
+    // Right above itself, at Rhythm's and All's end: deeper moves it in; as deep as it is, nothing.
+    d = dropRow(rows, 6, 6, 2);
+    CHECK(d.moves);
+    CHECK(d.group == 101);
+    CHECK(dropRow(rows, 6, 6, 1).group == 100);
+    CHECK_FALSE(dropRow(rows, 6, 6, 0).moves);
+    CHECK_FALSE(dropRow(rows, 6, 7, 5).moves); // below itself: no deeper than it is
+    // Onto a group's header: at its end; already last there, nothing.
+    d = dropRow(rows, 6, 0, 0, 2);
+    CHECK(d.moves);
+    CHECK(d.onHeader);
+    CHECK(d.group == 102);
+    CHECK(d.depth == 3);
+    CHECK(d.boundary == 5);
+    CHECK(dropRow(rows, 3, 0, 0, 2).moves);
+    CHECK_FALSE(dropRow(rows, 4, 0, 0, 2).moves);
+    // Drums: never inside itself, nor onto itself; onto All, out of Rhythm.
+    CHECK_FALSE(dropRow(rows, 2, 4, 3).moves);
+    CHECK_FALSE(dropRow(rows, 2, 5, 3).moves);
+    CHECK(dropRow(rows, 2, 5, 3).depth == 2);
+    CHECK_FALSE(dropRow(rows, 2, 0, 0, 2).moves);
+    CHECK(dropRow(rows, 2, 0, 0, 0).moves);
+
+    // Below a folded group: inside it at its end, or after it.
+    const auto folded = arrangementRows(s, false, true, {102});
+    REQUIRE(folded.size() == 5); // All, Rhythm, Drums, T3, T4
+    d = dropRow(folded, 4, 3, 3);
+    CHECK(d.group == 102);
+    CHECK(d.before == 0);
+    CHECK(dropRow(folded, 4, 3, 0).before == 3);
+}
+
+TEST_CASE("groups: a fold triangle folds its group or unfolds it; with Alt, every group the same way",
+          "[fast]")
+{
+    const auto s = nested(); // groups 100, 101, 102
+    CHECK(toggledFold(s, {}, 102, false) == std::set<std::uint64_t>{102});
+    CHECK(toggledFold(s, {102}, 102, false).empty());
+    CHECK(toggledFold(s, {102}, 100, true) == std::set<std::uint64_t>{100, 101, 102});
+    CHECK(toggledFold(s, {100, 101}, 100, true).empty());
+    CHECK(toggledFold(s, {}, 1, false).empty()); // a track: nothing
+}
+
+TEST_CASE("groups: chosen with what it holds, a group acts for it", "[fast]")
+{
+    const auto s = nested(); // All 100 ▸ Rhythm 101 ▸ Drums 102 (1, 2), 3 in Rhythm; 4 in none
+    CHECK(outermost(s, {1, 102, 4}) == std::vector<std::uint64_t>{102, 4});
+    CHECK(outermost(s, {3, 100, 2}) == std::vector<std::uint64_t>{100});
+    CHECK(outermost(s, {1, 2}) == std::vector<std::uint64_t>{1, 2});
 }

@@ -28,6 +28,10 @@ struct Action
     /// action, which acts on whatever kind of clip the clip view shows (the Notes and Audio menus'
     /// Quantise and Transpose, audio-editor.md §13).
     std::string keysFrom;
+    /// For a key it shares with an action showing it (keysFrom): the action the key goes to now,
+    /// by what was used last, its menu item still doing its own (Ctrl+G groups tracks or modules,
+    /// groups.md §12). Null, or empty: this one.
+    std::function<std::string()> keyGoesTo;
 };
 
 /// Every action in the app, looked up by id or key press. The command palette (M2) lists it;
@@ -53,7 +57,8 @@ public:
     /// Tells the user why an action couldn't run (a toast).
     std::function<void(const juce::String&)> onRefused;
 
-    /// Performs the action bound to `key`, if any. Returns true if one was found and enabled.
+    /// Performs the action bound to `key` (or the one it goes to now, Action::keyGoesTo), if any.
+    /// Returns true if one was found and enabled.
     bool handleKey(const juce::KeyPress& key) const;
 
     [[nodiscard]] bool isToggled(std::string_view id) const;

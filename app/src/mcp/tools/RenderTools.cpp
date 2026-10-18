@@ -23,6 +23,93 @@ using namespace tools;
 
 namespace
 {
+using Landing = std::function<void(const engine::Session::BounceResult&)>;
+
+/// Starts a bounce on the message thread (`start` gives its job, or throws a Problem saying why it
+/// can't), waits for it to land with progress and cancelling, and says what it made.
+ToolResult
+waitForBounce(ToolEnv& env, CallContext& context,
+              const std::function<std::shared_ptr<engine::Session::RenderJob>(const Landing&)>& start)
+{
+    struct Landed
+    {
+        std::mutex mutex;
+        std::condition_variable changed;
+        std::optional<engine::Session::BounceResult> result;
+    };
+    auto landed = std::make_shared<Landed>();
+    std::shared_ptr<engine::Session::RenderJob> job;
+    std::optional<ToolResult> refused;
+    const bool ran = env.main.run(
+        [&]
+        {
+            try
+            {
+                env.session.flushSnapshot();
+                job = start(
+                    [landed](const engine::Session::BounceResult& r)
+                    {
+                        {
+                            std::lock_guard lock(landed->mutex);
+                            landed->result = r;
+                        }
+                        landed->changed.notify_all();
+                    });
+                if (job == nullptr)
+                    throw Problem{"There's nothing to bounce."};
+            }
+            catch (const Problem& p)
+            {
+                refused = ToolResult::error(p.message);
+            }
+        });
+    if (!ran)
+        return ToolResult::error("The DAW is closing.");
+    if (refused)
+        return *refused;
+    for (;;)
+    {
+        {
+            std::unique_lock lock(landed->mutex);
+            if (landed->changed.wait_for(lock, std::chrono::milliseconds(200),
+                                         [&] { return landed->result.has_value(); }))
+                break;
+        }
+        context.progress(job->progress(), 1.0, "Bouncing");
+        if (context.cancelled() || !env.main.isOpen())
+            job->cancel();
+        if (!env.main.isOpen())
+            return ToolResult::error("The DAW is closing.");
+    }
+    const auto r = *landed->result;
+    if (r.cancelled)
+        return ToolResult::error("The bounce was cancelled; nothing changed.");
+    if (!r.error.empty())
+        return ToolResult::error(r.error);
+    Json out;
+    std::string summary;
+    env.main.run(
+        [&]
+        {
+            env.session.flushSnapshot();
+            Json clips = Json::array();
+            for (const auto id : r.clips)
+                if (const auto found = model::findClip(*env.session.snapshot(), id))
+                    clips.push_back(clipJson(env, *found->first, false));
+            Json tracks = Json::array();
+            for (const auto id : r.tracks)
+                tracks.push_back(formatId(IdKind::Track, id));
+            Json cut = Json::array();
+            for (const auto& c : r.cutTails)
+            {
+                cut.push_back({{"clip", c.clip}, {"next", c.next}});
+                summary += c.clip + "'s tail stops where " + c.next + " starts; bounce both to keep it. ";
+            }
+            out = {{"clips", std::move(clips)}, {"tracks", std::move(tracks)}, {"cutTails", std::move(cut)}};
+        });
+    return ToolResult::ok(std::move(out), summary);
+}
+
 constexpr double kMaxRenderSeconds = 600.0;
 constexpr double kMaxAudioSeconds = 30.0; // open question B19
 
@@ -145,7 +232,7 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                 std::optional<std::uint64_t> trackId;
                 const auto what = args.value("what", Json("mix"));
                 if (!(what.is_string() && what.get<std::string>() == "mix"))
-                    trackId = track(env, what).id;
+                    trackId = trackOrGroup(env, what).id; // a group whole (groups.md §11)
                 range = {{"what", trackId ? formatId(IdKind::Track, *trackId) : std::string("mix")},
                          {"start", positionJson(start, t)},
                          {"end", positionJson(end, t)}};
@@ -244,29 +331,14 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                                   {"cutTails", arrayOf(result({{"clip", string("")}, {"next", string("")}}),
                                                        "Audible tails a clip that wasn't bounced cut", std::nullopt)}},
                                  {"clips"});
-    bounce.call = [&env](const Json& args, CallContext& context) -> ToolResult {
-        struct Landed
-        {
-            std::mutex mutex;
-            std::condition_variable changed;
-            std::optional<engine::Session::BounceResult> result;
-        };
-        auto landed = std::make_shared<Landed>();
-        std::shared_ptr<engine::Session::RenderJob> job;
-        std::optional<ToolResult> refused;
-        const bool ran = env.main.run([&] {
-            try
+    bounce.call = [&env](const Json& args, CallContext& context) -> ToolResult
+    {
+        return waitForBounce(
+            env, context,
+            [&](const Landing& onLanded)
             {
-                env.session.flushSnapshot();
-                const auto mode = args.value("newTrack", false) ? model::BounceMode::NewTrack : model::BounceMode::InPlace;
-                const auto onLanded = [landed](const engine::Session::BounceResult& r)
-                {
-                    {
-                        std::lock_guard lock(landed->mutex);
-                        landed->result = r;
-                    }
-                    landed->changed.notify_all();
-                };
+                const auto mode =
+                    args.value("newTrack", false) ? model::BounceMode::NewTrack : model::BounceMode::InPlace;
                 const bool stretch = args.contains("from") || args.contains("to") || args.contains("tracks");
                 if (stretch == args.contains("clips"))
                     throw Problem{"Give `clips`, or a stretch: `from`, `to` and `tracks`."};
@@ -284,71 +356,47 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                     if (const auto why = env.session.stretchBounceRefusal(tracks, from, to, mode);
                         !why.empty())
                         throw Problem{why};
-                    job = env.session.bounceStretch(tracks, from, to, mode, onLanded,
-                                                    "Assistant: bounce clips");
+                    return env.session.bounceStretch(tracks, from, to, mode, onLanded,
+                                                     "Assistant: bounce clips");
                 }
-                else
-                {
-                    std::vector<std::uint64_t> clips;
-                    for (const auto& value : args["clips"])
-                        clips.push_back(clip(env, value).id);
-                    if (const auto why = env.session.bounceRefusal(clips, mode); !why.empty())
-                        throw Problem{why};
-                    // One call, one step (ADR 0021), though it lands later.
-                    job = env.session.bounce(clips, mode, onLanded, "Assistant: bounce clips");
-                }
-                if (job == nullptr)
-                    throw Problem{"There's nothing to bounce."};
-            }
-            catch (const Problem& p)
-            {
-                refused = ToolResult::error(p.message);
-            }
-        });
-        if (!ran)
-            return ToolResult::error("The DAW is closing.");
-        if (refused)
-            return *refused;
-        for (;;)
-        {
-            {
-                std::unique_lock lock(landed->mutex);
-                if (landed->changed.wait_for(lock, std::chrono::milliseconds(200), [&] { return landed->result.has_value(); }))
-                    break;
-            }
-            context.progress(job->progress(), 1.0, "Bouncing");
-            if (context.cancelled() || !env.main.isOpen())
-                job->cancel();
-            if (!env.main.isOpen())
-                return ToolResult::error("The DAW is closing.");
-        }
-        const auto r = *landed->result;
-        if (r.cancelled)
-            return ToolResult::error("The bounce was cancelled; nothing changed.");
-        if (!r.error.empty())
-            return ToolResult::error(r.error);
-        Json out;
-        std::string summary;
-        env.main.run([&] {
-            env.session.flushSnapshot();
-            Json clips = Json::array();
-            for (const auto id : r.clips)
-                if (const auto found = model::findClip(*env.session.snapshot(), id))
-                    clips.push_back(clipJson(env, *found->first, false));
-            Json tracks = Json::array();
-            for (const auto id : r.tracks)
-                tracks.push_back(formatId(IdKind::Track, id));
-            Json cut = Json::array();
-            for (const auto& c : r.cutTails)
-            {
-                cut.push_back({{"clip", c.clip}, {"next", c.next}});
-                summary += c.clip + "'s tail stops where " + c.next + " starts; bounce both to keep it. ";
-            }
-            out = {{"clips", std::move(clips)}, {"tracks", std::move(tracks)}, {"cutTails", std::move(cut)}};
-        });
-        return ToolResult::ok(std::move(out), summary);
+                std::vector<std::uint64_t> clips;
+                for (const auto& value : args["clips"])
+                    clips.push_back(clip(env, value).id);
+                if (const auto why = env.session.bounceRefusal(clips, mode); !why.empty())
+                    throw Problem{why};
+                // One call, one step (ADR 0021), though it lands later.
+                return env.session.bounce(clips, mode, onLanded, "Assistant: bounce clips");
+            });
     };
     registry.tools.push_back(std::move(bounce));
+
+    Tool bounceGroup;
+    bounceGroup.name = "bounce_group";
+    bounceGroup.title = "Bounce a group to a new track";
+    bounceGroup.description =
+        "Renders a group's whole sound offline (playback goes on): its tracks through it and its modules, "
+        "before its fader, from its tracks' first clip to the last one's tail, onto a new track right after "
+        "it that copies its volume, pan, sends and the lanes driving them; the group is then muted, its "
+        "tracks as they were. One undo step, landing when it's done.";
+    bounceGroup.inputSchema = object({{"group", id(IdKind::Track, "The group")}}, {"group"});
+    bounceGroup.outputSchema =
+        result({{"clips", arrayOf(clipResultSchema(), "The bounced clip", std::nullopt)},
+                {"tracks", arrayOf(string("The new track's id"), "", std::nullopt)}},
+               {"clips", "tracks"});
+    bounceGroup.call = [&env](const Json& args, CallContext& context) -> ToolResult
+    {
+        return waitForBounce(env, context,
+                             [&](const Landing& onLanded)
+                             {
+                                 const auto g = channel(env, args["group"]);
+                                 if (!g.isGroup())
+                                     throw Problem{g.name + " isn't a group."};
+                                 if (const auto why = env.session.groupBounceRefusal(g.id); !why.empty())
+                                     throw Problem{why};
+                                 return env.session.bounceGroup(g.id, onLanded);
+                             });
+    };
+    registry.tools.push_back(std::move(bounceGroup));
 
     Tool exporting;
     exporting.name = "export_audio";
@@ -376,7 +424,16 @@ void addRenderTools(Registry& registry, ToolEnv& env)
           {{"type", "string"},
            {"enum", Json::array({"mix", "tracks"})},
            {"description", "The mix, or tracks as stems"}}},
-         {"tracks", ids(IdKind::Track, "The tracks or return tracks as stems (default: all of them)")},
+         {"tracks", ids(IdKind::Track,
+                        "The tracks, groups or return tracks as stems (default: all of them): a group whole, "
+                        "a track in one without the group's modules")},
+         {"stems",
+          {{"type", "string"},
+           {"enum", Json::array({"groups", "tracks"})},
+           {"description",
+            "All tracks with groups: each group whole, as one stem, with each track in no group and each "
+            "return (\"groups\", adding up to the mix); or every track alone and each group too "
+            "(\"tracks\")"}}},
          {"throughReturns", boolean("Stems through the returns and master")},
          {"range",
           {{"oneOf",
@@ -438,6 +495,9 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                         tracks.push_back(channel(env, value).id);
                 }
                 s.throughReturns = args.value("throughReturns", s.throughReturns);
+                if (args.contains("stems")) // groups.md §11
+                    s.stems =
+                        args["stems"] == "tracks" ? model::ExportStems::Tracks : model::ExportStems::Groups;
                 // A stretch (time-selection.md §18); the panel's remembered selection is the song's,
                 // as assistants never see the selection.
                 std::optional<model::TimeSpan> stretch;

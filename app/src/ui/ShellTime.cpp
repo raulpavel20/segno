@@ -3,6 +3,7 @@
 // Select all, Loop, Zoom to fit, Crossfade, Mute, New MIDI clip, Reverse, the arrows) amended to
 // act on it while it's what was used last. Their keys stay; their labels say what they do.
 
+#include "model/Groups.h"
 #include "ui/Shell.h"
 
 #include <algorithm>
@@ -170,33 +171,41 @@ void Shell::registerTimeActions()
                 else
                 {
                     // At the playhead, from the time selection's topmost track (else the
-                    // selected track, else the first), its rows keeping their places.
+                    // selected track or a selected group's first, else the first), its rows
+                    // keeping their places. Rows are tracks that hold clips (groups.md §11).
                     const auto snapshot = session_.snapshot();
                     const auto& sel = arrangement_.selection();
+                    const auto holders = model::clipTracks(*snapshot);
+                    const auto at = [&](size_t i) -> const model::TrackInfo&
+                    { return snapshot->tracks[static_cast<size_t>(holders[i])]; };
                     std::optional<size_t> first;
-                    for (size_t i = 0; i < snapshot->tracks.size() && !first; ++i)
-                        if (sel.hasTime() ? sel.rowTracks.contains(snapshot->tracks[i].id)
-                                          : sel.channel == snapshot->tracks[i].id)
+                    for (size_t i = 0; i < holders.size() && !first; ++i)
+                        if (sel.hasTime()
+                                ? sel.rowTracks.contains(at(i).id)
+                                : sel.channel == at(i).id ||
+                                      (sel.channel && model::isInGroup(*snapshot, at(i), *sel.channel)))
                             first = i;
-                    if (!first && !snapshot->tracks.empty())
+                    if (!first && !holders.empty())
                         first = 0;
                     std::optional<size_t> top;
                     std::vector<size_t> rows;
-                    for (size_t i = 0; i < snapshot->tracks.size(); ++i)
-                        if (heldStretchFrom_.tracks.contains(snapshot->tracks[i].id))
+                    for (size_t i = 0; i < holders.size(); ++i)
+                        if (heldStretchFrom_.tracks.contains(at(i).id))
                         {
                             top = top ? top : i;
                             rows.push_back(i - *top);
                         }
-                    const auto target = first ? snapshot->tracks[*first].id : 0;
+                    const auto target = first ? at(*first).id : 0;
                     const auto result = session_.pasteStretch(heldStretch_, session_.position(), target);
                     if (!result.changed)
                         return;
                     session_.updateSnapshotNow();
+                    const auto after = session_.snapshot();
+                    const auto afterHolders = model::clipTracks(*after);
                     std::set<std::uint64_t> tracks;
                     for (const auto row : rows)
-                        if (first && *first + row < session_.snapshot()->tracks.size())
-                            tracks.insert(session_.snapshot()->tracks[*first + row].id);
+                        if (first && *first + row < afterHolders.size())
+                            tracks.insert(after->tracks[static_cast<size_t>(afterHolders[*first + row])].id);
                     lastArea_ = Area::Arrangement;
                     arrangement_.setSelection(model::withTime(*session_.snapshot(), result.span, tracks,
                                                               heldStretchFrom_.lanes, target));

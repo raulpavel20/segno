@@ -222,6 +222,11 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Add track | Ctrl+T |
 | Add return track | Ctrl+Alt+T |
 | — | |
+| Group tracks | Ctrl+G (shared with Module ▸ Group into rack: the key goes to whichever acts on what was used last, [groups.md](groups.md) §12) |
+| Ungroup tracks | Ctrl+Shift+G (shared with Ungroup rack, as above) |
+| Remove from group | |
+| Fold group | Alt+U (a toggle, ticked when the selected group is folded in the view shown) |
+| — | |
 | Arm selected track | Alt+R |
 | Mute selected track | Alt+M |
 | Solo selected track | Alt+S |
@@ -401,6 +406,8 @@ Load sample… also loads onto a Drum Kit's selected pad when the kit is selecte
 | — | | |
 | Show automation lanes | Ctrl+Alt+L | |
 | Show returns and master | Ctrl+Alt+R | |
+| Fold all groups | | `view.foldGroups` ([groups.md](groups.md) §6.4), in the view shown; also Alt+click on a group's triangle |
+| Unfold all groups | | `view.unfoldGroups`, as above |
 | Fold module | Ctrl+Alt+M | |
 | Expand module sections | Ctrl+Alt+E | |
 | Next module page | Ctrl+Alt+Page Down | For a module with pages ([ADR 0051](../decisions/0051-pages-for-very-wide-modules.md)); dimmed for others. With the Wavetable Synth (M3 P1) |

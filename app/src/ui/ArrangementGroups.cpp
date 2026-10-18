@@ -18,6 +18,44 @@ void ArrangementView::setFoldedGroups(std::set<std::uint64_t> folded)
     syncRows();
 }
 
+void ArrangementView::toggleFold(std::uint64_t group, bool all)
+{
+    setFoldedGroups(model::toggledFold(*snapshot_, folded_, group, all));
+}
+
+int ArrangementView::dropDepthAt(float x) const
+{
+    const model::TrackHeaderMetrics metrics;
+    int deepest = 0;
+    for (const auto& r : rows_)
+        deepest = std::max(deepest, r.depth + 1);
+    const auto lineAt = [&](int depth)
+    {
+        return static_cast<double>(headerArea().getX()) +
+               model::layoutTrackHeader(headerWidth(), model::TrackLayout::defaultHeight, 0, false, metrics,
+                                        depth)
+                   .colour.x;
+    };
+    int depth = 0;
+    while (depth < deepest && lineAt(depth + 1) <= static_cast<double>(x) + metrics.groupIndent * 0.5)
+        ++depth;
+    return depth;
+}
+
+std::optional<std::size_t> ArrangementView::groupHeaderAt(float y) const
+{
+    const auto lanes = laneArea();
+    const auto row = layout_.hit(y - static_cast<float>(lanes.getY()));
+    if (!row || row->track < 0 || row->track >= static_cast<int>(rows_.size()) ||
+        !rows_[static_cast<size_t>(row->track)].isGroup())
+        return std::nullopt;
+    // Its middle half: nearer an edge, the boundary there.
+    const double h = layout_.baseHeight(row->track);
+    return row->offset >= h * 0.25 && row->offset <= h * 0.75
+               ? std::optional(static_cast<std::size_t>(row->track))
+               : std::nullopt;
+}
+
 void ArrangementView::previewRowDrop(int row, std::optional<model::RowDrop> drop)
 {
     if (drop)

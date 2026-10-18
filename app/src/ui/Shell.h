@@ -224,6 +224,15 @@ private:
     // The time selection (ADR 0073, docs/design/time-selection.md; ShellTime.cpp): its own actions,
     // and the existing ones amended to act on it when it's what was used last.
     void registerTimeActions();
+    // Groups (ADR 0072, docs/design/groups.md; ShellGroups.cpp): their commands, Ctrl+G shared
+    // with racks, folding in the view shown, the header's menu, the toasts saying what went.
+    void registerGroupActions();
+    void headerMenu(juce::PopupMenu& menu, std::uint64_t channel);
+    [[nodiscard]] std::optional<model::TrackInfo> selectedGroup() const;
+    [[nodiscard]] std::set<std::uint64_t> shownFolds() const;
+    void setShownFolds(std::set<std::uint64_t> folded);
+    [[nodiscard]] static juce::String emptiedText(const std::vector<std::string>& names);
+    std::vector<std::string> emptied_;     // groups the last command left empty, not yet said (§4)
     [[nodiscard]] bool timeActive() const; // a time selection, in the arrangement used last
     /// The clip view's time selection inside a MIDI clip (§14.1): its Notes ▸ Time commands, and
     /// the Song menu's keys while the clip view was used last.

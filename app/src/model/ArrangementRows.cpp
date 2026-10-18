@@ -1,8 +1,10 @@
 #include "model/ArrangementRows.h"
 
 #include "model/Groups.h"
+#include "model/RowTree.h"
 
 #include <algorithm>
+#include <map>
 
 namespace fd::model
 {
@@ -11,56 +13,63 @@ std::string ArrangementRow::key() const
     return isLane() ? "a" + std::to_string(lane) : "c" + std::to_string(channel);
 }
 
+RowTree rowTreeOf(const Snapshot& snapshot)
+{
+    RowTree tree;
+    std::map<std::uint64_t, std::uint64_t> groupOf;
+    for (const auto& t : snapshot.tracks)
+    {
+        tree.channels.push_back({.id = t.id, .group = t.group, .isGroup = t.isGroup()});
+        groupOf[t.id] = t.group;
+    }
+    // A lane is in the group of the row it's after, unless it says another (first in a group).
+    for (const auto& l : snapshot.automationLanes)
+    {
+        const auto anchor = groupOf.find(l.after);
+        tree.lanes.push_back({.id = l.id,
+                              .after = l.after,
+                              .group = l.group != 0              ? l.group
+                                       : anchor != groupOf.end() ? anchor->second
+                                                                 : 0});
+    }
+    return tree;
+}
+
 std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool returns, bool lanes,
                                             const std::set<std::uint64_t>& folded)
 {
     std::vector<ArrangementRow> rows;
-    const int last = static_cast<int>(snapshot.tracks.size()) - 1;
-    auto lanesAfter = [&](std::uint64_t after, int track, int depth)
+    std::map<std::uint64_t, int> index;
+    for (int i = 0; i < static_cast<int>(snapshot.tracks.size()); ++i)
+        index[snapshot.tracks[static_cast<size_t>(i)].id] = i;
+    // A folded group hides its rows: those whose group is it or inside it.
+    const auto hidden = [&](std::uint64_t group)
     {
-        if (lanes)
-            for (const auto& l : snapshot.automationLanes)
-                if (l.after == after)
-                    rows.push_back(
-                        {.kind = ArrangementRow::Kind::Lane, .lane = l.id, .track = track, .depth = depth});
-    };
-    lanesAfter(0, last >= 0 ? 0 : -1, 0);
-    // The groups open above the next row, innermost last: a lane after a group comes once its rows
-    // have.
-    std::vector<const TrackInfo*> open;
-    const auto close = [&](const TrackInfo* until, int track)
-    {
-        while (!open.empty() && open.back() != until)
+        for (std::size_t guard = 0; group != 0 && guard <= snapshot.tracks.size(); ++guard)
         {
-            const auto* group = open.back();
-            open.pop_back();
-            if (!hiddenByFolding(snapshot, *group, folded))
-                lanesAfter(group->id, track, groupDepth(snapshot, *group));
+            if (folded.contains(group))
+                return true;
+            const auto it = index.find(group);
+            group = it != index.end() ? snapshot.tracks[static_cast<size_t>(it->second)].group : 0;
         }
+        return false;
     };
-    for (int i = 0; i <= last; ++i)
+    int above = snapshot.tracks.empty() ? -1 : 0; // a lane's track: the one above it (the first at the top)
+    for (const auto& r : treeRows(rowTreeOf(snapshot)))
     {
-        const auto& t = snapshot.tracks[static_cast<size_t>(i)];
-        close(parentGroup(snapshot, t), i - 1);
-        if (t.isGroup())
-            open.push_back(&t);
-        if (hiddenByFolding(snapshot, t, folded))
+        if (!r.lane)
+            above = index.at(r.id);
+        if (hidden(r.group) || (r.lane && !lanes))
             continue;
-        const int depth = groupDepth(snapshot, t);
-        rows.push_back({.kind = t.isGroup() ? ArrangementRow::Kind::Group : ArrangementRow::Kind::Track,
-                        .channel = t.id,
-                        .track = i,
-                        .depth = depth});
-        if (!t.isGroup())
-            lanesAfter(t.id, i, depth);
+        if (r.lane)
+            rows.push_back(
+                {.kind = ArrangementRow::Kind::Lane, .lane = r.id, .track = above, .depth = r.depth});
+        else
+            rows.push_back({.kind = r.isGroup ? ArrangementRow::Kind::Group : ArrangementRow::Kind::Track,
+                            .channel = r.id,
+                            .track = above,
+                            .depth = r.depth});
     }
-    close(nullptr, last);
-    // A lane whose track is gone sits after the last track.
-    if (lanes)
-        for (const auto& l : snapshot.automationLanes)
-            if (l.after != 0 && std::none_of(snapshot.tracks.begin(), snapshot.tracks.end(),
-                                             [&](const auto& t) { return t.id == l.after; }))
-                rows.push_back({.kind = ArrangementRow::Kind::Lane, .lane = l.id, .track = last});
     if (returns)
         for (const auto& r : snapshot.returns)
             rows.push_back({.kind = ArrangementRow::Kind::Return, .channel = r.id});

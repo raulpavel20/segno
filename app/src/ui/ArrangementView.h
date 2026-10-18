@@ -104,6 +104,8 @@ public:
     [[nodiscard]] ui::NameEditor& nameEditor() noexcept { return names_; }
     /// Where a row's name is in its header, and a clip's title (view coordinates; tests).
     [[nodiscard]] std::optional<juce::Rectangle<int>> nameArea(int row) const;
+    /// Where a group's fold triangle is in its header (view coordinates), if `row` is a group's.
+    [[nodiscard]] std::optional<juce::Rectangle<int>> foldArea(int row) const;
     [[nodiscard]] std::optional<juce::Rectangle<int>> clipTitleArea(std::uint64_t clip) const;
     /// A header being dragged to a new place (§6): Escape cancels it. True if one was.
     bool cancelRowDrag();
@@ -116,6 +118,9 @@ public:
     /// own row showing them in miniature. The view's state, kept here alone; never an undo step.
     void setFoldedGroups(std::set<std::uint64_t> folded);
     [[nodiscard]] const std::set<std::uint64_t>& foldedGroups() const noexcept { return folded_; }
+    /// Folds a group here, or unfolds it; with `all` (Alt+click on its triangle), every group the
+    /// same way (§6.4).
+    void toggleFold(std::uint64_t group, bool all = false);
     /// A channel header's right-click items (rename, duplicate, delete, colour): the shell's,
     /// before the items that make rows.
     std::function<void(juce::PopupMenu&, std::uint64_t channel)> onHeaderMenu;
@@ -328,6 +333,14 @@ private:
     /// A lane row's lane (null for other rows).
     [[nodiscard]] const model::AutomationLaneInfo* rowLane(int row) const noexcept;
     [[nodiscard]] juce::Rectangle<float> rowBounds(int row, juce::Rectangle<int> column) const;
+    /// A dragged header's depth from the pointer's x: the deepest whose line starts left of it
+    /// (groups.md §5.3).
+    [[nodiscard]] int dropDepthAt(float x) const;
+    /// The group row whose middle the pointer is over, a dragged header landing in it at its end.
+    [[nodiscard]] std::optional<std::size_t> groupHeaderAt(float y) const;
+    /// One slot of a row's header (view coordinates), as its header lays it out; none when empty.
+    [[nodiscard]] std::optional<juce::Rectangle<int>>
+    headerSlot(int row, const std::function<model::HeaderRect(const model::TrackHeaderSlots&)>& slot) const;
     [[nodiscard]] LaneGeometry laneGeometry(int row) const;
     /// The selected lane, if the snapshot has it.
     [[nodiscard]] const model::AutomationLaneInfo* selectedLane() const noexcept;

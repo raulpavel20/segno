@@ -78,6 +78,11 @@ std::string nextTrackName(const std::vector<std::string>& names)
     return std::to_string(std::max(highest(names, "", " Track", number), 0) + 1) + " Track";
 }
 
+std::string nextGroupName(const std::vector<std::string>& names)
+{
+    return std::to_string(std::max(highest(names, "", " Group", number), 0) + 1) + " Group";
+}
+
 std::string nextReturnName(const std::vector<std::string>& names)
 {
     return letters(highest(names, "", " Return", letterIndex) + 1) + " Return";
@@ -98,7 +103,23 @@ std::string laneCopyName(const std::string& name, const std::vector<std::string>
     return highest({name}, "Automation ", "", number) >= 0 ? nextLaneName(taken) : nextCopyName(name, taken);
 }
 
-RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, std::size_t boundary)
+namespace
+{
+/// The row of the group rows[i] is in, at `depth` - 1 (the nearest row above it that shallow):
+/// rows.size() when none.
+std::size_t groupRowAt(const std::vector<ArrangementRow>& rows, std::size_t i, int depth)
+{
+    if (depth <= 0)
+        return rows.size();
+    for (auto k = i + 1; k-- > 0;)
+        if (rows[k].depth <= depth - 1)
+            return rows[k].isGroup() && rows[k].depth == depth - 1 ? k : rows.size();
+    return rows.size();
+}
+} // namespace
+
+RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, std::size_t boundary, int depth,
+                std::optional<std::size_t> onto)
 {
     RowDrop d;
     if (dragged >= rows.size())
@@ -111,11 +132,55 @@ RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, st
     case ArrangementRow::Kind::Group:
     case ArrangementRow::Kind::Lane:
     {
+        // What moves: a group with its rows.
+        auto end = dragged + 1;
+        if (rows[dragged].isGroup())
+            while (end < mix && rows[end].depth > rows[dragged].depth)
+                ++end;
+        const auto groupOf = [&](std::size_t row) -> std::uint64_t
+        {
+            if (row == 0)
+                return 0;
+            const auto at = groupRowAt(rows, row - 1, rows[row].depth);
+            return at < rows.size() ? rows[at].channel : 0;
+        };
+        const auto here = groupOf(dragged);
+        const auto id = [&](std::size_t r) { return rows[r].isLane() ? rows[r].lane : rows[r].channel; };
+        if (onto && *onto < mix && rows[*onto].isGroup())
+        {
+            // On a group's header: at its end, its row lit.
+            auto last = *onto + 1;
+            while (last < mix && rows[last].depth > rows[*onto].depth)
+                ++last;
+            d.boundary = last;
+            d.onHeader = true;
+            d.group = rows[*onto].channel;
+            d.depth = rows[*onto].depth + 1;
+            d.moves = (*onto < dragged || *onto >= end) && !(here == d.group && end == last);
+            return d;
+        }
         const auto b = std::min(boundary, mix);
         d.boundary = b;
-        if (b < mix)
-            d.before = rows[b].isLane() ? rows[b].lane : rows[b].channel;
-        d.moves = b != dragged && b != dragged + 1;
+        // The depths it can land at: the row below's, up to the row above's (inside a folded
+        // group above, one more), never inside itself.
+        const int below = b < mix ? rows[b].depth : 0;
+        int deepest = below;
+        if (b > 0)
+        {
+            const auto& above = rows[b - 1];
+            deepest = std::max(below, above.depth + (above.isGroup() ? 1 : 0));
+            if (b - 1 >= dragged && b - 1 < end)
+                deepest = std::min(deepest, std::max(below, rows[dragged].depth));
+        }
+        d.depth = std::clamp(depth, below, deepest);
+        if (d.depth > 0 && b > 0)
+            if (const auto g = groupRowAt(rows, b - 1, d.depth); g < rows.size())
+                d.group = rows[g].channel;
+        if (b < mix && rows[b].depth == d.depth)
+            d.before = id(b);
+        const bool inside = b > dragged && b < end;
+        const bool inPlace = (b == dragged || b == end) && d.group == here;
+        d.moves = !inside && !inPlace;
         break;
     }
     case ArrangementRow::Kind::Return:
@@ -131,33 +196,6 @@ RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, st
     }
     }
     return d;
-}
-
-std::optional<RowOrder> moveRow(const std::vector<RowRef>& rows, std::uint64_t row, std::uint64_t before)
-{
-    auto find = [](const std::vector<RowRef>& in, std::uint64_t id)
-    { return std::find_if(in.begin(), in.end(), [id](const RowRef& r) { return r.id == id; }); };
-    const auto moved = find(rows, row);
-    if (moved == rows.end() || before == row || (before != 0 && find(rows, before) == rows.end()))
-        return std::nullopt;
-    // Right above the row after it, or last while it's last: where it is.
-    if (const auto next = std::next(moved); (next == rows.end() ? 0 : next->id) == before)
-        return std::nullopt;
-    auto order = rows;
-    const auto dragged = *moved;
-    order.erase(find(order, row));
-    order.insert(before == 0 ? order.end() : find(order, before), dragged);
-    RowOrder out;
-    std::uint64_t above = 0; // the track above: 0 at the top
-    for (const auto& r : order)
-        if (r.lane)
-            out.lanes.emplace_back(r.id, above);
-        else
-        {
-            out.tracks.push_back(r.id);
-            above = r.id;
-        }
-    return out;
 }
 
 std::pair<std::vector<PastePlace>, int> pastePlacement(const std::vector<PasteItem>& items,
@@ -187,12 +225,6 @@ DeletionPlan deletionPlan(const Snapshot& snapshot, std::uint64_t channel)
         return plan;
     const bool isReturn = deleted->role == TrackInfo::Role::Return;
     const auto sendKey = "send/" + std::to_string(channel);
-    // Lanes after a deleted track sit after the track above it then (or at the top).
-    std::uint64_t above = 0;
-    for (std::size_t i = 0; i < snapshot.tracks.size(); ++i)
-        if (snapshot.tracks[i].id == channel && i > 0)
-            above = snapshot.tracks[i - 1].id;
-
     for (const auto& lane : snapshot.automationLanes)
     {
         std::vector<DeletionPlan::Assignment> going;
@@ -205,8 +237,6 @@ DeletionPlan deletionPlan(const Snapshot& snapshot, std::uint64_t channel)
             continue;
         }
         plan.assignments.insert(plan.assignments.end(), going.begin(), going.end());
-        if (!isReturn && lane.after == channel)
-            plan.reanchor.emplace_back(lane.id, above);
     }
 
     auto sidechainsIn = [&](const TrackInfo& t)

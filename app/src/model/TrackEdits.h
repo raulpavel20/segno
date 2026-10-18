@@ -26,6 +26,8 @@ namespace fd::model
 /// Names the user gave don't count; the first is 1, or A.
 [[nodiscard]] std::string nextTrackName(const std::vector<std::string>& names);
 [[nodiscard]] std::string nextReturnName(const std::vector<std::string>& names);
+/// "1 Group", "2 Group"...: one past the highest number a group's name has (groups.md §4).
+[[nodiscard]] std::string nextGroupName(const std::vector<std::string>& names);
 [[nodiscard]] std::string nextLaneName(const std::vector<std::string>& names);
 /// `name`, or with the next number free ("Bass bounce 2") when another row has it: the other
 /// names the app gives (a bounce's track, a take on a track of its own).
@@ -36,8 +38,14 @@ namespace fd::model
 
 /// Where a dragged row lands (§6, §19), for the boundary nearest the pointer: boundary b is above
 /// rows[b] (rows.size(): below the last row).
-/// - A track or a lane lands at any boundary among the tracks and lanes (ADR 0042): right above
-///   the row there, or after the last of them.
+/// - A track, group or lane lands at any boundary among the tracks and lanes (ADR 0042): right
+///   above the row there, in its group, or after the last of them.
+/// - Among groups (groups.md §5.3), `depth` is the pointer's: where a boundary is a group's end
+///   (the row above is deeper than the row below), it chooses how far in it lands, inside that
+///   group at its end or after it, further out; below a folded group, inside it at its end too.
+///   Elsewhere a boundary has one depth, the row below's. `onto`, a group's row the pointer is over
+///   the middle of, puts it in that group at its end.
+/// - A group never lands inside itself.
 /// - A return lands among the returns.
 struct RowDrop
 {
@@ -48,30 +56,9 @@ struct RowDrop
     std::uint64_t group = 0;  // the group it lands in (0: none): its row lit as a drop target
     bool onHeader = false;    // dropped on that group's header: at its end
 };
-[[nodiscard]] RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, std::size_t boundary);
-
-/// A track or a lane, in the arrangement's order above the returns.
-struct RowRef
-{
-    std::uint64_t id = 0;
-    bool lane = false;
-
-    friend bool operator==(const RowRef&, const RowRef&) = default;
-};
-
-/// The tracks and lanes as the project keeps them: the tracks in their order, and the lanes in
-/// theirs, each after a track (0: at the top).
-struct RowOrder
-{
-    std::vector<std::uint64_t> tracks;
-    std::vector<std::pair<std::uint64_t, std::uint64_t>> lanes; // the lane, the track it sits after
-};
-
-/// The order after moving `row` right above `before` (0: after the last row), every other row
-/// keeping its place (§19, ADR 0042): each lane then sits after the track now above it. Nullopt
-/// when either isn't there, or it wouldn't move.
-[[nodiscard]] std::optional<RowOrder> moveRow(const std::vector<RowRef>& rows, std::uint64_t row,
-                                              std::uint64_t before);
+[[nodiscard]] RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged,
+                              std::size_t boundary, int depth = 0,
+                              std::optional<std::size_t> onto = std::nullopt);
 
 /// Clips being pasted (§9): each on the row `row` below the target track, `offset` seconds after
 /// the paste point.
@@ -104,8 +91,6 @@ struct DeletionPlan
         bool operator==(const Assignment&) const = default;
     };
     std::vector<Assignment> assignments;
-    /// Lanes right after it that stay: (lane, the track they sit after now: the one above, or 0).
-    std::vector<std::pair<std::uint64_t, std::uint64_t>> reanchor;
     std::vector<std::uint64_t> sidechains; // modules whose sidechain it feeds: back to Off
     std::vector<std::uint64_t> sends;      // channels with a send to it (a return)
 };

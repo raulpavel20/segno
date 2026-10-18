@@ -38,6 +38,22 @@ namespace fd::model
 [[nodiscard]] bool hiddenByFolding(const Snapshot& snapshot, const TrackInfo& channel,
                                    const std::set<std::uint64_t>& folded);
 
+/// `channels` without those inside another of them, in their order: a group chosen with what it
+/// holds acts for it (moved, deleted, duplicated whole, §8).
+[[nodiscard]] std::vector<std::uint64_t> outermost(const Snapshot& snapshot,
+                                                   const std::vector<std::uint64_t>& channels);
+
+/// A view's folded groups with `group` folded, or unfolded when it is (§6.4); with `all` (Alt),
+/// every group the same way.
+[[nodiscard]] std::set<std::uint64_t>
+toggledFold(const Snapshot& snapshot, const std::set<std::uint64_t>& folded, std::uint64_t group, bool all);
+
+/// The tracks that hold clips, as indices into Snapshot::tracks in order, groups left out: the
+/// rows clips and stretches move and paste across (§6.5, §11), as the engine counts them.
+[[nodiscard]] std::vector<int> clipTracks(const Snapshot& snapshot);
+/// A track's place among clipTracks; -1 for a group or no track.
+[[nodiscard]] int clipTrackRank(const Snapshot& snapshot, int track);
+
 /// Whether something in `group` is soloed while the group itself isn't: its solo shows half lit
 /// (§7.3). And whether `channel` is in a muted group: its mute shows half lit.
 [[nodiscard]] bool holdsSolo(const Snapshot& snapshot, const TrackInfo& group);

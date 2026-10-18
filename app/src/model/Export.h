@@ -20,6 +20,12 @@ enum class ExportWhat
     SelectedTracks,
     AllTracks, // and each return track as a stem of its own
 };
+/// All tracks' stems with groups (groups.md §11): each group whole, or every track alone.
+enum class ExportStems
+{
+    Groups, // each group one stem, each track in none and each return: together, the mix
+    Tracks, // each track alone, without its groups' modules, and each group as well
+};
 enum class ExportRange
 {
     Song,      // bar 1 to the last clip's end, then the tail until silent
@@ -46,6 +52,7 @@ struct ExportSettings
 {
     ExportWhat what = ExportWhat::Mix;
     bool throughReturns = false; // stems through the returns and master (§2)
+    ExportStems stems = ExportStems::Groups; // all tracks with groups (groups.md §11)
     ExportRange range = ExportRange::Song;
     ExportFormat format = ExportFormat::Wav;
     int bitDepth = 24;           // 16, 24, or 32 (float; WAV only)
@@ -62,6 +69,13 @@ struct ExportSettings
 
     friend bool operator==(const ExportSettings&, const ExportSettings&) = default;
 };
+
+/// The channels an export renders as stems, tracks in the arrangement's order then the returns
+/// (§2, groups.md §11): the selected ones (a group whole, a member alone); or all, groups whole
+/// (each top-level track or group, and each return) or every track and group.
+[[nodiscard]] std::vector<std::uint64_t> stemChannels(const Snapshot& snapshot,
+                                                      const ExportSettings& settings,
+                                                      const std::vector<std::uint64_t>& selected);
 
 /// The true peak normalising never passes (dBTP).
 inline constexpr double kExportCeilingDbtp = -1.0;

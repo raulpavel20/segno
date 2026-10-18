@@ -4,6 +4,7 @@
 // Each is one undo step.
 
 #include "mcp/tools/Tools.h"
+#include "model/Groups.h"
 #include "model/TimeEdits.h"
 
 namespace fd::mcp
@@ -173,13 +174,15 @@ void addTimeTools(Registry& registry, ToolEnv& env)
             const auto stretch = stretchArg(env, args);
             const double at = seconds(env, positionArg(env, args["at"]));
             const auto snap = env.session.snapshot();
+            // By tracks that hold clips, as the engine counts them: groups are left out.
+            const auto holders = model::clipTracks(*snap);
             int top = -1, onto = -1;
-            for (int i = 0; i < static_cast<int>(snap->tracks.size()); ++i)
+            for (int i = 0; i < static_cast<int>(holders.size()); ++i)
             {
-                if (top < 0 && stretch.tracks.contains(snap->tracks[static_cast<size_t>(i)].id))
+                const auto& t = snap->tracks[static_cast<size_t>(holders[static_cast<size_t>(i)])];
+                if (top < 0 && stretch.tracks.contains(t.id))
                     top = i;
-                if (args.contains("onto") &&
-                    snap->tracks[static_cast<size_t>(i)].id == track(env, args["onto"]).id)
+                if (args.contains("onto") && t.id == track(env, args["onto"]).id)
                     onto = i;
             }
             const int shift = top >= 0 && onto >= 0 ? onto - top : 0;

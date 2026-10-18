@@ -46,7 +46,11 @@ public:
     /// strip (the events are the strip's).
     std::function<void()> onRename;
     std::function<void(const juce::MouseEvent&)> onNameDrag, onNameDrop;
+    /// A group's fold triangle clicked (groups.md §6.4): `all` with Alt, every group.
+    std::function<void(bool all)> onFold;
     [[nodiscard]] juce::Rectangle<int> nameArea() const { return at(slots_.name); }
+    /// A group's fold triangle (empty for anything else).
+    [[nodiscard]] juce::Rectangle<int> foldArea() const { return at(slots_.fold); }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -126,6 +130,8 @@ public:
     /// members' strips are hidden. The view's state, kept here alone; never an undo step.
     void setFoldedGroups(std::set<std::uint64_t> folded);
     [[nodiscard]] const std::set<std::uint64_t>& foldedGroups() const noexcept { return folded_; }
+    /// Folds a group here, or unfolds it; with `all`, every group the same way (§6.4).
+    void toggleFold(std::uint64_t group, bool all = false);
     [[nodiscard]] int scrollX() const;
     void setScrollX(int x);
     /// Renames a channel's strip in place (F2, tracks-and-clips.md §4). False for the master.
@@ -143,6 +149,7 @@ private:
     {
         int dividerX = -1; // before the first return
         int dropX = -1;    // where a dragged strip lands (tracks-and-clips.md §6)
+        juce::Rectangle<int> dropGroup; // the group it lands in, lit (groups.md §5.3)
         void paintOverChildren(juce::Graphics& g) override;
         std::function<void(const juce::MouseEvent&)> onMouseDown;
         void paint(juce::Graphics& g) override;
@@ -155,6 +162,7 @@ private:
     void showAddMenu();
     /// A strip's name dragged: where it would land among its kind, then dropped there.
     void dragStrip(std::uint64_t channel, const juce::MouseEvent& e, bool drop);
+    void dragReturn(std::uint64_t channel, float x, bool drop);
     void rebuild();
     void layoutStrips();
     [[nodiscard]] std::vector<std::uint64_t> order() const;

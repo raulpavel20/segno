@@ -2,6 +2,7 @@
 
 #include "fd/audiofile/AudioFile.h"
 #include "model/ClipLoops.h"
+#include "model/Groups.h"
 #include "model/Racks.h"
 #include "model/Takes.h"
 #include "ui/AutomationMenu.h"
@@ -116,6 +117,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     registerModulatorActions();
     registerMidiActions();
     registerAudioActions();
+    registerGroupActions();
     registerTimeActions(); // last: it amends actions registered before it
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
@@ -142,7 +144,8 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         const auto* c = session_.snapshot()->channel(channel);
         if (c == nullptr)
             browserResult(browser::newTrack(session_, item, session_.position()));
-        else if (browser::fitsChannel(item, c->holdsClips()))
+        else if (browser::fitsChannel(item, c->holdsClips() ||
+                                                c->isGroup())) // a group's: a track in it (groups.md §11)
             browserResult(browser::onChannel(session_, item, channel, session_.position()));
     };
     detail_.chain().onBrowserDrop =
@@ -312,13 +315,9 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         actions_.addMenuItem(menu, "track.add");
         actions_.addMenuItem(menu, "track.addReturn");
     };
-    // A track's or return's own header items (tracks-and-clips.md §10).
-    arrangement_.onHeaderMenu = [this](juce::PopupMenu& menu, std::uint64_t) {
-        actions_.addMenuItem(menu, "edit.rename");
-        actions_.addMenuItem(menu, "track.duplicate");
-        actions_.addMenuItem(menu, "track.delete");
-        menu.addSubMenu("Colour", trackColourMenu());
-    };
+    // A track's, group's or return's own header items (tracks-and-clips.md §10, groups.md §12).
+    arrangement_.onHeaderMenu = [this](juce::PopupMenu& menu, std::uint64_t channel)
+    { headerMenu(menu, channel); };
     // A clip's menu (bounce.md §10): bounce and mute, then the edits; while bouncing, cancel first.
     arrangement_.onClipMenu = [this](juce::PopupMenu& menu) {
         if (!session_.bouncing().empty())
@@ -406,6 +405,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         detail_.chain().selectDevice(modulator);
         lastArea_ = Area::Detail;
     };
+    inspector_.onSelectChannel = [this](std::uint64_t group) { arrangement_.selectTrack(group); };
     detail_.pianoRoll().onActivated = [this]
     {
         lastArea_ = Area::Clip;
@@ -466,6 +466,7 @@ Shell::~Shell()
     session_.onProjectWillChange = nullptr;
     session_.onProjectChanged = nullptr;
     session_.viewStateProvider = nullptr;
+    session_.onGroupsEmptied = nullptr;
     session_.onLaneRevealed = nullptr;
     session_.automationMenu = nullptr;
     session_.onRecorded = nullptr;
@@ -2303,7 +2304,10 @@ std::string Shell::viewState() const
         {"mixerSends", mixer_.options().sends},
         {"mixerNarrow", mixer_.options().narrow},
         {"mixerScroll", mixer_.scrollX()},
-        {"rowHeights", arrangement_.rowHeights()}}
+        {"rowHeights", arrangement_.rowHeights()},
+        // Each view folds on its own (groups.md §6.4).
+        {"foldedGroups", arrangement_.foldedGroups()},
+        {"mixerFoldedGroups", mixer_.foldedGroups()}}
         .dump();
 }
 
@@ -2317,6 +2321,14 @@ void Shell::applyViewState(const std::string& json)
     // The clip view's options (piano-roll.md §4): a new project's are the defaults.
     detail_.pianoRoll().setOptions(model::pianoRollOptionsFromJson(
         v.is_object() && v.contains("pianoRoll") ? v["pianoRoll"] : nlohmann::json()));
+    // Each view's folded groups (groups.md §6.4): a new project's are none.
+    const auto folded = [&](const char* key)
+    {
+        return v.is_object() && v.contains(key) ? v[key].get<std::set<std::uint64_t>>()
+                                                : std::set<std::uint64_t>{};
+    };
+    arrangement_.setFoldedGroups(folded("foldedGroups"));
+    mixer_.setFoldedGroups(folded("mixerFoldedGroups"));
     if (!v.is_object())
         return;
     auto get = [&](const char* key, auto fallback) { return v.contains(key) ? v[key].get<decltype(fallback)>() : fallback; };
@@ -2471,9 +2483,9 @@ void Shell::deleteChannel(std::uint64_t channel)
     const auto* c = snapshot->channel(channel);
     if (c == nullptr)
         return;
-    // Several chosen together go together, in one step (groups.md §8); then the track above the
-    // first of them (below the last, for the first).
-    if (const auto several = chosenWith(channel); several.size() > 1)
+    // Several chosen together go together, in one step (groups.md §8), a group with what it
+    // holds; then the track above the first of them (below the last, for the first).
+    if (const auto several = model::outermost(*snapshot, chosenWith(channel)); several.size() > 1)
     {
         const auto among = [&](std::uint64_t id)
         { return std::find(several.begin(), several.end(), id) != several.end(); };
@@ -2499,18 +2511,29 @@ void Shell::deleteChannel(std::uint64_t channel)
             }
         }
         session_.updateSnapshotNow();
+        if (next && session_.snapshot()->channel(*next) == nullptr)
+            next.reset(); // in a group that went with them
         arrangement_.selectTrack(next);
-        showToast("Deleted " + juce::String(static_cast<int>(several.size())) + " tracks", "Undo",
-                  [this] { session_.undo(); });
+        const auto gone = std::exchange(emptied_, {}); // groups left empty went too (groups.md §4)
+        showToast("Deleted " + juce::String(static_cast<int>(several.size())) + " tracks" +
+                      (gone.empty() ? juce::String() : ". " + emptiedText(gone)),
+                  "Undo", [this] { session_.undo(); });
         return;
     }
     const auto name = juce::String::fromUTF8(c->name.c_str());
-    // Then the one above it is selected (the one below, for the first).
+    const int inside = c->isGroup() ? model::tracksIn(*snapshot, channel) : 0;
+    // Then the one above it is selected (the one below it and what it holds, for the first).
     const auto& kind = c->role == model::TrackInfo::Role::Return ? snapshot->returns : snapshot->tracks;
     std::optional<std::uint64_t> next;
-    for (size_t i = 0; i < kind.size(); ++i)
+    for (size_t i = 0; i < kind.size() && !next; ++i)
         if (kind[i].id == channel)
-            next = i > 0 ? std::optional(kind[i - 1].id) : i + 1 < kind.size() ? std::optional(kind[i + 1].id) : std::nullopt;
+        {
+            if (i > 0)
+                next = kind[i - 1].id;
+            for (auto k = i + 1; k < kind.size() && !next; ++k)
+                if (!model::isInGroup(*snapshot, kind[k], channel))
+                    next = kind[k].id;
+        }
     std::string why;
     if (!session_.deleteTrack(channel, &why))
     {
@@ -2519,16 +2542,22 @@ void Shell::deleteChannel(std::uint64_t channel)
         return;
     }
     session_.updateSnapshotNow();
+    if (next && session_.snapshot()->channel(*next) == nullptr)
+        next.reset(); // a group it left empty, gone with it
     arrangement_.selectTrack(next);
-    // Nothing asked first: what went, with Undo (tracks-and-clips.md §5).
-    showToast("Deleted " + name, "Undo", [this] { session_.undo(); });
+    // Nothing asked first: what went, with Undo (tracks-and-clips.md §5; a group's, groups.md §5.4).
+    const auto gone = std::exchange(emptied_, {});
+    showToast("Deleted " + name +
+                  (inside > 0 ? " and its " + juce::String(model::tracksText(inside)) : juce::String()) +
+                  (gone.empty() ? juce::String() : ". " + emptiedText(gone)),
+              "Undo", [this] { session_.undo(); });
 }
 
 void Shell::duplicateChannel(std::uint64_t channel)
 {
     // Several chosen together: each copy right after its original, in one step, the copies then
-    // chosen together (groups.md §8).
-    if (const auto several = chosenWith(channel); several.size() > 1)
+    // chosen together (groups.md §8); a group with what it holds.
+    if (const auto several = model::outermost(*session_.snapshot(), chosenWith(channel)); several.size() > 1)
     {
         std::set<std::uint64_t> copies;
         std::uint64_t last = 0;
@@ -2579,7 +2608,7 @@ juce::PopupMenu Shell::trackColourMenu()
                               for (const auto id : ids)
                                   session_.setTrackColour(id, colour);
                           });
-    else
+    if (!commandChannel())
         menu.addItem(juce::PopupMenu::Item("Select a track first").setEnabled(false));
     return menu;
 }
@@ -2690,14 +2719,17 @@ void Shell::paste()
         return;
     case Held::Clips:
     {
-        // On the selected track (else the first), rows kept (tracks-and-clips.md §9).
+        // On the selected track or a selected group's first (else the first track), rows kept
+        // (tracks-and-clips.md §9; groups.md §11).
         const auto snapshot = session_.snapshot();
         std::uint64_t target = 0;
-        if (const auto c = arrangement_.selection().channel)
-            if (const auto* info = snapshot->channel(*c); info != nullptr && info->holdsClips())
-                target = info->id;
-        if (target == 0 && !snapshot->tracks.empty())
-            target = snapshot->tracks.front().id;
+        const auto chosen = arrangement_.selection().channel;
+        for (const int i : model::clipTracks(*snapshot))
+            if (const auto& t = snapshot->tracks[static_cast<size_t>(i)];
+                target == 0 && chosen && (t.id == *chosen || model::isInGroup(*snapshot, t, *chosen)))
+                target = t.id;
+        if (const auto holders = model::clipTracks(*snapshot); target == 0 && !holders.empty())
+            target = snapshot->tracks[static_cast<size_t>(holders.front())].id;
         if (target == 0 || mixerShown_)
         {
             showWarning("Clips paste onto a track in the arrangement");
@@ -2763,7 +2795,11 @@ void Shell::loadFromBrowser(const std::string& item)
 void Shell::browserResult(const browser::Result& result)
 {
     if (!result.done)
+    {
+        if (result.refused.isNotEmpty())
+            showWarning(result.refused);
         return;
+    }
     session_.updateSnapshotNow();
     if (result.track != 0)
     {
@@ -2913,8 +2949,10 @@ void Shell::selectionChanged()
         recentChannel_ = context.channel->id;
 
     // Live MIDI plays the selected track's instrument (auto-arm); other tracks hear nothing.
-    // The piano roll previews notes through the same route.
-    if (context.midiInputTarget != session_.midiInputTarget())
+    // The piano roll previews notes through the same route. Selecting a group, which has no
+    // notes, leaves it where it was (groups.md §11).
+    if (const bool group = context.channel && context.channel->isGroup();
+        !group && context.midiInputTarget != session_.midiInputTarget())
         session_.setMidiInputTarget(context.midiInputTarget);
     inspector_.setContext(context, snapshot->tempo, snapshot->returns);
     // A lane's context is its first assignment's channel, or another of its assignments' when

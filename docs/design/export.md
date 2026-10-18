@@ -48,6 +48,7 @@ Segno does the baseline, and goes further in three ways:
 - **The mix:** the master's output, after its modules and fader (the default).
 - **Tracks (stems):** each track as its own file, through its modules, fader and pan, as it sits in the mix:
   - **Selected tracks** or **all tracks**. With all tracks, each return track is a stem of its own too, so the stems, played together through the master, make the mix.
+  - **With groups** ([groups.md](groups.md) §11): all tracks is two choices. **All tracks, groups whole** (the default): each group one stem, through its modules and fader, with each track in no group and each return, still adding up to the mix. **Every track and group, alone:** each track without its groups' modules, and each group as well; these don't add up to the mix. A selected group exports whole, a selected member alone.
   - **Through the returns and master** (off by default): each stem includes what its sends add in the return tracks, and the master's modules. It is then the track as heard on its own in the mix, but the stems no longer add up to the mix (Live's "Include return and main effects").
 - A track's lanes and sidechains play as in the mix. A muted track or clip exports silent. Solo doesn't affect an export: stems are the tracks, not the solo.
 

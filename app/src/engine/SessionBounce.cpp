@@ -149,13 +149,35 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
     /// The copy plays only the run's clips, through what the bounce renders (§3).
     bool setUp(te::Edit& copy, te::Renderer::Parameters& params, const model::BounceRun& run) const
     {
-        auto* track = dynamic_cast<te::AudioTrack*>(te::findTrackForID(copy, te::EditItemID::fromRawID(run.track)));
-        if (track == nullptr)
+        auto* source = te::findTrackForID(copy, te::EditItemID::fromRawID(run.track));
+        auto* track = dynamic_cast<te::AudioTrack*>(source);
+        auto* group = dynamic_cast<te::FolderTrack*>(source);
+        if (track == nullptr && group == nullptr)
             return false;
         params.destFile = temp;
         params.sampleRateForAudio = impl.owner.sampleRate();
         params.time = {at(run.start), at(run.renderEnd)};
         params.useMasterPlugins = false;
+        if (group != nullptr)
+        {
+            // A group's whole sound (groups.md §11): its tracks' clips through it, before its fader,
+            // whatever the mixer's mute and solo say of it.
+            for (const auto& piece : run.pieces)
+                for (const auto id : piece.parts)
+                    if (auto* c = te::findClipForID(copy, te::EditItemID::fromRawID(id)))
+                        params.allowedClips.add(c);
+            for (auto* t : te::getAllTracks(copy))
+                if (dynamic_cast<te::AudioTrack*>(t) != nullptr ||
+                    dynamic_cast<te::FolderTrack*>(t) != nullptr)
+                    t->setSolo(false);
+            group->setMute(false);
+            for (auto* p : group->pluginList)
+                if (dynamic_cast<te::VolumeAndPanPlugin*>(p) != nullptr ||
+                    dynamic_cast<te::AuxSendPlugin*>(p) != nullptr)
+                    p->setEnabled(false);
+            renderOneTrack(copy, params, run.track);
+            return true;
+        }
         for (const auto& piece : run.pieces)
         {
             if (piece.cutAtEdges)
@@ -422,23 +444,26 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
         {
             const auto& run = runs[r];
             auto* source = impl.track(run.track);
-            if (source == nullptr)
+            auto* group = impl.group(run.track); // a group's whole sound (groups.md §11)
+            if (source == nullptr && group == nullptr)
                 continue;
             auto*& target = made[run.track];
             if (target == nullptr)
             {
-                target = newTrackFor(*source);
+                target = group != nullptr ? newTrackForGroup(*group) : newTrackFor(*source);
                 if (target == nullptr)
                     continue;
                 result.tracks.push_back(target->itemID.getRawID());
+                if (group != nullptr) // the group muted, its tracks as they were
+                    impl.owner.setMute(run.track, true);
             }
             for (size_t p = 0; p < run.pieces.size(); ++p)
             {
                 const auto& piece = run.pieces[p];
                 const auto& end = files[r].ends[p];
-                juce::var colour;
+                juce::var colour = group != nullptr ? group->state[kColourId] : juce::var();
                 for (const auto id : piece.parts)
-                    if (auto* c = impl.clip(id))
+                    if (auto* c = group == nullptr ? impl.clip(id) : nullptr)
                     {
                         if (colour.isVoid())
                             colour = c->state[kColourId];
@@ -491,6 +516,41 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
         for (const auto& key : keys)
             if (auto assign = impl.assignTree({source.itemID.getRawID(), key}); assign.isValid())
                 impl.assignTo(assign.getParent(), {track->itemID.getRawID(), key}, rangeOf(assign), um);
+        return track;
+    }
+
+    /// A track right after a group and what it holds, in its group: named after it, in its
+    /// colour, with its volume, pan and sends (and their lanes) and no modules (groups.md §11).
+    te::AudioTrack* newTrackForGroup(te::FolderTrack& group)
+    {
+        auto* um = &impl.edit->getUndoManager();
+        const auto id = group.itemID.getRawID();
+        const auto snap = impl.owner.snapshot();
+        const auto* info = snap->channel(id);
+        if (info == nullptr)
+            return nullptr;
+        auto made = impl.edit->insertNewAudioTrack(te::TrackInsertPoint(group.getParentFolderTrack(), &group),
+                                                   nullptr);
+        auto* track = made.get();
+        if (track == nullptr)
+            return nullptr;
+        track->state.setProperty(kColourId, group.state[kColourId], um);
+        track->setName(juce::String::fromUTF8(
+            model::uniqueName(model::bounceTrackName(info->name), impl.trackNames()).c_str()));
+        if (auto* v = track->getVolumePlugin())
+            v->setPanLaw(te::PanLawBalance);
+        const auto bounced = track->itemID.getRawID();
+        impl.owner.setVolume(bounced, info->mix.volumeDb);
+        impl.owner.setPan(bounced, info->mix.pan);
+        for (const auto& send : info->mix.sends)
+            impl.owner.setSend(bounced, send.returnId, send.levelDb, send.preFader);
+        // The lanes driving the group's mix drive the bounce's too (ADR 0029).
+        std::vector<std::string> keys{"volume", "pan"};
+        for (auto* r : impl.returns())
+            keys.push_back("send/" + std::to_string(r->itemID.getRawID()));
+        for (const auto& key : keys)
+            if (auto assign = impl.assignTree({id, key}); assign.isValid())
+                impl.assignTo(assign.getParent(), {bounced, key}, rangeOf(assign), um);
         return track;
     }
 
@@ -567,6 +627,24 @@ std::shared_ptr<Session::RenderJob> Session::bounceStretch(const std::vector<std
     flushSnapshot();
     return startBounce(model::stretchRuns(*snapshot(), {tracks.begin(), tracks.end()}, from, to, mode), mode,
                        std::move(done), undoName);
+}
+
+std::string Session::groupBounceRefusal(std::uint64_t group)
+{
+    flushSnapshot();
+    std::string why;
+    return model::groupBounceRun(*snapshot(), group, &why) ? std::string() : why;
+}
+
+std::shared_ptr<Session::RenderJob> Session::bounceGroup(std::uint64_t group,
+                                                         std::function<void(const BounceResult&)> done)
+{
+    flushSnapshot();
+    auto run = model::groupBounceRun(*snapshot(), group);
+    if (!run)
+        return nullptr;
+    return startBounce({std::move(*run)}, model::BounceMode::NewTrack, std::move(done),
+                       "Bounce to new track");
 }
 
 std::string Session::stretchBounceRefusal(const std::vector<std::uint64_t>& tracks, double from, double to,

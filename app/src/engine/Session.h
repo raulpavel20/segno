@@ -130,8 +130,8 @@ public:
     // ---- editing (each call is one undoable step) --------------------------------------
 
     /// A new, empty track (any track takes audio and MIDI clips, ADR 0019), named "N Track"
-    /// unless `name` is given.
-    std::uint64_t addTrack(const std::string& name = {});
+    /// unless `name` is given; at the end of the group `inGroup` (groups.md §11; 0: none).
+    std::uint64_t addTrack(const std::string& name = {}, std::uint64_t inGroup = 0);
     /// Inserts a MIDI file as a clip at `seconds` (all of its tracks merged); returns the clip id.
     /// No instrument is added (ADR 0033): without one the clip is silent.
     std::uint64_t insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds);
@@ -198,8 +198,11 @@ public:
     /// else.
     [[nodiscard]] static const DeviceInfo* nativeInfo(std::string_view key);
     /// Adds `key` (see AvailableDevice) to the track's chain at `index` (-1 = the end); a
-    /// modulator's key adds it (addModulator). Returns the device id, 0 if it couldn't be created.
+    /// modulator's key adds it (addModulator). Returns the device id, 0 if it couldn't be created
+    /// (an instrument on a group: no notes reach one, groups.md §4).
     std::uint64_t addDevice(std::uint64_t trackId, const std::string& key, int index = -1);
+    /// Whether `key` is an instrument (or a Drum Kit): what a group's chain takes none of.
+    [[nodiscard]] bool playsNotes(const std::string& key) const;
     void removeDevice(std::uint64_t deviceId);
     /// Moves a device to `index` within its chain.
     void moveDevice(std::uint64_t deviceId, int index);
@@ -887,6 +890,12 @@ public:
                                              model::BounceMode mode,
                                              std::function<void(const BounceResult&)> done,
                                              const std::string& undoName = {});
+    /// Bounces a group to a new track (groups.md §11): its whole sound before its fader, from its
+    /// tracks' first clip on, onto a new track right after it that copies its mix and joins its
+    /// lanes; the group is then muted. As bounce() otherwise; groupBounceRefusal says why it can't.
+    [[nodiscard]] std::string groupBounceRefusal(std::uint64_t group);
+    std::shared_ptr<RenderJob> bounceGroup(std::uint64_t group,
+                                           std::function<void(const BounceResult&)> done);
     /// A clip being bounced now: its bounce's progress (0..1) and how long it has been running.
     struct Bouncing
     {
@@ -1567,22 +1576,47 @@ public:
     bool setTrackColour(std::uint64_t channelId, int colour);
     /// An automation lane's colour. One undo step.
     bool setLaneColour(std::uint64_t lane, int colour);
-    /// Deletes a track or return track with what only made sense with it (§5): its clips and
+    /// Deletes a track, group or return track with what only made sense with it (§5): its clips and
     /// takes, the lanes that drive only it and its assignments in others (lanes after it then sit
-    /// after the track above), the sidechains it feeds (back to Off), and for a return, the sends
-    /// to it. One undo step. False for the master, or while recording (`why` says so).
+    /// after the row above), the sidechains it feeds (back to Off), and for a return, the sends to
+    /// it. A group goes with everything in it, and a group left empty goes too (groups.md §4,
+    /// §5.4). One undo step. False for the master, or while recording (`why` says so).
     bool deleteTrack(std::uint64_t channelId, std::string* why = nullptr);
-    /// Moves a track right above another track or a lane (0: after the last of them), or a
-    /// return before another return (0: the last). Nothing else moves: the lanes that were after
-    /// it stay where they are (ADR 0042). One undo step, "Move track". False if it doesn't move.
-    bool moveTrack(std::uint64_t channelId, std::uint64_t before);
-    /// Moves a lane right above a track or another lane (0: after the last of them); nothing else
-    /// moves (ADR 0042). One undo step, "Move automation lane". False if it doesn't move.
-    bool moveLane(std::uint64_t lane, std::uint64_t before);
-    /// Duplicates a track or return right after it (§7): its clips and takes, modules, mix, sends,
-    /// input and colour, named with the next free number, not armed or soloed; lanes that drive
-    /// only it are copied for the copy. A return's copy listens to a bus of its own. Returns the
-    /// copy (0: it can't, while recording or with every aux bus taken).
+    /// Moves a track or group right above another row (0: after the last of them), or a return
+    /// before another return (0: the last). Nothing else moves: the lanes that were after it stay
+    /// where they are (ADR 0042). `into` (groups.md §5.3): the group it lands in (0: none), right
+    /// above `before` when that's in it, else at its end; without it, the group `before` is in. A
+    /// group it leaves empty goes. One undo step, "Move track". False if it doesn't move.
+    bool moveTrack(std::uint64_t channelId, std::uint64_t before,
+                   std::optional<std::uint64_t> into = std::nullopt);
+    /// Moves a lane right above another row (0: after the last of them), in `into` as moveTrack;
+    /// nothing else moves (ADR 0042). One undo step, "Move automation lane". False if it doesn't move.
+    bool moveLane(std::uint64_t lane, std::uint64_t before, std::optional<std::uint64_t> into = std::nullopt);
+
+    // ---- groups (ADR 0072, docs/design/groups.md) ----------------------------------------------
+    /// Groups tracks and groups (§5.1): a new group at the topmost one's place, in its group, the
+    /// others gathered into it in their order; lanes stay after their rows. One inside another
+    /// given goes with that one. Named "N Group" (or `name`), its colour the topmost's. Groups left
+    /// empty go. One undo step, "Group tracks"; the group (0: nothing to group, or recording).
+    std::uint64_t groupTracks(const std::vector<std::uint64_t>& channels, const std::string& name = {});
+    /// Ungroups (§5.2): what it holds takes its place, in order; it goes with its modules, mix and
+    /// sends and the lanes that drive only it. One undo step, "Ungroup tracks"; what it held
+    /// (empty: not a group).
+    std::vector<std::uint64_t> ungroupTracks(std::uint64_t group);
+    /// Takes tracks and groups out of their groups (§5.3): each right after its group, in the
+    /// group above it if any. A group left empty goes. One undo step, "Remove from group".
+    bool removeFromGroup(const std::vector<std::uint64_t>& channels);
+    /// Groups a command left empty, which went with it in its step (§4): their names, for the toast
+    /// that says so. Called before the command returns.
+    std::function<void(const std::vector<std::string>& names)> onGroupsEmptied;
+    /// Gives a group's tracks and groups, and their clips, its colour, once (§4): Give tracks the
+    /// group's colour. One undo step, "Track colour". False if nothing changes.
+    bool colourMembers(std::uint64_t group);
+    /// Duplicates a track, group or return right after it (§7): its clips and takes, modules, mix,
+    /// sends, input and colour, named with the next free number, not armed or soloed; lanes that
+    /// drive only it are copied for the copy. A group's copy holds copies of what it holds (groups.md
+    /// §5.4). A return's copy listens to a bus of its own. Returns the copy (0: it can't, while
+    /// recording or with every aux bus taken).
     std::uint64_t duplicateTrack(std::uint64_t channelId);
     /// Renames clips, all of them to `name` (empty: nothing). One undo step, "Rename clip".
     void renameClips(const std::vector<std::uint64_t>& clips, const std::string& name);

@@ -10,7 +10,7 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/mo
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp src/model/NoteTools.cpp src/model/PianoRollOptions.cpp
     src/model/Chance.cpp src/model/Controllers.cpp src/model/NoteToolkit.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp src/model/ModuleFacts.cpp src/model/RoundTrip.cpp src/model/MidiMap.cpp
-    src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Groups.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
+    src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Groups.cpp src/model/RowTree.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
     src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/AudioSound.cpp src/model/AudioToolkit.cpp src/model/Warp.cpp src/model/AudioAnalysis.cpp src/model/Export.cpp
     src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/TimeEdits.cpp src/model/SongKey.cpp src/model/Modulators.cpp src/model/DrumKit.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -21,7 +21,7 @@ fd_generate_presets_from("${CMAKE_CURRENT_SOURCE_DIR}/presets" dawFactoryPresets
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/NoteToolsTests.cpp tests/AudioMeasureTests.cpp
-        tests/SelectionTests.cpp tests/TimeEditsTests.cpp tests/GroupsTests.cpp tests/AutomationTests.cpp
+        tests/SelectionTests.cpp tests/TimeEditsTests.cpp tests/GroupsTests.cpp tests/RowTreeTests.cpp tests/AutomationTests.cpp
         tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
         tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp tests/BrowserModelTests.cpp tests/ClipLoopsTests.cpp tests/MusicalTimeTests.cpp tests/BraceDragTests.cpp tests/SectionsTests.cpp
         tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp tests/ModulatorPresetsTests.cpp tests/DrumKitModelTests.cpp
@@ -67,6 +67,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTracks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSections.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTime.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionGroups.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionKey.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionRacks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionKits.cpp"
@@ -220,6 +221,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMenus.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellSong.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellTime.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellGroups.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellModulators.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMidi.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MidiMapView.cpp"

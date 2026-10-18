@@ -131,54 +131,6 @@ TEST_CASE("tracks: a dragged track or lane lands at any boundary among the track
     CHECK(d.moves);
 }
 
-TEST_CASE("tracks: a moved track or lane leaves every other row where it was, each lane after the track "
-          "now above it (ADR 0042)",
-          "[fast]")
-{
-    // Lane 50 (top), T1, T2, lane 60, lane 61, T3.
-    const std::vector<RowRef> rows{{50, true}, {1}, {2}, {60, true}, {61, true}, {3}};
-    using Lanes = std::vector<std::pair<std::uint64_t, std::uint64_t>>;
-
-    SECTION("a track moves alone: its lanes stay, after the track now above them")
-    {
-        // T2 to the end: lanes 60 and 61 stay under T1.
-        const auto o = moveRow(rows, 2, 0);
-        REQUIRE(o);
-        CHECK(o->tracks == std::vector<std::uint64_t>{1, 3, 2});
-        CHECK(o->lanes == Lanes{{50, 0}, {60, 1}, {61, 1}});
-        // T2 to the top: lane 50 is now after it.
-        const auto top = moveRow(rows, 2, 50);
-        REQUIRE(top);
-        CHECK(top->tracks == std::vector<std::uint64_t>{2, 1, 3});
-        CHECK(top->lanes == Lanes{{50, 2}, {60, 1}, {61, 1}});
-    }
-    SECTION("a track between two lanes: the lane below it is now after it")
-    {
-        const auto o = moveRow(rows, 3, 61);
-        REQUIRE(o);
-        CHECK(o->tracks == std::vector<std::uint64_t>{1, 2, 3});
-        CHECK(o->lanes == Lanes{{50, 0}, {60, 2}, {61, 3}});
-    }
-    SECTION("a lane moves alone")
-    {
-        const auto o = moveRow(rows, 61, 1);
-        REQUIRE(o);
-        CHECK(o->tracks == std::vector<std::uint64_t>{1, 2, 3});
-        CHECK(o->lanes == Lanes{{50, 0}, {61, 0}, {60, 2}});
-        const auto last = moveRow(rows, 50, 0);
-        REQUIRE(last);
-        CHECK(last->lanes == Lanes{{60, 2}, {61, 2}, {50, 3}});
-    }
-    SECTION("where it is, or nowhere: no move")
-    {
-        CHECK_FALSE(moveRow(rows, 2, 2));
-        CHECK_FALSE(moveRow(rows, 2, 60)); // right above the row after it
-        CHECK_FALSE(moveRow(rows, 3, 0));  // the last, to the end
-        CHECK_FALSE(moveRow(rows, 7, 0));
-        CHECK_FALSE(moveRow(rows, 2, 7));
-    }
-}
-
 TEST_CASE("tracks: pasted clips keep their rows from the selected track; rows past the last are left out",
           "[fast]")
 {
@@ -205,21 +157,16 @@ TEST_CASE("tracks: deleting one takes the lanes only it drives, its assignments,
     s.returns = {{.id = 9, .role = TrackInfo::Role::Return}};
     s.automationLanes = {
         lane(50, 2, {{2, "volume"}}),                // only T2: goes
-        lane(51, 2, {{2, "pan"}, {1, "volume"}}),    // shared: loses T2's, re-anchors to T1
+        lane(51, 2, {{2, "pan"}, {1, "volume"}}),    // shared: loses T2's
         lane(52, 1, {{1, "send/9"}, {3, "send/9"}}), // T1's and T3's sends to return 9
-        lane(53, 2),                                 // empty, after T2: stays, re-anchors
+        lane(53, 2),                                 // empty, after T2: stays (model/RowTree)
     };
     auto plan = deletionPlan(s, 2);
     CHECK(plan.lanes == std::vector<std::uint64_t>{50});
     REQUIRE(plan.assignments.size() == 1);
     CHECK(plan.assignments[0] == DeletionPlan::Assignment{51, 2, "pan"});
-    CHECK(plan.reanchor == std::vector<std::pair<std::uint64_t, std::uint64_t>>{{51, 1}, {53, 1}});
     CHECK(plan.sidechains == std::vector<std::uint64_t>{300});
     CHECK(plan.sends.empty());
-
-    // The first track: lanes after it go to the top.
-    s.automationLanes = {lane(54, 1)};
-    CHECK(deletionPlan(s, 1).reanchor == std::vector<std::pair<std::uint64_t, std::uint64_t>>{{54, 0}});
 
     // A return: the sends to it, and lanes of only those sends.
     s.automationLanes = {lane(52, 1, {{1, "send/9"}, {3, "send/9"}}),
@@ -229,7 +176,6 @@ TEST_CASE("tracks: deleting one takes the lanes only it drives, its assignments,
     REQUIRE(plan.assignments.size() == 1);
     CHECK(plan.assignments[0] == DeletionPlan::Assignment{55, 1, "send/9"});
     CHECK(plan.sends == std::vector<std::uint64_t>{1, 3});
-    CHECK(plan.reanchor.empty());
 
     // The master can't be deleted; a lane that drives only a track is the one its copy copies.
     s.master.id = 99;

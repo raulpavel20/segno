@@ -916,6 +916,13 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         if (channel_)
             session_.setTrackColour(channel_->id, c);
     };
+    groupLink_.setCutsText(true);
+    groupLink_.onClick = [this]
+    {
+        if (group_ && onSelectChannel)
+            onSelectChannel(group_->id);
+    };
+    body_.addChildComponent(groupLink_);
     clipColour_.onChosen = [this](int c)
     {
         if (clip_)
@@ -1400,6 +1407,12 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
                               channel_;
     channelName_.setVisible(channelShown);
     channelColour_.setVisible(channelShown);
+    groupLink_.setVisible(has(model::InspectorSection::Track) && channel_ && group_);
+    if (group_)
+    {
+        groupLink_.setButtonText(juce::String::fromUTF8(group_->name.c_str()));
+        groupLink_.setTooltip("Select " + groupLink_.getButtonText());
+    }
     if (channelShown)
     {
         if (!channelName_.hasKeyboardFocus(true))
@@ -1805,8 +1818,8 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                                    ? juce::String("None")
                                    : juce::String::fromUTF8(channel_->instrument.c_str())},
                 {"Clips", juce::String(static_cast<int>(channel_->clips.size())), true}};
-            if (group_) // the group it's in (groups.md §10)
-                rows.push_back({"Group", juce::String::fromUTF8(group_->name.c_str())});
+            if (group_) // the group it's in, a click selecting it (groups.md §10)
+                rows.push_back({"Group", {}});
             return rows;
         }
     case S::Group: // groups.md §10: the field, the swatch, then what it holds
@@ -2040,6 +2053,11 @@ int InspectorPanel::layoutSections(int width)
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth).withHeight(t.shell.rowHeight);
             channelName_.setBounds(content.reduced(0, t.shell.propertyFieldInset));
             channelColour_.setBounds(content.translated(0, t.shell.rowHeight));
+            if (sections_[i] == S::Track) // its last row: the group it's in
+                groupLink_.setBounds(
+                    content
+                        .translated(0, static_cast<int>(properties(S::Track).size() - 1) * t.shell.rowHeight)
+                        .reduced(0, t.shell.propertyFieldInset));
         }
         else if (sections_[i] == S::Take) // the Name row and the last
         {

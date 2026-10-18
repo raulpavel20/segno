@@ -748,7 +748,10 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // Time selection (time-selection.md §6, §9): Select loop (Live's Ctrl+Shift+L adds a lane
         // here) and Cut time (Live's Ctrl+Shift+X crossfades here); both on a selection's menus.
         // Crop clip and Clip loop to selection (§14.1): the audio editor's have none either.
-        "edit.selectLoop", "song.cutTime", "notes.cropClip", "notes.loopClip"};
+        "edit.selectLoop", "song.cutTime", "notes.cropClip", "notes.loopClip",
+        // Groups (groups.md §12): Remove from group and the group's colour are rare, also on a
+        // header's right-click; folding every group is the triangle's Alt+click.
+        "track.removeFromGroup", "track.colourMembers", "view.foldGroups", "view.unfoldGroups"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -4176,17 +4179,23 @@ TEST_CASE("a showing window: renaming takes the focus by every route, a press el
             CHECK(typing());
             done();
             // Its header menu's Rename... A lane's menu reads like a track's: its own commands,
-            // the same verb for deleting, then its colour.
+            // the same verb for deleting, then its colour; a track's has Group tracks before it
+            // (groups.md §12).
             app.click(view, at, juce::ModifierKeys::rightButtonModifier);
             AppWindow::pump(300);
             std::vector<juce::String> items;
             for (const auto& [title, item] : app.menuItems())
                 items.push_back(title);
             const auto ellipsis = juce::String::fromUTF8("\xE2\x80\xA6");
-            const auto own = juce::String(what) == "lane"
-                                 ? std::vector<juce::String>{"Rename" + ellipsis, "Assign parameter" + ellipsis,
-                                                             "Turn lane off", "Delete automation lane", "Colour"}
-                                 : std::vector<juce::String>{"Rename" + ellipsis, "Duplicate track", "Delete track", "Colour"};
+            const auto own =
+                juce::String(what) == "lane"
+                    ? std::vector<juce::String>{"Rename" + ellipsis, "Assign parameter" + ellipsis,
+                                                "Turn lane off", "Delete automation lane", "Colour"}
+                : juce::String(what) == "return"
+                    ? std::vector<juce::String>{"Rename" + ellipsis, "Duplicate track", "Delete track",
+                                                "Colour"}
+                    : std::vector<juce::String>{"Rename" + ellipsis, "Duplicate track", "Delete track",
+                                                "Group tracks", "Colour"};
             INFO(juce::StringArray(items.data(), static_cast<int>(items.size())).joinIntoString(" | "));
             REQUIRE(items.size() > own.size());
             CHECK(std::vector<juce::String>(items.begin(), items.begin() + static_cast<std::ptrdiff_t>(own.size())) == own);

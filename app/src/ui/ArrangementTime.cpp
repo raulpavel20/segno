@@ -2,6 +2,7 @@
 // drag on a clip's body, on empty space, in a lane away from its points, or across the song row's
 // overview; changed with Shift and Ctrl; a stretch dragged by a title strip inside it.
 
+#include "model/Groups.h"
 #include "ui/ArrangementView.h"
 
 #include <algorithm>
@@ -17,7 +18,7 @@ std::pair<std::set<std::uint64_t>, std::set<std::uint64_t>> ArrangementView::row
     for (int i = std::max(0, a); i <= std::min(b, static_cast<int>(rows_.size()) - 1); ++i)
     {
         const auto& r = rows_[static_cast<size_t>(i)];
-        if (r.holdsClips())
+        if (r.holdsClips() || r.isGroup()) // a group's row: everything in it (groups.md §6.5)
             tracks.insert(r.channel);
         else if (r.isLane())
             lanes.insert(r.lane);
@@ -49,7 +50,7 @@ void ArrangementView::beginTimeDrag(const juce::MouseEvent& e, int row, bool all
     if (row >= 0 && row < static_cast<int>(rows_.size()))
     {
         const auto& r = rows_[static_cast<size_t>(row)];
-        if (r.holdsClips())
+        if (r.holdsClips() || r.isGroup())
             d.channel = r.channel;
         else if (const auto* lane = rowLane(row); lane != nullptr && !lane->assignments.empty())
             d.channel = lane->assignments.front().channel;
@@ -123,18 +124,25 @@ void ArrangementView::stretchDragTo(const juce::MouseEvent& e)
     const auto lanes = laneArea();
     const double dx = (e.position.x - dragStart_.x) / timeline_.pixelsPerSecond();
     const double start = std::max(0.0, snapped(d.stretch.span.start + dx, e.mods.isAltDown()));
-    // Down or up by whole tracks, every one of its tracks landing on a track.
-    const int tracks = static_cast<int>(snapshot_->tracks.size());
+    // Down or up by whole tracks that hold clips, every one of its tracks landing on one; over a
+    // group's row, where it was last (groups.md §6.5).
+    const auto holders = model::clipTracks(*snapshot_);
+    const int tracks = static_cast<int>(holders.size());
     const auto row = layout_.hit(e.position.y - static_cast<float>(lanes.getY()));
-    const int under = model::clipTrackOf(rows_, row ? row->track : layout_.trackCount(), tracks);
+    const int under =
+        model::clipTrackRank(*snapshot_, model::clipTrackOf(rows_, row ? row->track : layout_.trackCount(),
+                                                            static_cast<int>(snapshot_->tracks.size())));
     int lowest = tracks, highest = -1;
     for (int i = 0; i < tracks; ++i)
-        if (d.stretch.tracks.contains(snapshot_->tracks[static_cast<size_t>(i)].id))
+        if (d.stretch.tracks.contains(
+                snapshot_->tracks[static_cast<size_t>(holders[static_cast<size_t>(i)])].id))
         {
             lowest = std::min(lowest, i);
             highest = std::max(highest, i);
         }
-    int shift = under - d.track;
+    int shift = under >= 0     ? under - model::clipTrackRank(*snapshot_, d.track)
+                : stretchMove_ ? stretchMove_->tracks
+                               : 0;
     if (highest >= 0)
         shift = std::clamp(shift, -lowest, tracks - 1 - highest);
     previewStretchMove(StretchMove{
@@ -165,14 +173,23 @@ void ArrangementView::moveTimeTo(model::TimeSpan span, int trackShift)
         return;
     std::set<std::uint64_t> tracks;
     std::optional<std::uint64_t> channel;
+    // Moved by tracks that hold clips (groups.md §6.5): a group's row stays only when nothing moved
+    // down or up.
     const auto& all = snapshot_->tracks;
-    for (int i = 0; i < static_cast<int>(all.size()); ++i)
-        if (selection_.rowTracks.contains(all[static_cast<size_t>(i)].id))
-            if (const int to = i + trackShift; to >= 0 && to < static_cast<int>(all.size()))
+    const auto holders = model::clipTracks(*snapshot_);
+    if (trackShift == 0)
+        for (const auto& t : all)
+            if (t.isGroup() && selection_.rowTracks.contains(t.id))
+                tracks.insert(t.id);
+    for (int i = 0; i < static_cast<int>(holders.size()); ++i)
+        if (const auto& from = all[static_cast<size_t>(holders[static_cast<size_t>(i)])];
+            selection_.rowTracks.contains(from.id))
+            if (const int to = i + trackShift; to >= 0 && to < static_cast<int>(holders.size()))
             {
-                tracks.insert(all[static_cast<size_t>(to)].id);
-                if (selection_.channel == all[static_cast<size_t>(i)].id)
-                    channel = all[static_cast<size_t>(to)].id;
+                const auto& onto = all[static_cast<size_t>(holders[static_cast<size_t>(to)])];
+                tracks.insert(onto.id);
+                if (selection_.channel == from.id)
+                    channel = onto.id;
             }
     setSelection(model::withTime(*snapshot_, span, tracks, selection_.rowLanes,
                                  channel ? channel : selection_.channel));
@@ -194,6 +211,14 @@ bool ArrangementView::toggleTimeRow(int row)
         flip(tracks, r.channel);
     else if (r.isLane())
         flip(lanes, r.lane);
+    else if (r.isGroup() && tracks.contains(r.channel)) // out with everything in it (groups.md §6.5)
+    {
+        tracks.erase(r.channel);
+        for (const auto* m : model::membersOf(*snapshot_, r.channel, true))
+            tracks.erase(m->id);
+    }
+    else if (r.isGroup())
+        tracks.insert(r.channel);
     else
         return true; // a row a time selection can't have: nothing changes
     auto next = model::withTime(*snapshot_, *selection_.time, tracks, lanes, selection_.channel);

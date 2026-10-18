@@ -54,8 +54,8 @@ bool Session::renameTrack(std::uint64_t channelId, const std::string& name)
         return false;
     impl_->beginEdit("Rename track");
     t->setName(trimmed);
-    if (Impl::isReturn(*t)) // the sends' bus is named after it (ADR 0026)
-        impl_->edit->setAuxBusName(busOf(*t), trimmed);
+    if (auto* back = dynamic_cast<te::AudioTrack*>(t); back != nullptr && Impl::isReturn(*back))
+        impl_->edit->setAuxBusName(busOf(*back), trimmed); // the sends' bus is named after it (ADR 0026)
     return true;
 }
 
@@ -134,106 +134,167 @@ bool Session::deleteTrack(std::uint64_t channelId, std::string* why)
             *why = "Stop recording first: tracks can't be deleted while a pass records";
         return false;
     }
-    updateSnapshotNow();
-    const auto plan = model::deletionPlan(*impl_->snapshot, channelId);
     const bool isReturn = Impl::isReturn(*t);
-    impl_->beginEdit(isReturn ? "Delete return track" : "Delete track");
-    auto* um = &impl_->edit->getUndoManager();
-    // Its automation (B41): the lanes that drive only it, its assignments in the others, and
-    // the lanes after it sit after the track above.
-    for (const auto lane : plan.lanes)
-        if (auto tree = impl_->laneTree(lane); tree.isValid())
-            tree.getParent().removeChild(tree, um);
-    for (const auto& a : plan.assignments)
-        if (auto tree = impl_->laneTree(a.lane); tree.isValid())
-            for (int i = tree.getNumChildren(); --i >= 0;)
-                if (const auto assign = tree.getChild(i);
-                    assign.hasType(Impl::assignId) && Impl::targetIn(assign) == ParamTarget{a.channel, a.key})
-                    tree.removeChild(i, um);
-    for (const auto& [lane, after] : plan.reanchor)
-        if (auto tree = impl_->laneTree(lane); tree.isValid())
-            tree.setProperty(Impl::afterId, idVar(after), um);
-    // The sidechains it feeds go back to Off (ADR 0025); the sends to a return go.
-    for (const auto device : plan.sidechains)
-        if (auto* p = impl_->plugin(device))
-            p->setSidechainSourceID({});
-    if (isReturn)
-        for (auto* other : impl_->tracks())
-            if (auto* send = sendIn(other->pluginList, busOf(*t)))
-                send->removeFromParent();
-    if (impl_->midiTarget == channelId)
-        impl_->midiTarget.reset();
-    impl_->edit->deleteTrack(t);
+    const EditGroup step(*this, isReturn ? "Delete return track" : "Delete track");
+    impl_->deleteChannel(channelId); // a group with everything in it (groups.md §5.4)
+    impl_->removeEmptyGroups();      // its group, if it was the last in it (§4)
     return true;
 }
 
-std::vector<model::RowRef> Session::Impl::rowOrder() const
+void Session::Impl::deleteChannel(std::uint64_t channelId)
 {
-    const auto all = tracks();
-    std::set<std::uint64_t> shown;
-    for (auto* t : all)
-        shown.insert(t->itemID.getRawID());
-    std::vector<model::RowRef> out;
-    auto lanesAfter = [&](auto anchored)
+    auto* t = channelTrack(channelId);
+    if (t == nullptr)
+        return;
+    if (auto* g = group(channelId)) // what's in it first
     {
-        for (const auto& lane : lanesTree())
-            if (anchored(idProperty(lane[afterId])))
-                out.push_back({.id = idOf(lane), .lane = true});
-    };
-    lanesAfter([](std::uint64_t after) { return after == 0; });
-    for (auto* t : all)
-    {
-        const auto id = t->itemID.getRawID();
-        out.push_back({.id = id});
-        lanesAfter([id](std::uint64_t after) { return after == id; });
+        std::vector<std::uint64_t> inside;
+        for (auto* child : g->getAllSubTracks(false))
+            inside.push_back(child->itemID.getRawID());
+        for (const auto id : inside)
+            deleteChannel(id);
+        t = channelTrack(channelId);
     }
-    lanesAfter([&shown](std::uint64_t after) { return after != 0 && !shown.contains(after); });
-    return out;
+    owner.updateSnapshotNow();
+    const auto plan = model::deletionPlan(*snapshot, channelId);
+    const bool isReturnTrack = isReturn(*t);
+    auto* um = &edit->getUndoManager();
+    // Its automation (B41): the lanes that drive only it, its assignments in the others; the
+    // lanes left keep their places, after the row now above them (ADR 0042).
+    for (const auto lane : plan.lanes)
+        if (auto tree = laneTree(lane); tree.isValid())
+            tree.getParent().removeChild(tree, um);
+    for (const auto& a : plan.assignments)
+        if (auto tree = laneTree(a.lane); tree.isValid())
+            for (int i = tree.getNumChildren(); --i >= 0;)
+                if (const auto assign = tree.getChild(i);
+                    assign.hasType(assignId) && targetIn(assign) == ParamTarget{a.channel, a.key})
+                    tree.removeChild(i, um);
+    if (!isReturnTrack)
+        placeRows(model::withoutRow(rowTree(), channelId), nullptr, nullptr, um);
+    // The sidechains it feeds go back to Off (ADR 0025); the sends to a return go.
+    for (const auto device : plan.sidechains)
+        if (auto* p = plugin(device))
+            p->setSidechainSourceID({});
+    if (auto* back = dynamic_cast<te::AudioTrack*>(t); back != nullptr && isReturnTrack)
+        for (auto* other : rowTracks())
+            if (auto* send = sendIn(other->pluginList, busOf(*back)))
+                send->removeFromParent();
+    if (midiTarget == channelId)
+        midiTarget.reset();
+    edit->deleteTrack(t);
 }
 
-void Session::Impl::placeRows(const model::RowOrder& order, te::Track* moved, juce::UndoManager* um)
+void Session::Impl::removeEmptyGroups()
 {
-    if (moved != nullptr)
+    // A group is never empty (groups.md §4): one left with nothing in it goes, as a track goes;
+    // its own group may be left empty in turn. The views are told, for the toast that says so.
+    std::vector<std::string> names;
+    for (bool again = true; again;)
     {
-        // After the track before it in the new order; first, after what comes before the first
-        // track now (another kind of track).
-        const auto id = moved->itemID.getRawID();
-        const auto at = std::find(order.tracks.begin(), order.tracks.end(), id);
-        te::Track* preceding = nullptr;
-        if (at != order.tracks.begin() && at != order.tracks.end())
-            preceding = track(*std::prev(at));
-        else if (const auto all = tracks(); !all.empty())
-            preceding = trackBefore(*edit, all.front() == moved && all.size() > 1 ? *all[1] : *all.front(), moved);
-        edit->moveTrack(moved, te::TrackInsertPoint(nullptr, preceding));
+        again = false;
+        for (auto* t : rowTracks())
+            if (auto* g = dynamic_cast<te::FolderTrack*>(t);
+                g != nullptr && isGroup(*g) && g->getAllSubTracks(false).isEmpty())
+            {
+                names.push_back(g->getName().toStdString());
+                deleteChannel(g->itemID.getRawID());
+                again = true;
+                break;
+            }
     }
-    // Each lane after its track, the lanes in row order.
-    auto lanes = lanesTree();
-    for (int i = 0; i < static_cast<int>(order.lanes.size()); ++i)
+    if (!names.empty() && owner.onGroupsEmptied)
+        owner.onGroupsEmptied(names);
+}
+
+std::uint64_t Session::Impl::groupOf(const te::Track& track)
+{
+    const auto* parent = track.getParentFolderTrack();
+    return parent != nullptr ? parent->itemID.getRawID() : 0;
+}
+
+model::RowTree Session::Impl::rowTree() const
+{
+    model::RowTree tree;
+    std::map<std::uint64_t, std::uint64_t> groups;
+    for (auto* t : rowTracks())
     {
-        const auto& [id, after] = order.lanes[static_cast<size_t>(i)];
-        auto lane = laneTree(id);
+        const auto id = t->itemID.getRawID();
+        tree.channels.push_back({.id = id, .group = groupOf(*t), .isGroup = isGroup(*t)});
+        groups[id] = groupOf(*t);
+    }
+    // A lane's group: its own where it says one (first in a group), else its row's.
+    for (const auto& lane : lanesTree())
+    {
+        const auto after = idProperty(lane[afterId]);
+        const auto anchor = groups.find(after);
+        tree.lanes.push_back({.id = idOf(lane),
+                              .after = after,
+                              .group = lane.hasProperty(laneGroupId) ? idProperty(lane[laneGroupId])
+                                       : anchor != groups.end()      ? anchor->second
+                                                                     : 0});
+    }
+    return tree;
+}
+
+void Session::Impl::placeRows(const model::RowTree& tree, const model::RowMove* move, te::Track* moved,
+                              juce::UndoManager* um)
+{
+    if (moved != nullptr && move != nullptr)
+    {
+        // After the channel it now follows in its group; first in a group, first there; first of
+        // all, after what comes before the first track now (another kind of track).
+        auto* parent = move->group != 0 ? group(move->group) : nullptr;
+        te::Track* preceding = move->after != 0 ? channelTrack(move->after) : nullptr;
+        if (parent == nullptr && preceding == nullptr)
+            if (const auto all = rowTracks(); !all.empty())
+                preceding = trackBefore(
+                    *edit, all.front() == moved && all.size() > 1 ? *all[1] : *all.front(), moved);
+        edit->moveTrack(moved, te::TrackInsertPoint(parent, preceding));
+    }
+    // Each lane after its row in its group, the lanes in row order; its group kept only where it
+    // isn't the group of the row it's after.
+    std::map<std::uint64_t, std::uint64_t> groups;
+    for (const auto& c : tree.channels)
+        groups[c.id] = c.group;
+    auto lanes = lanesTree();
+    for (int i = 0; i < static_cast<int>(tree.lanes.size()); ++i)
+    {
+        const auto& l = tree.lanes[static_cast<size_t>(i)];
+        auto lane = laneTree(l.id);
         if (!lane.isValid())
             continue;
-        if (idProperty(lane[afterId]) != after)
-            lane.setProperty(afterId, idVar(after), um);
+        if (idProperty(lane[afterId]) != l.after)
+            lane.setProperty(afterId, idVar(l.after), um);
+        const auto anchor = groups.find(l.after);
+        const auto implied = l.after != 0 && anchor != groups.end() ? anchor->second : 0;
+        if (l.group != implied)
+        {
+            if (idProperty(lane[laneGroupId]) != l.group || !lane.hasProperty(laneGroupId))
+                lane.setProperty(laneGroupId, idVar(l.group), um);
+        }
+        else if (lane.hasProperty(laneGroupId))
+            lane.removeProperty(laneGroupId, um);
         if (const int now = lanes.indexOf(lane); now != i)
             lanes.moveChild(now, i, um);
     }
 }
 
-bool Session::moveTrack(std::uint64_t channelId, std::uint64_t before)
+bool Session::moveTrack(std::uint64_t channelId, std::uint64_t before, std::optional<std::uint64_t> into)
 {
     auto* t = impl_->channelTrack(channelId);
     if (t == nullptr || before == channelId)
         return false;
     if (!Impl::isReturn(*t))
     {
-        // Right above a track or a lane; everything else stays where it is (ADR 0042).
-        const auto order = model::moveRow(impl_->rowOrder(), channelId, before);
-        if (!order)
+        // Right above a row, in a group or in none; everything else stays where it is (ADR 0042,
+        // groups.md §5.3). A group it leaves empty goes, in the same step.
+        const auto move = model::moveInTree(impl_->rowTree(), channelId, before, into);
+        if (!move)
             return false;
-        impl_->beginEdit("Move track");
-        impl_->placeRows(*order, t, &impl_->edit->getUndoManager());
+        const EditGroup step(*this, "Move track");
+        impl_->placeRows(move->tree, &*move, t, &impl_->edit->getUndoManager());
+        impl_->removeEmptyGroups();
         return true;
     }
     // A return among the returns.
@@ -252,7 +313,8 @@ bool Session::moveTrack(std::uint64_t channelId, std::uint64_t before)
         at = static_cast<std::size_t>(it - others.begin());
     }
     // Where it is now: no move.
-    const auto now = static_cast<std::size_t>(std::find(kind.begin(), kind.end(), t) - kind.begin());
+    const auto now = static_cast<std::size_t>(
+        std::find_if(kind.begin(), kind.end(), [t](auto* k) { return k == t; }) - kind.begin());
     if (now == at)
         return false;
     // After the one before its place among the returns; first, after what comes before the first
@@ -264,16 +326,16 @@ bool Session::moveTrack(std::uint64_t channelId, std::uint64_t before)
     return true;
 }
 
-bool Session::moveLane(std::uint64_t lane, std::uint64_t before)
+bool Session::moveLane(std::uint64_t lane, std::uint64_t before, std::optional<std::uint64_t> into)
 {
     if (!impl_->laneTree(lane).isValid())
         return false;
-    // Right above a track or a lane; everything else stays where it is (ADR 0042).
-    const auto order = model::moveRow(impl_->rowOrder(), lane, before);
-    if (!order)
+    // Right above a row, in a group or in none; everything else stays where it is (ADR 0042).
+    const auto move = model::moveInTree(impl_->rowTree(), lane, before, into);
+    if (!move)
         return false;
     impl_->beginEdit("Move automation lane");
-    impl_->placeRows(*order, nullptr, &impl_->edit->getUndoManager());
+    impl_->placeRows(move->tree, nullptr, nullptr, &impl_->edit->getUndoManager());
     return true;
 }
 
@@ -291,8 +353,16 @@ std::uint64_t Session::duplicateTrack(std::uint64_t channelId)
     impl_->beginEdit(isReturn ? "Duplicate return track" : "Duplicate track");
     auto* um = &impl_->edit->getUndoManager();
 
-    // A copy of its state with new ids; a clip's take points at its copy's (ADR 0032).
+    // A copy of its state with new ids (a group's with everything in it); a clip's take points at
+    // its copy's (ADR 0032).
     t->flushStateToValueTree();
+    std::vector<std::uint64_t> originals{channelId}; // it, and what's in it
+    if (auto* g = impl_->group(channelId))
+        for (auto* inside : g->getAllSubTracks(true))
+        {
+            inside->flushStateToValueTree();
+            originals.push_back(inside->itemID.getRawID());
+        }
     auto copy = t->state.createCopy();
     te::EditItemID::IDMap ids;
     te::EditItemID::remapIDs(copy, nullptr, *impl_->edit, &ids);
@@ -313,58 +383,80 @@ std::uint64_t Session::duplicateTrack(std::uint64_t channelId)
             repoint(child);
     };
     repoint(copy);
-    // "Bass 2"; not armed (two tracks would record one input twice), not soloed.
+    // "Bass 2", and in a group's copy "Kick 2"...; not armed (two tracks would record one input
+    // twice), not soloed.
     std::vector<std::string> names;
     for (const auto* list : {&snapshot->tracks, &snapshot->returns})
         for (const auto& c : *list)
             names.push_back(c.name);
-    const auto name = juce::String(model::nextCopyName(t->getName().toStdString(), names));
-    copy.setProperty(te::IDs::name, name, nullptr);
-    copy.removeProperty(Impl::armedId, nullptr);
-    copy.setProperty(te::IDs::solo, false, nullptr);
-
-    auto inserted = impl_->edit->insertTrack(te::TrackInsertPoint(nullptr, t), copy, nullptr);
-    auto* track = dynamic_cast<te::AudioTrack*>(inserted.get());
-    if (track == nullptr)
-        return 0;
-    const auto id = track->itemID.getRawID();
-    if (isReturn) // its own bus: the sends to the original stay its
+    std::function<void(juce::ValueTree)> rename = [&](juce::ValueTree v)
     {
-        if (auto* in = findIn<te::AuxReturnPlugin>(track->pluginList))
+        if (v.hasType(te::IDs::TRACK) || v.hasType(te::IDs::FOLDERTRACK))
+        {
+            const auto name = model::nextCopyName(v[te::IDs::name].toString().toStdString(), names);
+            names.push_back(name);
+            v.setProperty(te::IDs::name, juce::String(name), nullptr);
+            v.removeProperty(Impl::armedId, nullptr);
+            v.setProperty(te::IDs::solo, false, nullptr);
+        }
+        for (auto child : v)
+            rename(child);
+    };
+    rename(copy);
+    const auto name = copy[te::IDs::name].toString();
+
+    // Right after it, in its group (groups.md §5.4).
+    auto inserted =
+        impl_->edit->insertTrack(te::TrackInsertPoint(t->getParentFolderTrack(), t), copy, nullptr);
+    if (inserted == nullptr)
+        return 0;
+    const auto id = inserted->itemID.getRawID();
+    if (auto* back = dynamic_cast<te::AudioTrack*>(inserted.get()); back != nullptr && isReturn)
+    {
+        // Its own bus: the sends to the original stay its.
+        if (auto* in = findIn<te::AuxReturnPlugin>(back->pluginList))
             in->busNumber = bus;
         impl_->edit->setAuxBusName(bus, name);
     }
-    // The lanes that drive only the original: copies after the copy, driving it (modules by
-    // their copies' ids).
-    for (const auto laneId : model::lanesOnlyFor(*snapshot, channelId))
+    // The lanes that drive only the original (or only one of a group's tracks): copies after the
+    // copy, driving it (modules by their copies' ids).
+    for (const auto original : originals)
     {
-        const auto lane = impl_->laneTree(laneId);
-        if (!lane.isValid())
+        const auto copied = map.find(original);
+        if (copied == map.end())
             continue;
-        auto laneCopy = lane.createCopy();
-        impl_->edit->createNewItemID().writeID(laneCopy, nullptr);
-        laneCopy.setProperty(Impl::nameId,
-                             juce::String(model::laneCopyName(lane[Impl::nameId].toString().toStdString(), impl_->laneNames())),
-                             nullptr); // names never repeat (tracks-and-clips.md §18)
-        laneCopy.setProperty(Impl::afterId, idVar(id), nullptr);
-        for (auto assign : laneCopy)
-            if (assign.hasType(Impl::assignId))
-            {
-                assign.setProperty(Impl::assignChannelId, idVar(id), nullptr);
-                auto key = assign[Impl::keyId].toString();
-                if (key.startsWith("m")) // "m<module>/<parameter>"
-                    if (const auto it =
-                            map.find(static_cast<std::uint64_t>(key.fromFirstOccurrenceOf("m", false, false)
-                                                                    .upToFirstOccurrenceOf("/", false, false)
-                                                                    .getLargeIntValue()));
-                        it != map.end())
-                        assign.setProperty(Impl::keyId,
-                                           "m" + juce::String(static_cast<juce::int64>(it->second)) + "/" +
-                                               key.fromFirstOccurrenceOf("/", false, false),
-                                           nullptr);
-            }
-        impl_->lanesTree().addChild(laneCopy, -1, um);
-        impl_->derive(laneCopy, um);
+        for (const auto laneId : model::lanesOnlyFor(*snapshot, original))
+        {
+            const auto lane = impl_->laneTree(laneId);
+            if (!lane.isValid())
+                continue;
+            auto laneCopy = lane.createCopy();
+            impl_->edit->createNewItemID().writeID(laneCopy, nullptr);
+            laneCopy.setProperty(Impl::nameId,
+                                 juce::String(model::laneCopyName(lane[Impl::nameId].toString().toStdString(),
+                                                                  impl_->laneNames())),
+                                 nullptr); // names never repeat (tracks-and-clips.md §18)
+            laneCopy.setProperty(Impl::afterId, idVar(copied->second), nullptr);
+            laneCopy.removeProperty(Impl::laneGroupId, nullptr);
+            for (auto assign : laneCopy)
+                if (assign.hasType(Impl::assignId))
+                {
+                    assign.setProperty(Impl::assignChannelId, idVar(copied->second), nullptr);
+                    auto key = assign[Impl::keyId].toString();
+                    if (key.startsWith("m")) // "m<module>/<parameter>"
+                        if (const auto it = map.find(
+                                static_cast<std::uint64_t>(key.fromFirstOccurrenceOf("m", false, false)
+                                                               .upToFirstOccurrenceOf("/", false, false)
+                                                               .getLargeIntValue()));
+                            it != map.end())
+                            assign.setProperty(Impl::keyId,
+                                               "m" + juce::String(static_cast<juce::int64>(it->second)) +
+                                                   "/" + key.fromFirstOccurrenceOf("/", false, false),
+                                               nullptr);
+                }
+            impl_->lanesTree().addChild(laneCopy, -1, um);
+            impl_->derive(laneCopy, um);
+        }
     }
     return id;
 }

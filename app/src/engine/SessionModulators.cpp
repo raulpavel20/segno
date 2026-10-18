@@ -134,9 +134,7 @@ int Session::Impl::chainIndexOf(te::Track& track, std::uint64_t id)
 
 std::vector<te::Track*> Session::Impl::chainTracks() const
 {
-    std::vector<te::Track*> out;
-    for (auto* t : te::getAudioTracks(*edit))
-        out.push_back(t);
+    auto out = channelTracks(); // groups have chains and modulators too (ADR 0072)
     if (auto* master = edit->getMasterTrack())
         out.push_back(master);
     return out;

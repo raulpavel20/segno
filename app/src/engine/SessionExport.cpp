@@ -253,8 +253,12 @@ struct Session::Impl::Export final : std::enable_shared_from_this<Export>, priva
         params.sampleRateForAudio = rate;
         params.time = {te::TimePosition::fromSeconds(span.start),
                        te::TimePosition::fromSeconds(span.end + (span.tail ? model::kBounceTailSeconds : 0.0))};
-        for (auto* t : te::getAudioTracks(copy)) // solo is for listening: an export plays every track
+        // Solo is for listening: an export plays every track and group.
+        for (auto* t : te::getAudioTracks(copy))
             t->setSolo(false);
+        for (auto* t : te::getAllTracks(copy))
+            if (auto* group = dynamic_cast<te::FolderTrack*>(t))
+                group->setSolo(false);
         const auto all = te::getAllTracks(copy);
         switch (target.kind)
         {
@@ -502,11 +506,14 @@ std::shared_ptr<Session::RenderJob> Session::exportAudio(const model::ExportSett
     case model::ExportWhat::Mix: job->targets.push_back({.kind = K::Mix}); break;
     case model::ExportWhat::SelectedTracks:
     case model::ExportWhat::AllTracks:
-        // The tracks, then the return tracks (each a stem of its own), in the arrangement's order.
-        for (const auto* list : {&s.tracks, &s.returns})
-            for (const auto& t : *list)
-                if (job->settings.what == model::ExportWhat::AllTracks || std::find(tracks.begin(), tracks.end(), t.id) != tracks.end())
-                    job->targets.push_back({.kind = list == &s.returns ? K::Return : K::Track, .track = t.id, .name = t.name});
+        // The tracks and groups, then the return tracks (each a stem of its own), in the
+        // arrangement's order: a group whole, through its modules and fader (groups.md §11).
+        for (const auto id : model::stemChannels(s, job->settings, tracks))
+            if (const auto* t = s.channel(id))
+                job->targets.push_back(
+                    {.kind = t->role == model::TrackInfo::Role::Return ? K::Return : K::Track,
+                     .track = id,
+                     .name = t->name});
         break;
     }
     if (job->targets.empty())

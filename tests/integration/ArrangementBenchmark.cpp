@@ -18,6 +18,7 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <set>
 
 TEST_CASE("arrangement paints 32 zooming tracks within the frame budget", "[.benchmark]")
 {
@@ -350,6 +351,99 @@ TEST_CASE("the arrangement paints 64 tracks with two automation lanes each withi
         std::cout << "arrangement paint, 64 tracks + 128 lanes, 1700x720: avg " << sum / static_cast<double>(times.size())
                   << " ms, p95 " << p95 << " ms\n";
         CHECK(p95 < 16.7);
+    }
+    juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+}
+
+TEST_CASE(
+    "64 tracks in 8 groups, half of them folded, paint within the frame budget in the arrangement and the "
+    "mixer view",
+    "[.benchmark]")
+{
+    // groups.md §18: the group bars, the folded groups' miniatures and the strips' group rows.
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    fd::ui::LookAndFeel lnf;
+    juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
+    {
+        tracktion::Engine engine{"fd-benchmark", nullptr, fd::engine::makeEngineBehaviour()};
+        fd::engine::registerDevices(engine);
+        fd::engine::Session session(engine);
+        while (session.snapshot()->tracks.size() < 64)
+        {
+            session.addTrack();
+            session.updateSnapshotNow();
+        }
+        // A clip every other bar on each track, then the tracks in groups of eight.
+        std::vector<std::uint64_t> ids;
+        for (const auto& t : session.snapshot()->tracks)
+            ids.push_back(t.id);
+        for (const auto id : ids)
+            for (int bar = 0; bar < 32; bar += 2)
+                session.createMidiClip(id, bar * 2.0, 2.0);
+        std::set<std::uint64_t> folded;
+        for (size_t g = 0; g < 8; ++g)
+        {
+            const auto group = session.groupTracks({ids.begin() + static_cast<std::ptrdiff_t>(g * 8),
+                                                    ids.begin() + static_cast<std::ptrdiff_t>(g * 8 + 8)});
+            REQUIRE(group != 0);
+            if (g % 2 == 0)
+                folded.insert(group);
+        }
+        session.updateSnapshotNow();
+        const auto report = [](const char* what, std::vector<double> times)
+        {
+            std::sort(times.begin(), times.end());
+            double sum = 0.0;
+            for (double t : times)
+                sum += t;
+            const double p95 = times[times.size() * 95 / 100];
+            std::cout << what << ": avg " << sum / static_cast<double>(times.size()) << " ms, p95 " << p95
+                      << " ms\n";
+            return p95;
+        };
+
+        fd::app::ArrangementView view(session);
+        view.setSize(1700, 720);
+        view.setSnapshot(session.snapshot());
+        view.setFoldedGroups(folded);
+        view.setAllTrackHeights(48.0);
+        view.zoomToFit();
+        for (int i = 0; i < 60; ++i)
+            view.frame(1.0 / 60.0, 0.0);
+        juce::Image image(juce::Image::ARGB, view.getWidth(), view.getHeight(), true);
+        std::vector<double> times;
+        for (int frame = 0; frame < 120; ++frame)
+        {
+            view.zoomAt(800.0, frame < 60 ? 1.02 : 1.0 / 1.02);
+            const auto t0 = std::chrono::steady_clock::now();
+            {
+                juce::Graphics g(image);
+                view.paintEntireComponent(g, true);
+            }
+            times.push_back(
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        }
+        CHECK(report("arrangement paint, 64 tracks in 8 groups (4 folded), 1700x720", times) < 16.7);
+
+        fd::app::MixerView mixer(session);
+        mixer.setSize(1700, 720);
+        mixer.setSnapshot(session.snapshot());
+        mixer.setFoldedGroups(folded);
+        mixer.setOptions(true, true, true);
+        juce::Image strips(juce::Image::ARGB, mixer.getWidth(), mixer.getHeight(), true);
+        times.clear();
+        for (int frame = 0; frame < 120; ++frame)
+        {
+            mixer.setScrollX((frame * 37) % 2000);
+            const auto t0 = std::chrono::steady_clock::now();
+            {
+                juce::Graphics g(strips);
+                mixer.paintEntireComponent(g, true);
+            }
+            times.push_back(
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        }
+        CHECK(report("mixer view paint, 64 tracks in 8 groups (4 folded), 1700x720", times) < 16.7);
     }
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }

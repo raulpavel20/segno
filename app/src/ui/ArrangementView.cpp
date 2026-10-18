@@ -270,10 +270,6 @@ void ArrangementView::paintTimeSelection(juce::Graphics& g, juce::Rectangle<int>
                                     area.getWidth(), h)
             .getIntersection(area);
     };
-    std::vector<int> trackRows; // track rows in order, to land a moved stretch on
-    for (int i = 0; i < layout_.trackCount(); ++i)
-        if (rows_[static_cast<size_t>(i)].holdsClips())
-            trackRows.push_back(i);
     for (int i = 0; i < layout_.trackCount(); ++i)
         if (rowInTime(rows_[static_cast<size_t>(i)]))
             time::paintTimeSelection(g, timeline_, rowArea(i), span.start, span.end);
@@ -281,17 +277,24 @@ void ArrangementView::paintTimeSelection(juce::Graphics& g, juce::Rectangle<int>
         return;
 
     // Where a dragged stretch lands (§10): what's in it on each track, cut at its edges, drawn at its
-    // new place as dragged clips are, under the stretch's own fill; lanes keep their rows.
+    // new place as dragged clips are, under the stretch's own fill; lanes keep their rows. Tracks
+    // land by tracks that hold clips, as the Session moves them (groups.md §6.5).
     const double dt = stretchMove_->seconds;
-    for (size_t k = 0; k < trackRows.size(); ++k)
+    const auto holders = model::clipTracks(*snapshot_);
+    const auto landing = [&](const model::ArrangementRow& r)
     {
-        const int from = trackRows[k];
-        if (!rowInTime(rows_[static_cast<size_t>(from)]))
+        const auto to = static_cast<long>(model::clipTrackRank(*snapshot_, r.track)) + stretchMove_->tracks;
+        return to < 0 || to >= static_cast<long>(holders.size())
+                   ? -1
+                   : model::rowOfTrack(rows_, holders[static_cast<size_t>(to)]);
+    };
+    for (int from = 0; from < layout_.trackCount(); ++from)
+    {
+        if (!rows_[static_cast<size_t>(from)].holdsClips() || !rowInTime(rows_[static_cast<size_t>(from)]))
             continue;
-        const auto to = static_cast<long>(k) + stretchMove_->tracks;
-        if (to < 0 || to >= static_cast<long>(trackRows.size()))
+        const int row = landing(rows_[static_cast<size_t>(from)]);
+        if (row < 0)
             continue;
-        const int row = trackRows[static_cast<size_t>(to)];
         const auto& source = snapshot_->tracks[static_cast<size_t>(rows_[static_cast<size_t>(from)].track)];
         const float y = static_cast<float>(area.getY() + layout_.top(row));
         const float h = static_cast<float>(layout_.baseHeight(row));
@@ -312,15 +315,9 @@ void ArrangementView::paintTimeSelection(juce::Graphics& g, juce::Rectangle<int>
         const auto& r = rows_[static_cast<size_t>(i)];
         if (!rowInTime(r))
             continue;
-        int row = i;
-        if (r.holdsClips())
-        {
-            const auto k =
-                std::find(trackRows.begin(), trackRows.end(), i) - trackRows.begin() + stretchMove_->tracks;
-            if (k < 0 || k >= static_cast<long>(trackRows.size()))
-                continue;
-            row = trackRows[static_cast<size_t>(k)];
-        }
+        const int row = r.holdsClips() ? landing(r) : i;
+        if (row < 0)
+            continue;
         // The landing place looks as the stretch does: one look for selected time.
         time::paintTimeSelection(g, timeline_, rowArea(row), span.start + dt, span.end + dt);
     }
@@ -2032,6 +2029,12 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
                 rowMenu(-1);
             return;
         }
+        // A group's fold triangle: it folds or unfolds; Alt, every group (groups.md §6.4).
+        if (const auto fold = foldArea(row->track); fold && fold->contains(pos) && e.mods.isLeftButtonDown())
+        {
+            toggleFold(rows_[static_cast<size_t>(row->track)].channel, e.mods.isAltDown());
+            return;
+        }
         // Ctrl+click with a time selection: the row in or out of it (time-selection.md §6).
         if (e.mods.isCommandDown() && !e.mods.isPopupMenu() && toggleTimeRow(row->track))
             return;
@@ -2229,9 +2232,11 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         selectTrack(rowTrack); // the space under a track's clips, beside its open takes
         return;
     }
-    if (row && !rows_[static_cast<size_t>(row->track)].holdsClips())
+    if (row && !rows_[static_cast<size_t>(row->track)].holdsClips() &&
+        !rows_[static_cast<size_t>(row->track)].isGroup())
     {
-        selectTrack(rowTrack); // returns and the master hold no clips
+        selectTrack(
+            rowTrack); // returns and the master hold no clips (a group's lane selects time, groups.md §6.5)
         return;
     }
     std::vector<int> rowTracks;
@@ -2337,7 +2342,9 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         if (!rowDrag_->moving && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
             return;
         rowDrag_->moving = true;
-        rowDrag_->drop = model::dropRow(rows_, static_cast<std::size_t>(rowDrag_->row), boundaryAt(e.position.y));
+        rowDrag_->drop =
+            model::dropRow(rows_, static_cast<std::size_t>(rowDrag_->row), boundaryAt(e.position.y),
+                           dropDepthAt(e.position.x), groupHeaderAt(e.position.y));
         repaint();
         return;
     }
@@ -2425,8 +2432,10 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
     if (drag_ == Drag::Clip)
     {
         clipDrag_.deltaSeconds = (e.position.x - dragStart_.x) / timeline_.pixelsPerSecond();
-        if (clipDrag_.kind == model::DragKind::Move)
-            clipDrag_.deltaTracks = trackAt(e.position.y) - dragStartTrack_;
+        // Over a group's row the clips stay on the tracks they were last over: it holds none.
+        if (const int under = model::clipTrackRank(*snapshot_, trackAt(e.position.y));
+            clipDrag_.kind == model::DragKind::Move && under >= 0)
+            clipDrag_.deltaTracks = under - model::clipTrackRank(*snapshot_, dragStartTrack_);
         preview_ = model::dragClips(*snapshot_, selection_.clips, clipDrag_, snapFunction(e.mods.isAltDown()));
         repaint();
     }
@@ -2459,10 +2468,12 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         if (!dragged || !dragged->moving || !dragged->drop.moves || dragged->row >= static_cast<int>(rows_.size()))
             return;
         const auto& r = rows_[static_cast<std::size_t>(dragged->row)];
+        const auto into = dragged->drop.group; // the group it lands in (groups.md §5.3)
+        // One inside a group that's chosen too goes with it.
+        const auto several = model::outermost(*snapshot_, model::selectedTracks(*snapshot_, selection_));
         if (r.kind == model::ArrangementRow::Kind::Lane)
-            session_.moveLane(r.lane, dragged->drop.before);
-        else if (const auto several = model::selectedTracks(*snapshot_, selection_);
-                 several.size() > 1 && std::find(several.begin(), several.end(), r.channel) != several.end())
+            session_.moveLane(r.lane, dragged->drop.before, into);
+        else if (several.size() > 1 && std::find(several.begin(), several.end(), r.channel) != several.end())
         {
             // Several chosen together move together, in their order, landing where it's dropped
             // (groups.md §8): one step.
@@ -2483,10 +2494,10 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
             }
             const engine::Session::EditGroup step(session_, "Move tracks");
             for (const auto id : several)
-                session_.moveTrack(id, before);
+                session_.moveTrack(id, before, into);
         }
         else
-            session_.moveTrack(r.channel, dragged->drop.before);
+            session_.moveTrack(r.channel, dragged->drop.before, into);
         return;
     }
     if (drag_ == Drag::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
@@ -2920,8 +2931,12 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
     const auto [index, seconds] = *dropTarget_;
     dropTarget_.reset();
 
-    // Several files go onto consecutive tracks, creating tracks below as needed.
-    int target = index;
+    // Several files go onto consecutive tracks, groups skipped, creating tracks below as needed;
+    // on a group's row, each on a new track at its end (groups.md §11).
+    const auto holders = model::clipTracks(*snapshot_);
+    const bool onGroup = index >= 0 && index < static_cast<int>(snapshot_->tracks.size()) &&
+                         snapshot_->tracks[static_cast<size_t>(index)].isGroup();
+    int target = onGroup ? -1 : model::clipTrackRank(*snapshot_, index);
     std::optional<std::uint64_t> first;
     for (const auto& path : files)
     {
@@ -2929,10 +2944,10 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
         if (!isAudioFile(path) && !midi)
             continue;
         std::uint64_t trackId = 0;
-        if (target >= 0 && target < static_cast<int>(snapshot_->tracks.size()))
-            trackId = snapshot_->tracks[static_cast<size_t>(target)].id;
+        if (target >= 0 && target < static_cast<int>(holders.size()))
+            trackId = snapshot_->tracks[static_cast<size_t>(holders[static_cast<size_t>(target)])].id;
         else
-            trackId = session_.addTrack();
+            trackId = session_.addTrack({}, onGroup ? snapshot_->tracks[static_cast<size_t>(index)].id : 0);
         const auto clip = midi ? session_.insertMidiFile(trackId, juce::File(path), seconds) // no instrument (ADR 0033)
                                : session_.insertAudioFile(trackId, juce::File(path), seconds);
         if (clip != 0 && !first)
@@ -2988,17 +3003,34 @@ bool ArrangementView::headerActive() const noexcept
 
 std::optional<juce::Rectangle<int>> ArrangementView::nameArea(int row) const
 {
+    return headerSlot(row, [](const model::TrackHeaderSlots& slots) { return slots.name; });
+}
+
+std::optional<juce::Rectangle<int>> ArrangementView::foldArea(int row) const
+{
+    if (row < 0 || row >= layout_.trackCount() || !rows_[static_cast<size_t>(row)].isGroup())
+        return std::nullopt;
+    return headerSlot(row, [](const model::TrackHeaderSlots& slots) { return slots.fold; });
+}
+
+std::optional<juce::Rectangle<int>> ArrangementView::headerSlot(
+    int row, const std::function<model::HeaderRect(const model::TrackHeaderSlots&)>& slot) const
+{
     if (row < 0 || row >= layout_.trackCount())
         return std::nullopt;
     const auto bounds = rowBounds(row, headerArea());
+    const int depth = rows_[static_cast<size_t>(row)].depth;
     model::TrackHeaderSlots slots;
     if (rowLane(row) != nullptr)
-        slots = model::layoutTrackHeader(bounds.getWidth(), bounds.getHeight(), 1, false);
+        slots = model::layoutTrackHeader(bounds.getWidth(), bounds.getHeight(), 1, false, {}, depth);
     else if (const auto* channel = rowChannel(row))
-        slots = model::layoutTrackHeader(bounds.getWidth(), layout_.baseHeight(row), buttonsOf(*channel), true);
+        slots = model::layoutTrackHeader(bounds.getWidth(), layout_.baseHeight(row), buttonsOf(*channel),
+                                         true, {}, depth, channel->isGroup());
     else
         return std::nullopt;
-    const auto& r = slots.name;
+    const auto r = slot(slots);
+    if (r.isEmpty())
+        return std::nullopt;
     return juce::Rectangle<double>(r.x, r.y, r.w, r.h).translated(bounds.getX(), bounds.getY()).toNearestInt();
 }
 

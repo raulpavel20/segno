@@ -74,7 +74,8 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"add_module", "Add a module",
-         "Adds a module (an instrument or effect) to a chain: a track's, a return track's or the master's; "
+         "Adds a module (an instrument or effect) to a chain: a track's, a group's (no instruments: no notes "
+         "reach a group), a return track's or the master's; "
          "one of "
          "ours or a scanned plugin. One of ours starts from your default for it, if you set one, or from a "
          "preset "
@@ -187,6 +188,10 @@ void addModuleTools(Registry& registry, ToolEnv& env)
             }
             else
                 id = env.session.addDevice(t.id, key, args.value("position", -1));
+            if (id == 0 && t.isGroup() && env.session.playsNotes(key))
+                throw Problem{t.name +
+                              " is a group: no notes reach it, so it takes no instrument. Put it on a "
+                              "track in the group."};
             if (id == 0)
                 throw Problem{"The module couldn't be created (" + key + ")."};
             if (preset != nullptr)
@@ -273,7 +278,8 @@ void addModuleTools(Registry& registry, ToolEnv& env)
                     throw Problem{"It can't go there (a rack never goes into a rack)."};
             }
             env.session.flushSnapshot();
-            return ToolResult::ok({{"chain", trackJson(env, track(env, formatId(IdKind::Track, owner.id)))["chain"]}});
+            return ToolResult::ok(
+                {{"chain", trackJson(env, channel(env, formatId(IdKind::Track, owner.id)))["chain"]}});
         }));
 
     registry.tools.push_back(make(env,
@@ -616,7 +622,8 @@ void addModuleTools(Registry& registry, ToolEnv& env)
          "that "
          "would make a loop). One undo step.",
          object({{"module", id(IdKind::Module, "The module")},
-                 {"source", {{"type", {"string", "null"}}, {"description", "A track, or null for none"}}}},
+                 {"source",
+                  {{"type", {"string", "null"}}, {"description", "A track or group, or null for none"}}}},
                 {"module", "source"}),
          result({{"source",
                   {{"type", {"string", "null"}}, {"description", "The track it listens to, or null"}}}},
@@ -633,7 +640,7 @@ void addModuleTools(Registry& registry, ToolEnv& env)
             std::string name = "its own input";
             if (!args["source"].is_null())
             {
-                const auto t = track(env, args["source"]);
+                const auto t = trackOrGroup(env, args["source"]); // a group too (groups.md §7.5)
                 source = t.id;
                 name = t.name;
             }

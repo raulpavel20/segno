@@ -224,6 +224,9 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "delete_takes",
                              "capture_midi",
                              "bounce_clips",
+                             "group_tracks",
+                             "ungroup_tracks",
+                             "bounce_group",
                              "mute_clips",
                              "set_fades",
                              "crossfade",
@@ -1811,7 +1814,8 @@ TEST_CASE("mcp tools: the mixer: levels, returns, sends and meters", "[integrati
     CHECK(send["level"] == Approx(-12.0));
     CHECK(send["preFader"] == true);
     CHECK(daw.session->undoDescription() == "Assistant: set send");
-    CHECK(daw.fails("set_send", {{"track", r}, {"return", r}}).find("Only tracks send") != std::string::npos);
+    CHECK(daw.fails("set_send", {{"track", r}, {"return", r}}).find("Only tracks and groups send") !=
+          std::string::npos);
     CHECK(daw.fails("set_send", {{"track", t0}, {"return", t0}}).find("isn't a return") != std::string::npos);
 
     // Modules on the master and on returns are found like any other.
@@ -3585,4 +3589,102 @@ TEST_CASE(
     CHECK(daw.fails("edit_clip_time",
                     {{"clip", clip}, {"action", "stretch"}, {"from", "2.1.1"}, {"to", "2.2.1"}})
               .find("one of") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: groups made, listed, moved into and out of, coloured, mixed, given modules and "
+          "sidechains, exported, bounced, ungrouped and deleted",
+          "[integration][mcp]")
+{
+    Daw daw;
+    while (daw.project()["tracks"].size() < 3)
+        daw.call("add_track");
+    while (daw.project()["tracks"].size() > 3)
+        daw.call("delete_tracks", {{"tracks", {daw.project()["tracks"].back()["id"]}}});
+    const auto tracks = daw.project()["tracks"];
+    const auto t0 = tracks[0]["id"].get<std::string>(), t1 = tracks[1]["id"].get<std::string>(),
+               t2 = tracks[2]["id"].get<std::string>();
+    daw.call("add_module", {{"track", t0}, {"type", "subtractive-synth"}});
+    const Json notes = Json::array({{{"pitch", "C3"}, {"start", 0}, {"length", 2}}});
+    daw.call("create_midi_clip", {{"track", t0}, {"start", 0}, {"notes", notes}});
+
+    // Grouped, named and coloured in one step; listed with its kind, members and each one's group.
+    const auto made = daw.call("group_tracks", {{"tracks", {t1, t0}}, {"name", "Drums"}, {"colour", 5}});
+    const auto drums = made["group"].get<std::string>();
+    CHECK(made["name"] == "Drums");
+    auto project = daw.project();
+    REQUIRE(project["tracks"][0]["id"] == drums);
+    CHECK(project["tracks"][0]["kind"] == "group");
+    CHECK(project["tracks"][0]["colour"] == 5);
+    CHECK(project["tracks"][0]["members"] == Json::array({t0, t1}));
+    CHECK(project["tracks"][0]["group"].is_null());
+    CHECK(project["tracks"][1]["group"] == drums);
+    CHECK(daw.session->canUndo());
+    // A group holds no clips; a clip tool says so.
+    CHECK(daw.fails("create_midi_clip", {{"track", drums}, {"start", 0}}).find("group") != std::string::npos);
+
+    // Its colour given to its tracks.
+    daw.call("set_track", {{"track", drums}, {"colourMembers", true}});
+    CHECK(daw.project()["tracks"][1]["colour"] == 5);
+    CHECK(daw.fails("set_track", {{"track", t2}, {"colourMembers", true}}).find("isn't a group") !=
+          std::string::npos);
+
+    // Moved into Drums at its end, out to the end of everything; a group never into itself.
+    daw.call("move_track", {{"track", t2}, {"group", drums}});
+    CHECK(daw.project()["tracks"][3]["group"] == drums);
+    daw.call("move_track", {{"track", t2}, {"group", nullptr}});
+    CHECK(daw.project()["tracks"][3]["group"].is_null());
+    CHECK(daw.fails("move_track", {{"track", drums}, {"group", drums}}).find("itself") != std::string::npos);
+
+    // Its mix, a send, effects but no instrument, and a group as a sidechain source.
+    const auto ret = daw.call("add_return_track")["track"].get<std::string>();
+    daw.call("set_mix", {{"track", drums}, {"volume", -6}});
+    daw.call("set_send", {{"track", drums}, {"return", ret}, {"level", -12}});
+    project = daw.project();
+    CHECK(project["tracks"][0]["mix"]["volume"] == -6.0);
+    REQUIRE(project["tracks"][0]["mix"]["sends"].size() == 1);
+    CHECK(project["tracks"][0]["mix"]["sends"][0]["level"] == -12.0);
+    daw.call("add_module", {{"track", drums}, {"type", "compressor"}});
+    CHECK(daw.fails("add_module", {{"track", drums}, {"type", "sampler"}}).find("no notes") !=
+          std::string::npos);
+    const auto comp =
+        daw.call("add_module", {{"track", t2}, {"type", "compressor"}})["id"].get<std::string>();
+    daw.call("set_module_sidechain", {{"module", comp}, {"source", drums}});
+
+    // Stems: groups whole (Drums, the third track, the return), or every track and group alone.
+    auto r = daw.callAway("export_audio", {{"what", "tracks"}, {"stems", "groups"}});
+    INFO(r.dump().substr(0, 2000));
+    REQUIRE(r["isError"] == false);
+    CHECK(r["structuredContent"]["files"].size() == 3);
+    r = daw.callAway("export_audio", {{"what", "tracks"}, {"stems", "tracks"}});
+    REQUIRE(r["isError"] == false);
+    CHECK(r["structuredContent"]["files"].size() == 5);
+
+    // Bounced to a new track after it, which copies its mix; the group muted.
+    r = daw.callAway("bounce_group", {{"group", drums}});
+    INFO(r.dump().substr(0, 2000));
+    REQUIRE(r["isError"] == false);
+    REQUIRE(r["structuredContent"]["tracks"].size() == 1);
+    const auto bounced = r["structuredContent"]["tracks"][0].get<std::string>();
+    project = daw.project();
+    CHECK(project["tracks"][0]["mix"]["mute"] == true);
+    CHECK(project["tracks"][3]["id"] == bounced);
+    CHECK(project["tracks"][3]["group"].is_null());
+    CHECK(project["tracks"][3]["mix"]["volume"] == -6.0);
+    CHECK(project["tracks"][3]["clips"].size() == 1);
+
+    // Duplicated with copies of what it holds; ungrouped saying its modules went; deleted with
+    // everything in it.
+    const auto copy = daw.call("duplicate_track", {{"track", drums}})["track"].get<std::string>();
+    CHECK(daw.call("get_project")["tracks"].size() == 8); // Drums, 2 tracks, Drums 2, 2 copies, bounce, t2
+    const auto ungrouped = daw.callResult("ungroup_tracks", {{"group", copy}});
+    REQUIRE(ungrouped["isError"] == false);
+    CHECK(ungrouped["structuredContent"]["tracks"].size() == 2);
+    CHECK(ungrouped["content"][0]["text"].get<std::string>().find("went with it") != std::string::npos);
+    CHECK(daw.call("delete_tracks", {{"tracks", {drums, t0}}})["deleted"] == 1);
+    project = daw.project();
+    for (const auto& t : project["tracks"])
+    {
+        CHECK(t["id"] != drums);
+        CHECK(t["id"] != t0);
+    }
 }

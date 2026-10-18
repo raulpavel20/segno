@@ -42,6 +42,10 @@ struct ArrangementRow
 /// A lane's default height (name and subtitle).
 inline constexpr double kLaneDefaultHeight = 56.0;
 
+struct RowTree;
+/// The snapshot's rows as the project keeps them (model/RowTree.h).
+[[nodiscard]] RowTree rowTreeOf(const Snapshot& snapshot);
+
 /// The rows, top to bottom: the lanes at the top, then each track or group followed by the lanes
 /// after it (`lanes`: shown), lanes whose track is gone, then (when `returns`) the return tracks.
 /// A group's row comes before the rows in it; a lane after a group comes after them. The rows in a

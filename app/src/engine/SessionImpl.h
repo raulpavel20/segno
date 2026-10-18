@@ -13,6 +13,7 @@
 #include "engine/RoundTrip.h"
 #include "engine/Session.h"
 #include "engine/WarpPlayer.h"
+#include "model/RowTree.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
 #include "model/TrackEdits.h"
@@ -88,8 +89,16 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] te::AudioTrack* track(std::uint64_t id) const;
     /// A return track (ADR 0026); null otherwise.
     [[nodiscard]] te::AudioTrack* returnTrack(std::uint64_t id) const;
-    /// A track or a return track.
-    [[nodiscard]] te::AudioTrack* channelTrack(std::uint64_t id) const;
+    /// A group (ADR 0072): a submix folder track; null otherwise.
+    [[nodiscard]] te::FolderTrack* group(std::uint64_t id) const;
+    [[nodiscard]] static bool isGroup(const te::Track& track);
+    /// A track, a group or a return track.
+    [[nodiscard]] te::Track* channelTrack(std::uint64_t id) const;
+    /// Every channel but the master, in the edit's order: the tracks and groups (each group before
+    /// what it holds), then the returns.
+    [[nodiscard]] std::vector<te::Track*> channelTracks() const;
+    /// The tracks and groups, in the edit's order (the arrangement's rows without the lanes).
+    [[nodiscard]] std::vector<te::Track*> rowTracks() const;
     /// The chain of any channel: a track, a return, or the master's plugin list.
     [[nodiscard]] te::PluginList* plugins(std::uint64_t channelId) const;
     [[nodiscard]] std::uint64_t masterId() const;
@@ -102,16 +111,26 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] std::string loopRefusal(te::Clip& clip);
     [[nodiscard]] te::Plugin* plugin(std::uint64_t id) const;
     // Edit steps without starting an undo transaction (commands compose them).
-    te::AudioTrack* insertTrack(); // named after the highest "N Track" (tracks-and-clips.md §18)
+    /// A new track, named after the highest "N Track" (tracks-and-clips.md §18): after the last
+    /// track or group, or at the end of `into`.
+    te::AudioTrack* insertTrack(te::FolderTrack* into = nullptr);
     /// Every track's and return's name, and every lane's (for the names the app gives).
     [[nodiscard]] std::vector<std::string> trackNames() const;
     [[nodiscard]] std::vector<std::string> laneNames() const;
-    /// The tracks and lanes in the arrangement's order: the lanes at the top, each track and the
-    /// lanes after it, then lanes whose track is gone.
-    [[nodiscard]] std::vector<model::RowRef> rowOrder() const;
-    /// Puts the tracks and lanes in `order` (tracks-and-clips.md §19): `moved`, if a track moved,
-    /// to its new place; each lane after its track, in order.
-    void placeRows(const model::RowOrder& order, te::Track* moved, juce::UndoManager* um);
+    /// The tracks, groups and lanes as the project keeps them (model/RowTree.h): each channel in
+    /// its group, each lane after a row in a group.
+    [[nodiscard]] model::RowTree rowTree() const;
+    /// Carries a move or a deletion out on the rows (tracks-and-clips.md §19, groups.md §5.3):
+    /// `moved`, if a track or group moved, to its place in its group; every lane to its place.
+    void placeRows(const model::RowTree& tree, const model::RowMove* move, te::Track* moved,
+                   juce::UndoManager* um);
+    /// The group a track is in (0: none).
+    [[nodiscard]] static std::uint64_t groupOf(const te::Track& track);
+    /// Deletes a track, return or group (a group with what's in it) with what only made sense with
+    /// it, in the step under way (Session::deleteTrack).
+    void deleteChannel(std::uint64_t channel);
+    /// A group left with nothing in it goes (groups.md §4), in the step under way.
+    void removeEmptyGroups();
     te::Plugin* insertDevice(te::PluginList& list, const std::string& key, int index);
     /// Every channel's volume uses the balance pan law, and the master has a volume and meter of
     /// its own at the end of its chain (ADR 0026). Brings older projects up to date.
@@ -501,6 +520,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     static inline const juce::Identifier automationId{"FDAUTOMATION"}, laneId{"LANE"}, pointsId{"POINTS"},
         assignId{"ASSIGN"}, nameId{"name"}, colourId{"colour"}, afterId{"after"}, assignChannelId{"channel"}, keyId{"key"},
         fromId{"from"}, toId{"to"};
+    // A lane's group (groups.md §20), kept only where it isn't the group of the row it's after.
+    static inline const juce::Identifier laneGroupId{"group"};
     [[nodiscard]] juce::ValueTree lanesTree() const { return edit->state.getChildWithName(automationId); }
     [[nodiscard]] juce::ValueTree laneTree(std::uint64_t id) const;
     /// A parameter's ASSIGN entry, on whichever lane it is.
@@ -527,7 +548,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] int colourOf(std::uint64_t channel) const;
     /// The colour of a new row: tracks and lanes take turns through the palette.
     [[nodiscard]] int nextRowColour() const;
-    /// Where a new lane goes: at the end of the tracks (after the last one, and its lanes).
+    /// Where a new track or lane goes: after the last track or group outside any group (and its
+    /// rows and lanes).
     [[nodiscard]] std::uint64_t lastTrack() const;
     /// Writes every assignment of a lane to its parameter's curve (not those being recorded).
     void derive(const juce::ValueTree& lane, juce::UndoManager* um);

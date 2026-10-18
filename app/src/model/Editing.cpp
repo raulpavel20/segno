@@ -1,6 +1,7 @@
 #include "model/Editing.h"
 
 #include "model/ClipLoops.h"
+#include "model/Groups.h"
 #include "model/Takes.h"
 
 #include <algorithm>
@@ -73,19 +74,26 @@ std::vector<ClipEdit> dragClips(const Snapshot& snapshot, const std::set<std::ui
     case DragKind::Move:
     {
         double delta = snap(a.start + drag.deltaSeconds) - a.start;
+        // By tracks that hold clips: a group's row is skipped (groups.md §6.5).
+        const auto holders = clipTracks(snapshot);
         int dTrack = drag.deltaTracks;
         double earliest = std::numeric_limits<double>::max();
         int lowest = std::numeric_limits<int>::max(), highest = std::numeric_limits<int>::min();
         for (const auto& [c, t] : clips)
         {
             earliest = std::min(earliest, c->start);
-            lowest = std::min(lowest, t);
-            highest = std::max(highest, t);
+            lowest = std::min(lowest, clipTrackRank(snapshot, t));
+            highest = std::max(highest, clipTrackRank(snapshot, t));
         }
         delta = std::max(delta, -earliest); // nothing before zero
-        dTrack = std::clamp(dTrack, -lowest, static_cast<int>(snapshot.tracks.size()) - 1 - highest);
+        dTrack = std::clamp(dTrack, -lowest, static_cast<int>(holders.size()) - 1 - highest);
         for (const auto& [c, t] : clips)
-            out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t + dTrack)].id, c->start + delta, c->length, c->offset});
+            out.push_back({c->id,
+                           snapshot
+                               .tracks[static_cast<size_t>(
+                                   holders[static_cast<size_t>(clipTrackRank(snapshot, t) + dTrack)])]
+                               .id,
+                           c->start + delta, c->length, c->offset});
         break;
     }
     case DragKind::TrimStart:

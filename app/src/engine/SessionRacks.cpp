@@ -277,7 +277,7 @@ te::RackInstance* Session::Impl::rackHolding(const te::Plugin& module) const
                     return instance;
         return nullptr;
     };
-    for (auto* t : te::getAudioTracks(*edit))
+    for (auto* t : channelTracks())
         if (auto* found = look(t->pluginList))
             return found;
     return look(edit->getMasterPluginList());
@@ -1929,6 +1929,13 @@ Session::LoadedRack Session::loadRack(const juce::File& file, const ChainPlace& 
         loaded.error = "There's no such track.";
         return loaded;
     }
+    // No notes reach a group (groups.md §4): an instrument rack goes on a track.
+    if (impl_->group(place.channel) != nullptr)
+        if (const auto info = readRackFile(file); info && info->instrument)
+        {
+            loaded.error = "A group has no notes: an instrument rack goes on a track.";
+            return loaded;
+        }
     const auto chainsJson = json.value("chains", nlohmann::json::array());
     // Ours newer than this Segno: refused whole, by name (racks.md §7).
     for (const auto& c : chainsJson)

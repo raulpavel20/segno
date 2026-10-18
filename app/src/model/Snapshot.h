@@ -279,7 +279,8 @@ struct AutomationLaneInfo
     std::uint64_t id = 0;
     std::string name; // "Automation 1" when made, or set by hand (tracks-and-clips.md §18)
     int colour = 0;   // index into the clip palette
-    std::uint64_t after = 0; // the track it sits after (0: at the top)
+    std::uint64_t after = 0; // the track or group it sits after (0: first in its group, or at the top)
+    std::uint64_t group = 0; // the group it's in (groups.md §20; 0: none, or `after`'s group)
     AutomationPoints points;
     std::vector<AssignmentInfo> assignments;
 

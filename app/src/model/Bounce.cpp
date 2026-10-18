@@ -1,5 +1,6 @@
 #include "model/Bounce.h"
 
+#include "model/Groups.h"
 #include "model/Takes.h"
 
 #include <algorithm>
@@ -228,6 +229,40 @@ std::vector<BounceRun> stretchRuns(const Snapshot& snapshot, const std::set<std:
     if (out.empty())
         refuse("No clip in the selection to bounce");
     return out;
+}
+
+std::optional<BounceRun> groupBounceRun(const Snapshot& snapshot, std::uint64_t group, std::string* why)
+{
+    const auto* g = snapshot.channel(group);
+    if (g == nullptr || !g->isGroup())
+    {
+        if (why != nullptr)
+            *why = "Select a group first";
+        return std::nullopt;
+    }
+    BouncePiece piece{
+        .name = g->name, .colour = g->colour, .start = kInfinity, .end = 0.0, .limit = kInfinity};
+    for (const auto* t : membersOf(snapshot, group, true))
+        if (t->holdsClips())
+            for (const auto& clips : clipGroups(*t))
+            {
+                piece.start = std::min(piece.start, clips.start());
+                piece.end = std::max(piece.end, clips.end());
+                for (const auto* c : clips.parts)
+                    piece.parts.push_back(c->id);
+            }
+    if (piece.parts.empty())
+    {
+        if (why != nullptr)
+            *why = g->name + " has no clips to bounce";
+        return std::nullopt;
+    }
+    const double start = piece.start, end = piece.end;
+    return BounceRun{.track = group,
+                     .kind = ClipInfo::Kind::Audio,
+                     .pieces = {std::move(piece)},
+                     .start = start,
+                     .renderEnd = end + tailAllowance(ClipInfo::Kind::Audio, BounceMode::NewTrack)};
 }
 
 BounceEnd bounceEnd(const BounceRun& run, const BouncePiece& piece, const BlockLevels& levels, BounceMode mode)

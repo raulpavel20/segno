@@ -1,7 +1,9 @@
 #include "ui/MixerView.h"
 
+#include "model/ArrangementRows.h"
 #include "model/Groups.h"
 #include "model/Taper.h"
+#include "model/TrackEdits.h"
 #include "ui/BrowserDrops.h"
 
 #include <cmath>
@@ -206,6 +208,12 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
             onSelectModule(info_.devices[i].id);
             return;
         }
+    // A group's fold triangle (groups.md §6.4): Alt, every group.
+    if (groups_.folded && at(slots_.fold).contains(pos) && e.mods.isLeftButtonDown() && onFold)
+    {
+        onFold(e.mods.isAltDown());
+        return;
+    }
     // Alone, or with others (groups.md §8): a press on one of several keeps them, for a drag.
     pendingAlone_ = false;
     if (onChoose)
@@ -334,6 +342,13 @@ void MixerView::setSnapshot(std::shared_ptr<const model::Snapshot> snapshot)
     rebuild();
 }
 
+void MixerView::toggleFold(std::uint64_t group, bool all)
+{
+    if (snapshot_ == nullptr)
+        return;
+    setFoldedGroups(model::toggledFold(*snapshot_, folded_, group, all));
+}
+
 void MixerView::setFoldedGroups(std::set<std::uint64_t> folded)
 {
     if (folded == folded_)
@@ -423,6 +438,11 @@ void MixerView::Content::paintOverChildren(juce::Graphics& g)
     if (dropX < 0)
         return;
     const auto& t = ui::Theme::current();
+    if (!dropGroup.isEmpty())
+    {
+        g.setColour(t.roles.dropTarget);
+        g.fillRect(dropGroup);
+    }
     g.setColour(t.active);
     g.fillRect(dropX - t.shell.dropLine / 2, 0, t.shell.dropLine, getHeight());
 }
@@ -449,9 +469,100 @@ void MixerView::dragStrip(std::uint64_t channel, const juce::MouseEvent& e, bool
     const auto* info = snapshot_ != nullptr ? snapshot_->channel(channel) : nullptr;
     if (info == nullptr)
         return;
-    // Among its kind: the edge nearest the pointer, a strip's left or the last one's right.
-    const auto& kind = info->role == model::TrackInfo::Role::Return ? snapshot_->returns : snapshot_->tracks;
     const float x = e.getEventRelativeTo(&content_).position.x;
+    content_.dropGroup = {};
+    if (info->role == model::TrackInfo::Role::Return)
+    {
+        dragReturn(channel, x, drop);
+        return;
+    }
+    // Tracks and groups, as the arrangement's headers land (groups.md §5.3, §9), sideways: the edge
+    // nearest the pointer; the strip it's over gives the depth, and a group's middle takes it in.
+    const auto rows = model::arrangementRows(*snapshot_, false, false, folded_);
+    std::size_t dragged = rows.size(), boundary = rows.size();
+    int depth = 0;
+    std::optional<std::size_t> onto;
+    float distance = std::numeric_limits<float>::max();
+    for (std::size_t i = 0; i <= rows.size() && !rows.empty(); ++i)
+    {
+        const auto at = strips_.find(rows[std::min(i, rows.size() - 1)].channel);
+        if (at == strips_.end())
+            continue;
+        const auto& strip = *at->second;
+        if (i < rows.size() && rows[i].channel == channel)
+            dragged = i;
+        const int ex = i < rows.size() ? strip.getX() : strip.getRight();
+        if (const auto d = std::abs(static_cast<float>(ex) - x); d < distance)
+        {
+            distance = d;
+            boundary = i;
+        }
+        if (i < rows.size() && x >= static_cast<float>(strip.getX()) &&
+            x < static_cast<float>(strip.getRight()))
+        {
+            depth = rows[i].depth;
+            const float quarter = static_cast<float>(strip.getWidth()) * 0.25f;
+            if (rows[i].isGroup() && x >= static_cast<float>(strip.getX()) + quarter &&
+                x <= static_cast<float>(strip.getRight()) - quarter)
+                onto = i;
+        }
+    }
+    if (dragged >= rows.size())
+        return;
+    const auto d = model::dropRow(rows, dragged, boundary, depth, onto);
+    const auto edgeOf = [&](std::size_t b)
+    {
+        const auto at = strips_.find(rows[std::min(b, rows.size() - 1)].channel);
+        return at == strips_.end() ? -1 : b < rows.size() ? at->second->getX() : at->second->getRight();
+    };
+    content_.dropX = drop ? -1 : edgeOf(d.boundary);
+    if (!drop && d.group != 0)
+        if (const auto at = strips_.find(d.group); at != strips_.end())
+        {
+            // The group and the strips in it: from its strip to the edge where its rows end.
+            auto end =
+                std::find_if(rows.begin(), rows.end(), [&](const auto& r) { return r.channel == d.group; });
+            const auto depthOf = end == rows.end() ? 0 : end->depth;
+            auto last = end == rows.end() ? rows.end() : std::next(end);
+            while (last != rows.end() && last->depth > depthOf)
+                ++last;
+            const int right = edgeOf(static_cast<std::size_t>(last - rows.begin()));
+            content_.dropGroup = at->second->getBounds().withRight(std::max(at->second->getRight(), right));
+        }
+    content_.repaint();
+    if (!drop || !d.moves)
+        return;
+    // Several chosen together move together, in their order (groups.md §8), one step; dropped
+    // among them, before the first strip after the drop that isn't one of them. One inside a
+    // group that's chosen too goes with it.
+    const auto several = model::outermost(*snapshot_, together_);
+    const auto among = [&](std::uint64_t id)
+    { return std::find(several.begin(), several.end(), id) != several.end(); };
+    if (several.size() > 1 && among(channel))
+    {
+        auto before = d.before;
+        if (before != 0 && among(before))
+        {
+            before = 0;
+            for (auto b = d.boundary; b < rows.size(); ++b)
+                if (!among(rows[b].channel))
+                {
+                    before = rows[b].channel;
+                    break;
+                }
+        }
+        const engine::Session::EditGroup step(session_, "Move tracks");
+        for (const auto id : several)
+            session_.moveTrack(id, before, d.group);
+        return;
+    }
+    session_.moveTrack(channel, d.before, d.group);
+}
+
+void MixerView::dragReturn(std::uint64_t channel, float x, bool drop)
+{
+    // Among the returns: the edge nearest the pointer, a strip's left or the last one's right.
+    const auto& kind = snapshot_->returns;
     std::uint64_t before = 0;
     int edge = -1;
     float distance = std::numeric_limits<float>::max();
@@ -470,29 +581,10 @@ void MixerView::dragStrip(std::uint64_t channel, const juce::MouseEvent& e, bool
     }
     content_.dropX = drop ? -1 : edge;
     content_.repaint();
-    // Its own edges leave it where it is: the strip after it is no place to land, since the lanes
-    // after it in the arrangement would then sit above it (ADR 0042).
+    // Its own edges leave it where it is.
     const auto own = std::find_if(kind.begin(), kind.end(), [channel](const auto& k) { return k.id == channel; });
-    const auto next = own == kind.end() || std::next(own) == kind.end() ? std::uint64_t{0} : std::next(own)->id;
-    // Several chosen together move together, in their order (groups.md §8), one step; dropped
-    // among them, before the first strip after the drop that isn't one of them.
-    const auto among = [this](std::uint64_t id)
-    { return std::find(together_.begin(), together_.end(), id) != together_.end(); };
-    if (drop && together_.size() > 1 && among(channel))
-    {
-        if (before != 0 && among(before))
-        {
-            auto it =
-                std::find_if(kind.begin(), kind.end(), [before](const auto& k) { return k.id == before; });
-            while (it != kind.end() && among(it->id))
-                ++it;
-            before = it == kind.end() ? 0 : it->id;
-        }
-        const engine::Session::EditGroup step(session_, "Move tracks");
-        for (const auto id : together_)
-            session_.moveTrack(id, before);
-        return;
-    }
+    const auto next =
+        own == kind.end() || std::next(own) == kind.end() ? std::uint64_t{0} : std::next(own)->id;
     if (drop && before != channel && before != next)
         session_.moveTrack(channel, before);
 }
@@ -546,6 +638,7 @@ void MixerView::rebuild()
                 return false;
             };
             strip->onMenu = [this] { showAddMenu(); };
+            strip->onFold = [this, id](bool all) { toggleFold(id, all); };
             if (t.role != model::TrackInfo::Role::Master)
             {
                 strip->onRename = [this, id] { renameChannel(id); };

@@ -120,6 +120,23 @@ std::string stepName(engine::Session& session, const Ref& ref)
 
 /// A module (with a preset) on a channel: an instrument in place of the channel's own, anything
 /// else at `index` (-1: the end).
+/// Whether it makes notes or clips, which no group has (groups.md §11): an instrument, with its
+/// preset or in a rack; a sample, multisample, table or MIDI file.
+bool needsTrack(engine::Session& session, const Ref& ref)
+{
+    if (isModule(ref.kind))
+    {
+        const auto device = deviceOf(session, ref.key);
+        return device && device->instrument;
+    }
+    if (ref.kind == Kind::Rack)
+    {
+        const auto info = engine::Session::readRackFile(ref.file);
+        return info && info->instrument;
+    }
+    return isClip(ref.kind) || ref.kind == Kind::Wavetable || ref.kind == Kind::Multisample;
+}
+
 Result addModule(engine::Session& session, const Ref& ref, std::uint64_t channel, int index)
 {
     const auto device = deviceOf(session, ref.key);
@@ -283,6 +300,9 @@ Result onChannel(engine::Session& session, const std::string& item, std::uint64_
     const auto ref = parse(item);
     if (!ref)
         return {};
+    if (const auto* c = session.snapshot()->channel(channel);
+        c != nullptr && c->isGroup() && needsTrack(session, *ref))
+        return newTrack(session, item, seconds, channel);
     if (isModule(ref->kind))
         return addModule(session, *ref, channel, -1);
     if (ref->kind == Kind::Rack)
@@ -305,6 +325,9 @@ Result inChain(engine::Session& session, const std::string& item, std::uint64_t 
     const auto ref = parse(item);
     if (!ref)
         return {};
+    if (const auto* c = session.snapshot()->channel(channel);
+        c != nullptr && c->isGroup() && needsTrack(session, *ref))
+        return {.refused = "A group has no notes: drop it on the group's row for a track of its own"};
     if (onModule)
         if (const auto slot = slotOf(session, *onModule); slot && landsOn(item, *slot))
         {
@@ -406,13 +429,13 @@ Result kitWith(engine::Session& session, const std::vector<juce::File>& samples,
     return r;
 }
 
-Result newTrack(engine::Session& session, const std::string& item, double seconds)
+Result newTrack(engine::Session& session, const std::string& item, double seconds, std::uint64_t inGroup)
 {
     const auto ref = parse(item);
     if (!ref || !fitsChannel(item, true))
         return {};
     const engine::Session::EditGroup group(session, stepName(session, *ref));
-    const auto track = session.addTrack();
+    const auto track = session.addTrack({}, inGroup);
     if (track == 0)
         return {};
     auto r = onChannel(session, item, track, seconds);

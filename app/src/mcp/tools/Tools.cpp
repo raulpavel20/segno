@@ -3,6 +3,7 @@
 #include "ModulePurposes.h"
 #include "model/DrumKit.h"
 #include "model/Editing.h"
+#include "model/Groups.h"
 #include "model/Modulators.h"
 #include "model/Racks.h"
 
@@ -336,9 +337,23 @@ model::TrackInfo track(ToolEnv& env, const Json& value)
         throw Problem{value.dump() + " isn't a track id: they look like \"t:3\" (read segno://project)."};
     for (const auto& t : env.session.snapshot()->tracks)
         if (t.id == *id)
+        {
+            if (t.isGroup()) // groups.md §4
+                throw Problem{t.name +
+                              " is a group: it holds no clips. Use a track in it (get_project lists its "
+                              "members)."};
             return t;
+        }
     throw Problem{"Track " + formatId(IdKind::Track, *id) +
                   " doesn't exist; read segno://project (or call get_project) for the current tracks."};
+}
+
+model::TrackInfo trackOrGroup(ToolEnv& env, const Json& value)
+{
+    const auto c = channel(env, value);
+    if (c.role != model::TrackInfo::Role::Track && c.role != model::TrackInfo::Role::Group)
+        throw Problem{c.name + " is a " + kindName(c) + ": give a track or a group."};
+    return c;
 }
 
 model::TrackInfo channel(ToolEnv& env, const Json& value)
@@ -650,7 +665,7 @@ Json mixJson(ToolEnv& env, const model::TrackInfo& t)
         mix["mute"] = t.mix.mute;
         mix["solo"] = t.mix.solo;
     }
-    if (t.role == model::TrackInfo::Role::Track)
+    if (t.role == model::TrackInfo::Role::Track || t.role == model::TrackInfo::Role::Group)
     {
         Json sends = Json::array();
         const auto snap = env.session.snapshot();
@@ -674,15 +689,26 @@ Json trackJson(ToolEnv& env, const model::TrackInfo& t, bool notes)
         clips.push_back(clipJson(env, c, notes));
     for (const auto& d : t.devices)
         chain.push_back(moduleSummary(d));
-    return {{"id", formatId(IdKind::Track, t.id)},
-            {"kind", kindName(t)},
-            {"name", t.name},
-            {"colour", t.colour},
-            {"instrument", t.instrument.empty() ? Json(nullptr) : Json(t.instrument)},
-            {"clips", std::move(clips)},
-            {"chain", std::move(chain)},
-            {"mix", mixJson(env, t)},
-            {"input", t.holdsClips() ? inputJson(t.input) : Json(nullptr)}};
+    Json out{{"id", formatId(IdKind::Track, t.id)},
+             {"kind", kindName(t)},
+             {"name", t.name},
+             {"colour", t.colour},
+             {"instrument", t.instrument.empty() ? Json(nullptr) : Json(t.instrument)},
+             {"clips", std::move(clips)},
+             {"chain", std::move(chain)},
+             {"mix", mixJson(env, t)},
+             {"input", t.holdsClips() ? inputJson(t.input) : Json(nullptr)}};
+    // Groups (groups.md §13): the group each track or group is in, and what a group holds.
+    if (t.role == model::TrackInfo::Role::Track || t.role == model::TrackInfo::Role::Group)
+        out["group"] = t.group != 0 ? Json(formatId(IdKind::Track, t.group)) : Json(nullptr);
+    if (t.isGroup())
+    {
+        Json members = Json::array();
+        for (const auto* m : model::membersOf(*env.session.snapshot(), t.id, false))
+            members.push_back(formatId(IdKind::Track, m->id));
+        out["members"] = std::move(members);
+    }
+    return out;
 }
 
 Json inputJson(const model::InputInfo& in)

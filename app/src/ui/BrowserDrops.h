@@ -34,6 +34,7 @@ struct Result
     juce::String toast;       // said after it (an instrument replaced)
     std::uint64_t track = 0;  // a track it made
     std::uint64_t module = 0; // a module it added or loaded
+    juce::String refused;     // why it couldn't, said instead (an instrument into a group's chain)
 };
 
 /// Loads a preset (`ref`, of its kind) into one of our modules or modulators, in the step under way
@@ -46,9 +47,11 @@ bool loadPreset(engine::Session& session, std::uint64_t module, const Ref& ref);
 [[nodiscard]] bool landsOn(const std::string& item, const model::DeviceSlot& module);
 
 /// On a channel (its header, lanes or strip): a module at the end of its chain (an instrument in
-/// place of its own), a preset with its module, a sample or MIDI file as a clip at `seconds`.
+/// place of its own), a preset with its module, a sample or MIDI file as a clip at `seconds`. On a
+/// group (groups.md §11), what makes notes or clips goes on a new track at the group's end.
 Result onChannel(engine::Session& session, const std::string& item, std::uint64_t channel, double seconds);
-/// In a channel's chain: where dropped (`index`), or into `onModule` when it lands on it.
+/// In a channel's chain: where dropped (`index`), or into `onModule` when it lands on it. A group's
+/// chain takes no instrument (refused, saying why).
 Result inChain(engine::Session& session, const std::string& item, std::uint64_t channel, int index,
                std::optional<std::uint64_t> onModule);
 /// In a rack's chain (racks.md §5): a module (with its preset), or a sample or table in a module
@@ -64,8 +67,8 @@ Result onPad(engine::Session& session, const std::string& item, std::uint64_t ki
 /// Several samples in a channel's chain (drum-kit.md §11): a Drum Kit with them from C1 up, in
 /// place of the channel's instrument. One step.
 Result kitWith(engine::Session& session, const std::vector<juce::File>& samples, std::uint64_t channel);
-/// Below the tracks: a new track with it.
-Result newTrack(engine::Session& session, const std::string& item, double seconds);
+/// Below the tracks: a new track with it; in `group`, at its end.
+Result newTrack(engine::Session& session, const std::string& item, double seconds, std::uint64_t group = 0);
 /// Double-click or Enter (§10): into the selected module if it lands on it, else onto the
 /// selected track at `seconds` (the playhead), else a new track.
 Result onSelection(engine::Session& session, const std::string& item, std::optional<std::uint64_t> track,

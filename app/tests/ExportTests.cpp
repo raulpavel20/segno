@@ -167,3 +167,26 @@ TEST_CASE("export: samples land on the file's grid, dithered by one step", "[fas
     Quantiser none(32, true);
     CHECK(none(0.123456789f) == 0.123456789f);
 }
+
+TEST_CASE(
+    "export: stems with groups: each group whole, or every track and group alone; the selected as chosen",
+    "[fast]")
+{
+    // Drums (10: Kick 1, Snare 2), Bass 3 in none; a return 20 (groups.md §11).
+    Snapshot s;
+    s.tracks.push_back({.id = 10, .role = TrackInfo::Role::Group});
+    s.tracks.push_back({.id = 1, .group = 10});
+    s.tracks.push_back({.id = 2, .group = 10});
+    s.tracks.push_back({.id = 3});
+    s.returns.push_back({.id = 20, .role = TrackInfo::Role::Return});
+    using Ids = std::vector<std::uint64_t>;
+    ExportSettings all{.what = ExportWhat::AllTracks};
+    CHECK(stemChannels(s, all, {}) == Ids{10, 3, 20});
+    all.stems = ExportStems::Tracks;
+    CHECK(stemChannels(s, all, {}) == Ids{10, 1, 2, 3, 20});
+    CHECK(stemChannels(s, {.what = ExportWhat::SelectedTracks}, {2, 10}) == Ids{10, 2});
+    CHECK(stemChannels(s, {}, {1}).empty()); // the mix
+    // Kept with the settings.
+    CHECK(exportSettingsFromJson(toJson(all)).stems == ExportStems::Tracks);
+    CHECK(ExportSettings{}.stems == ExportStems::Groups);
+}

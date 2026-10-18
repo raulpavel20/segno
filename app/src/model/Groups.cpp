@@ -74,6 +74,55 @@ bool hiddenByFolding(const Snapshot& snapshot, const TrackInfo& channel,
     return std::any_of(above.begin(), above.end(), [&](const auto* g) { return folded.contains(g->id); });
 }
 
+std::vector<std::uint64_t> outermost(const Snapshot& snapshot, const std::vector<std::uint64_t>& channels)
+{
+    std::vector<std::uint64_t> out;
+    for (const auto id : channels)
+    {
+        const auto* t = snapshot.channel(id);
+        if (t == nullptr || std::none_of(channels.begin(), channels.end(), [&](std::uint64_t g)
+                                         { return g != id && isInGroup(snapshot, *t, g); }))
+            out.push_back(id);
+    }
+    return out;
+}
+
+std::set<std::uint64_t> toggledFold(const Snapshot& snapshot, const std::set<std::uint64_t>& folded,
+                                    std::uint64_t group, bool all)
+{
+    auto out = folded;
+    const bool fold = !folded.contains(group);
+    for (const auto& t : snapshot.tracks)
+        if (t.isGroup() && (all || t.id == group))
+        {
+            if (fold)
+                out.insert(t.id);
+            else
+                out.erase(t.id);
+        }
+    return out;
+}
+
+std::vector<int> clipTracks(const Snapshot& snapshot)
+{
+    std::vector<int> out;
+    for (int i = 0; i < static_cast<int>(snapshot.tracks.size()); ++i)
+        if (!snapshot.tracks[static_cast<size_t>(i)].isGroup())
+            out.push_back(i);
+    return out;
+}
+
+int clipTrackRank(const Snapshot& snapshot, int track)
+{
+    if (track < 0 || track >= static_cast<int>(snapshot.tracks.size()) ||
+        snapshot.tracks[static_cast<size_t>(track)].isGroup())
+        return -1;
+    int rank = 0;
+    for (int i = 0; i < track; ++i)
+        rank += snapshot.tracks[static_cast<size_t>(i)].isGroup() ? 0 : 1;
+    return rank;
+}
+
 bool holdsSolo(const Snapshot& snapshot, const TrackInfo& group)
 {
     if (!group.isGroup() || group.mix.solo)
