@@ -1,6 +1,6 @@
 # 0074. MIDI effects know the song, and go beyond Live
 
-- **Status:** Proposed (for the product owner's review, with [midi-effects.md](../design/midi-effects.md))
+- **Status:** Accepted (product owner, 2026-10-18, with [midi-effects.md](../design/midi-effects.md) and every recommendation of MX1–MX25)
 - **Date:** 2026-10-18
 - **Number:** taken on a branch beside main (`midi-effects`); renumbered at merge if main has used it
 - **Amends:** [0011](0011-calibrated-ambition-and-consolidation.md) point 1 ("by default, match Live") for MIDI effects, as [0050](0050-the-wavetable-synth-goes-beyond-live.md) and [0065](0065-granular-goes-beyond-live.md) did for two instruments
