@@ -1,6 +1,7 @@
 // Time selection, step 0's check (docs/design/time-selection.md §21, ADR 0073): a stretch bounced
 // in place keeps the clips it covered, gaps and all, as one "Before bounce" take, which plays them
-// back, is switched to and back, survives saving and opening, and goes with one undo step.
+// back, is switched to and back, survives saving and opening, and goes with one undo step. Step 2
+// (§13): a stretch crossing clips is cut at its edges, in place and to a new track.
 
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
@@ -57,8 +58,9 @@ struct Stretch
         return *t;
     }
 
-    /// A track playing the Synth, its drift off so every render is the same performance.
-    std::uint64_t synthTrack()
+    /// A track playing the Synth, its drift off so every render is the same performance; with
+    /// `release`, its amp's release.
+    std::uint64_t synthTrack(const char* release = nullptr)
     {
         const auto t = track(0);
         const auto synth = session->addDevice(t, "fd:subtractive-synth");
@@ -67,10 +69,18 @@ struct Stretch
         REQUIRE(handle != nullptr);
         auto& context = handle->context();
         const auto& params = context.info.params;
-        const auto it =
-            std::find_if(params.begin(), params.end(), [](const auto& p) { return p.id == "voice.drift"; });
-        REQUIRE(it != params.end());
-        context.params.setPlain(static_cast<size_t>(it - params.begin()), *it->fromText("0"));
+        const auto set = [&](const char* id, const char* text)
+        {
+            const auto it =
+                std::find_if(params.begin(), params.end(), [&](const auto& p) { return p.id == id; });
+            REQUIRE(it != params.end());
+            const auto value = it->fromText(text);
+            REQUIRE(value);
+            context.params.setPlain(static_cast<size_t>(it - params.begin()), *value);
+        };
+        set("voice.drift", "0");
+        if (release != nullptr)
+            set("amp.r", release);
         return t;
     }
 
@@ -122,13 +132,14 @@ struct Stretch
     }
 };
 
-double differenceDb(const AudioBuffer& a, const AudioBuffer& b)
+/// The largest difference between `a` and `b` (dBFS), over samples [from, to) (all of them by default).
+double differenceDb(const AudioBuffer& a, const AudioBuffer& b, int from = 0, int to = -1)
 {
     REQUIRE(a.numChannels() == b.numChannels());
     REQUIRE(a.numSamples() == b.numSamples());
     float worst = 0.0f;
     for (int c = 0; c < a.numChannels(); ++c)
-        for (int s = 0; s < a.numSamples(); ++s)
+        for (int s = from; s < (to < 0 ? a.numSamples() : to); ++s)
             worst = std::max(worst, std::abs(a.at(c, s) - b.at(c, s)));
     return worst > 0.0f ? 20.0 * std::log10(worst) : -200.0;
 }
@@ -254,13 +265,112 @@ TEST_CASE("time selection, step 0: one undo step takes a bounced stretch back to
     CHECK(info.clips[1].id == b);
 }
 
-TEST_CASE("time selection, step 0: a stretch with nothing in it, or only part of a clip, bounces nothing",
-          "[integration]")
+TEST_CASE("time selection, step 0: a stretch with nothing in it bounces nothing, saying why", "[integration]")
 {
     Stretch s;
     const auto t = s.synthTrack();
     s.phrase(t, 1.0, 2.0, 48); // 1 .. 3
-    // Empty, and a clip crossing the stretch's end (the caller splits it first).
     CHECK(s.session->bounceStretch({t}, 4.0, 6.0, BounceMode::InPlace, [](const auto&) {}) == nullptr);
-    CHECK(s.session->bounceStretch({t}, 0.0, 2.0, BounceMode::InPlace, [](const auto&) {}) == nullptr);
+    CHECK(s.session->stretchBounceRefusal({t}, 4.0, 6.0, BounceMode::InPlace) ==
+          "No clip in the selection to bounce");
+    // A clip crossing its end is cut there as it lands (step 2).
+    CHECK(s.session->stretchBounceRefusal({t}, 0.0, 2.0, BounceMode::InPlace).empty());
+}
+
+TEST_CASE(
+    "time selection, step 2: a stretch crossing a clip bounces in place up to its edge, the rest of the clip "
+    "staying; it sounds as before, and one undo puts the clips back whole",
+    "[integration]")
+{
+    Stretch s;
+    const auto t = s.synthTrack("10 ms");     // a short release: nothing rings across the edge
+    const auto a = s.phrase(t, 0.5, 1.5, 48); // 0.5 .. 2.0
+    const auto b = s.phrase(t, 3.0, 2.0, 55); // 3.0 .. 5.0, cut at 4.0
+    const auto before = s.render(0.0, 8.0);
+
+    const auto result = s.bounceStretch(t, 0.0, 4.0);
+    CHECK(result.error.empty());
+    CHECK(result.cutTails.empty());
+    REQUIRE(result.clips.size() == 1);
+    CHECK(s.session->undoDescription() == "Bounce in place");
+    auto info = s.info(t);
+    const auto now = lane(info);
+    REQUIRE(now.size() == 2);
+    CHECK(std::get<0>(now[0]) == ClipInfo::Kind::Audio);
+    CHECK(std::get<1>(now[0]) == Approx(0.0));
+    CHECK(std::get<2>(now[0]) == Approx(4.0)); // it stops where the rest of the clip starts
+    CHECK(std::get<0>(now[1]) == ClipInfo::Kind::Midi);
+    CHECK(std::get<1>(now[1]) == Approx(4.0));
+    CHECK(std::get<2>(now[1]) == Approx(5.0));
+    // Its Before bounce take: the first clip, and the part of the second inside the stretch.
+    const auto& kept = takeNamed(info, "Before bounce");
+    REQUIRE(kept.clips.size() == 2);
+    CHECK(kept.clips[0].start == Approx(0.5));
+    CHECK(kept.clips[1].start == Approx(3.0));
+    CHECK(kept.clips[1].end() == Approx(4.0));
+    // The stretch sounds as it did. After it, the rest of the clip plays on an instrument that no
+    // longer plays the notes before it, so its voices start a hair differently (about -65 dB,
+    // fading within the first note): as when those clips are muted by hand.
+    const auto after = s.render(0.0, 8.0);
+    const auto edge = static_cast<int>(std::lround(4.0 * s.session->sampleRate()));
+    CHECK(differenceDb(after, before, 0, edge) < -100.0);
+
+    s.session->undo();
+    info = s.info(t);
+    CHECK(info.stacks.empty());
+    REQUIRE(info.clips.size() == 2);
+    CHECK(info.clips[0].id == a);
+    CHECK(info.clips[1].id == b);
+    CHECK(info.clips[1].end() == Approx(5.0));
+
+    // By hand: the second clip split at the edge, the clips inside muted.
+    REQUIRE(s.session->splitClips({b}, 4.0).size() == 1);
+    s.session->updateSnapshotNow();
+    std::vector<std::uint64_t> inside;
+    for (const auto& c : s.info(t).clips)
+        if (c.end() <= 4.0 + 1e-6)
+            inside.push_back(c.id);
+    REQUIRE(inside.size() == 2);
+    s.session->setClipsMuted(inside, true);
+    const auto byHand = s.render(0.0, 8.0);
+    CHECK(differenceDb(after, byHand, edge, after.numSamples()) < -100.0);
+}
+
+TEST_CASE(
+    "time selection, step 2: a stretch bounced to a new track is one clip spanning it there, its source "
+    "parts muted, cut at its edges; the two sound as the clips did",
+    "[integration]")
+{
+    Stretch s;
+    const auto t = s.synthTrack();
+    s.phrase(t, 0.5, 1.5, 48); // 0.5 .. 2.0
+    s.phrase(t, 3.0, 2.0, 55); // 3.0 .. 5.0, cut at 4.0
+    const auto before = s.render(0.0, 8.0);
+
+    std::optional<Session::BounceResult> result;
+    REQUIRE(s.session->bounceStretch({t}, 0.0, 4.0, BounceMode::NewTrack,
+                                     [&](const Session::BounceResult& r) { result = r; }) != nullptr);
+    for (int i = 0; i < 2000 && !result; ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    REQUIRE(result);
+    CHECK(result->error.empty());
+    REQUIRE(result->tracks.size() == 1);
+    REQUIRE(result->clips.size() == 1);
+    CHECK(s.session->undoDescription() == "Bounce to new track");
+    s.session->updateSnapshotNow();
+    CHECK(s.track(1) == result->tracks[0]); // right after its source
+    const auto bounced = s.info(result->tracks[0]);
+    REQUIRE(bounced.clips.size() == 1);
+    CHECK(bounced.clips[0].kind == ClipInfo::Kind::Audio);
+    CHECK(bounced.clips[0].start == Approx(0.0));
+    CHECK(bounced.clips[0].end() >= 4.0 - 1e-6); // the stretch, and its tail
+    // The source: the clips inside muted, what's past the edge playing.
+    const auto source = s.info(t);
+    REQUIRE(source.clips.size() == 3);
+    CHECK(source.clips[0].muted);
+    CHECK(source.clips[1].muted);
+    CHECK(source.clips[1].end() == Approx(4.0));
+    CHECK_FALSE(source.clips[2].muted);
+    CHECK(source.clips[2].start == Approx(4.0));
+    CHECK(differenceDb(s.render(0.0, 8.0), before) < -100.0);
 }

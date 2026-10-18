@@ -1,6 +1,7 @@
 // A stretch of time on chosen rows (ADR 0073, docs/design/time-selection.md §18): its commands on
-// those rows, a stretch copied or moved, and the song-wide time commands. Assistants never see the
-// selection (selection.md §1), so each tool names the stretch and its rows. Each is one undo step.
+// those rows, a stretch copied or moved, the song-wide time commands, and time inside a MIDI clip.
+// Assistants never see the selection (selection.md §1), so each tool names the stretch and its rows.
+// Each is one undo step.
 
 #include "mcp/tools/Tools.h"
 #include "model/TimeEdits.h"
@@ -243,6 +244,66 @@ void addTimeTools(Registry& registry, ToolEnv& env)
             if (!done)
                 throw Problem{"Nothing to do there."};
             return ToolResult::ok({{"sections", sectionsJson(env)}});
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"edit_clip_time", "Insert, delete, duplicate or split time inside a MIDI clip",
+         "Acts on the stretch from `from` to `to` inside one MIDI clip (time-selection.md §14.1), where it "
+         "plays in the song (a looped clip: its first lap). `insert` puts empty time as long as the stretch "
+         "at "
+         "its start; `delete` takes the stretch out; `duplicate` puts a copy of it right after it. The notes "
+         "and controller points after it move, a note crossing an edge is cut there (one held across deleted "
+         "time is shortened), and the clip's end (a looped clip's loop) follows. `split` cuts the notes "
+         "crossing its edges. One undo step.",
+         object({{"clip", id(IdKind::Clip, "The MIDI clip")},
+                 {"action",
+                  {{"type", "string"},
+                   {"enum", {"insert", "delete", "duplicate", "split"}},
+                   {"description", "What to do"}}},
+                 {"from", position("Where the stretch starts.")},
+                 {"to", position("Where it ends.")}},
+                {"clip", "action", "from", "to"}),
+         result({{"clip", clipResultSchema()}}, {"clip"}), changes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto c = clip(env, args["clip"]);
+            if (c.kind != model::ClipInfo::Kind::Midi)
+                throw Problem{formatId(IdKind::Clip, c.id) +
+                              " is an audio clip: time inside it is the audio editor's "
+                              "(edit_audio_range)."};
+            const auto span = spanArg(env, args);
+            if (span.start < c.start - 1e-6 || span.end > c.end() + 1e-6)
+                throw Problem{"The stretch isn't inside the clip: it plays from " +
+                              positionJson(tempo(env).beatsForSeconds(c.start), tempo(env)).dump() + " to " +
+                              positionJson(tempo(env).beatsForSeconds(c.end()), tempo(env)).dump() + "."};
+            // Where it plays in the song, as the clip view's time.
+            const double from = model::clipViewTime(c, span.start), to = from + span.length();
+            const auto action = args.value("action", std::string());
+            bool done = false;
+            if (action == "split")
+            {
+                const auto& t = tempo(env);
+                const double origin = model::clipViewOrigin(c);
+                const auto split = model::splitNotesAt(c.notes, {}, t.beatsForSeconds(from - origin),
+                                                       t.beatsForSeconds(to - origin));
+                done = split.notes != c.notes;
+                if (done)
+                    env.session.setNotes(c.id, split.notes);
+            }
+            else if (action == "insert" || action == "delete" || action == "duplicate")
+                done = env.session.editClipTime(c.id,
+                                                action == "insert"   ? model::ClipTimeCommand::Insert
+                                                : action == "delete" ? model::ClipTimeCommand::Delete
+                                                                     : model::ClipTimeCommand::Duplicate,
+                                                from, to);
+            else
+                throw Problem{"`action` is one of insert, delete, duplicate, split."};
+            if (!done)
+                throw Problem{action == "split" ? "No note crosses the stretch's edges."
+                                                : "Nothing to do there."};
+            env.session.flushSnapshot();
+            return ToolResult::ok({{"clip", clipJson(env, clip(env, args["clip"]), false)}});
         }));
 }
 } // namespace fd::mcp

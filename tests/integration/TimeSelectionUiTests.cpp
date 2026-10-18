@@ -432,3 +432,333 @@ TEST_CASE("time selection: a title strip inside it drags the stretch, later and 
     CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.drums, f.bass, f.keys});
     CHECK(view.selection().rowLanes == std::set<std::uint64_t>{f.lane});
 }
+
+TEST_CASE("time selection: the export panel's Selection range is chosen when it opens with one, exports "
+          "exactly the "
+          "stretch, and the selection's tracks as stems; with none, the song",
+          "[integration]")
+{
+    TimeFixture f;
+    auto& view = f.shell->arrangement();
+    auto& panel = f.shell->exportPanel();
+    const auto& actions = f.shell->actions();
+    const auto range = [&] { return f.session->exportSettings().range; };
+    const auto waitForExport = [&]
+    {
+        for (int i = 0; i < 3000 && panel.progress(); ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        REQUIRE_FALSE(panel.progress());
+    };
+    const auto frames = [](const juce::File& file)
+    {
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+        const std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+        REQUIRE(reader != nullptr);
+        return reader->lengthInSamples;
+    };
+
+    // Bars 2 to 3 on the drums and bass (and the lane): the range is the selection, named for its bars.
+    view.selectTime({2.0, 6.0}, {f.drums, f.bass}, {f.lane}, f.drums);
+    f.settle();
+    REQUIRE(actions.perform("project.export"));
+    REQUIRE(panel.isOpen());
+    CHECK(range() == fd::model::ExportRange::Selection);
+    f.dump("export-selection", panel);
+    REQUIRE(panel.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
+    waitForExport();
+    const auto mix = f.session->exportsFolder().getChildFile("Untitled - Bars 2-4.wav");
+    REQUIRE(mix.existsAsFile());
+    // Exactly the stretch, no tail; the whole mix, whatever the rows.
+    CHECK(frames(mix) == std::llround(4.0 * f.session->sampleRate()));
+
+    // Stems: the selection's tracks are the selected tracks.
+    auto settings = f.session->exportSettings();
+    settings.what = fd::model::ExportWhat::SelectedTracks;
+    f.session->setExportSettings(settings);
+    panel.close();
+    REQUIRE(actions.perform("project.export"));
+    REQUIRE(panel.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
+    waitForExport();
+    CHECK(f.session->exportsFolder().getChildFile("Untitled - Drums - Bars 2-4.wav").existsAsFile());
+    CHECK(f.session->exportsFolder().getChildFile("Untitled - Bass - Bars 2-4.wav").existsAsFile());
+    CHECK_FALSE(f.session->exportsFolder().getChildFile("Untitled - Keys - Bars 2-4.wav").existsAsFile());
+    panel.close();
+
+    // With none, the remembered Selection is the song, and the panel can't choose it.
+    REQUIRE(actions.perform("edit.selectNone"));
+    REQUIRE_FALSE(view.selection().hasTime());
+    REQUIRE(actions.perform("project.export"));
+    CHECK(range() == fd::model::ExportRange::Song);
+    panel.close();
+}
+
+TEST_CASE(
+    "time selection: Bounce in place bounces the stretch on its tracks, cut at its edges, and selects the "
+    "bounce; a track it can't bounce says why",
+    "[integration]")
+{
+    TimeFixture f;
+    auto& view = f.shell->arrangement();
+    const auto& actions = f.shell->actions();
+
+    // Bars 2 to 3 of the drums: the end of the first beat clip and the start of the second.
+    view.selectTime({2.0, 6.0}, {f.drums}, {}, f.drums);
+    f.settle();
+    REQUIRE(actions.isEnabled("clip.bounce"));
+    REQUIRE(actions.perform("clip.bounce"));
+    for (int i = 0; i < 2000 && f.session->undoDescription() != "Bounce in place"; ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    REQUIRE(f.session->undoDescription() == "Bounce in place");
+    f.settle();
+    const auto* drums = f.session->snapshot()->channel(f.drums);
+    REQUIRE(drums != nullptr);
+    REQUIRE(drums->clips.size() == 3);
+    CHECK(drums->clips[0].end() == Catch::Approx(2.0));
+    CHECK(drums->clips[1].start == Catch::Approx(2.0));
+    CHECK(drums->clips[1].end() == Catch::Approx(6.0));
+    CHECK(drums->clips[1].stack != 0); // its Before bounce take holds both parts
+    CHECK(drums->clips[2].start == Catch::Approx(6.0));
+    CHECK(view.selection().clips == std::set<std::uint64_t>{drums->clips[1].id});
+
+    // The bass has no instrument: refused, and the menu says why.
+    view.selectTime({0.0, 2.0}, {f.bass}, {}, f.bass);
+    f.settle();
+    CHECK_FALSE(actions.isEnabled("clip.bounce"));
+    const auto* bounce = actions.find("clip.bounce");
+    REQUIRE(bounce != nullptr);
+    REQUIRE(bounce->whyNot);
+    CHECK(bounce->whyNot().contains("instrument"));
+}
+
+namespace
+{
+/// The Keys clip in the clip view, the clip view used last.
+fd::app::PianoRoll& keysInClipView(TimeFixture& f)
+{
+    f.shell->arrangement().setSelection(
+        fd::model::withClips(*f.session->snapshot(), {f.keysClip}, f.keys, f.keys));
+    f.settle();
+    auto& roll = f.shell->detail().pianoRoll();
+    REQUIRE(f.shell->detail().showsPianoRoll());
+    REQUIRE(roll.clip());
+    REQUIRE(roll.clip()->id == f.keysClip);
+    click(roll, roll.pointFor(0.9, 72)); // the clip view used last: an empty spot, above the notes
+    return roll;
+}
+
+const fd::model::ClipInfo& keysClipIn(TimeFixture& f)
+{
+    f.settle();
+    const auto found = fd::model::findClip(*f.session->snapshot(), f.keysClip);
+    REQUIRE(found);
+    return *found->first;
+}
+} // namespace
+
+TEST_CASE(
+    "time selection in the piano roll: a box selects its notes and its stretch, a click clears both; Ctrl+D "
+    "copies after the stretch, Ctrl+E cuts at its edges, Escape clears it (§14.1)",
+    "[integration]")
+{
+    TimeFixture f;
+    auto& roll = keysInClipView(f);
+    const auto& actions = f.shell->actions();
+    REQUIRE_FALSE(roll.timeSelection());
+
+    // A box from just before beat 4 to just after beat 8, across the notes' pitches (60 to 68).
+    drag(roll, roll.pointFor(3.98, 72), roll.pointFor(8.02, 58));
+    REQUIRE(roll.timeSelection());
+    CHECK(roll.timeSelection()->start == Catch::Approx(2.0)); // beat 4 at 120 BPM
+    CHECK(roll.timeSelection()->end == Catch::Approx(4.0));
+    const auto boxed = roll.selection().size();
+    CHECK(boxed > 0);
+    f.dump("time-selection-piano-roll-box", f.shell->detail());
+
+    // Ctrl+D: copies of the notes right after the stretch, which moves along.
+    const auto before = roll.notes().size();
+    REQUIRE(actions.handleKey(juce::KeyPress('d', juce::ModifierKeys::commandModifier, 0)));
+    f.settle();
+    CHECK(roll.notes().size() == before + boxed);
+    REQUIRE(roll.timeSelection());
+    CHECK(roll.timeSelection()->start == Catch::Approx(4.0));
+    CHECK(roll.timeSelection()->end == Catch::Approx(6.0));
+    f.session->undo();
+    f.settle();
+
+    // A click on an empty spot clears it.
+    click(roll, roll.pointFor(0.9, 72));
+    CHECK_FALSE(roll.timeSelection());
+
+    // Ctrl+E on a stretch inside the note at beat 2 (2 .. 2.75): it's cut at both edges.
+    roll.setSelection({});
+    roll.setTimeSelection(fd::model::TimeSpan{1.125, 1.25}); // beats 2.25 .. 2.5
+    CHECK(actions.label("edit.split") == "Split at selection");
+    const auto notes = roll.notes().size();
+    REQUIRE(actions.perform("edit.split"));
+    f.settle();
+    CHECK(roll.notes().size() == notes + 2);
+    f.session->undo();
+    f.settle();
+
+    // Escape: the clip view's selection and stretch cleared; the clip stays in it.
+    roll.setSelection({0});
+    roll.setTimeSelection(fd::model::TimeSpan{1.0, 2.0});
+    REQUIRE(actions.perform("edit.selectNone"));
+    CHECK_FALSE(roll.timeSelection());
+    CHECK_FALSE(roll.hasSelection());
+    CHECK(f.shell->arrangement().selection().clips == std::set<std::uint64_t>{f.keysClip});
+}
+
+TEST_CASE("time selection in the piano roll: the Song menu's keys insert, delete and duplicate time inside "
+          "the clip, "
+          "its end following; Crop and Clip loop take the stretch (§14.1, §17)",
+          "[integration]")
+{
+    TimeFixture f;
+    auto& roll = keysInClipView(f);
+    const auto& actions = f.shell->actions();
+    const auto notesAfter = [&](double beat)
+    {
+        std::size_t n = 0;
+        for (const auto& note : keysClipIn(f).notes)
+            n += note.start >= beat - 1e-6 ? 1 : 0;
+        return n;
+    };
+    // Beats 4 .. 6 (2 .. 3 s): Notes ▸ Time ▸ Insert time, on the Song menu's key.
+    roll.setTimeSelection(fd::model::TimeSpan{2.0, 3.0});
+    CHECK(actions.shortcut("notes.insertTime") == actions.shortcut("song.insertTime"));
+    REQUIRE(actions.isEnabled("notes.insertTime"));
+    const auto later = notesAfter(4.0);
+    REQUIRE(actions.handleKey(juce::KeyPress('i', juce::ModifierKeys::commandModifier, 0)));
+    CHECK(f.session->undoDescription() == "Insert time");
+    CHECK(keysClipIn(f).length == Catch::Approx(9.0)); // a second longer
+    CHECK(notesAfter(6.0) == later);                   // the notes from beat 4 now from beat 6
+    CHECK(notesAfter(4.0) == later);                   // nothing in the time put in
+    REQUIRE(roll.timeSelection());                     // the time put in stays selected
+    // The song itself didn't move: the bass's second clip is where it was.
+    CHECK(f.session->snapshot()->channel(f.bass)->clips[1].start == Catch::Approx(4.5));
+
+    // Delete time takes it out again: the clip as it was.
+    REQUIRE(actions.handleKey(
+        juce::KeyPress(juce::KeyPress::deleteKey,
+                       juce::ModifierKeys::commandModifier | juce::ModifierKeys::shiftModifier, 0)));
+    CHECK(f.session->undoDescription() == "Delete time");
+    CHECK(keysClipIn(f).length == Catch::Approx(8.0));
+    CHECK_FALSE(roll.timeSelection());
+
+    // Duplicate time: a copy of the stretch after it, the clip that much longer, the copy selected.
+    roll.setTimeSelection(fd::model::TimeSpan{2.0, 3.0});
+    REQUIRE(actions.handleKey(
+        juce::KeyPress('d', juce::ModifierKeys::commandModifier | juce::ModifierKeys::shiftModifier, 0)));
+    CHECK(f.session->undoDescription() == "Duplicate time");
+    CHECK(keysClipIn(f).length == Catch::Approx(9.0));
+    REQUIRE(roll.timeSelection());
+    CHECK(roll.timeSelection()->start == Catch::Approx(3.0));
+    f.session->undo();
+    f.settle();
+
+    // Crop clip to selection: the clip is the stretch, selected, still in the clip view.
+    roll.setTimeSelection(fd::model::TimeSpan{2.0, 3.0});
+    REQUIRE(actions.perform("notes.cropClip"));
+    f.settle();
+    const auto& keys = f.session->snapshot()->channel(f.keys)->clips;
+    REQUIRE(keys.size() == 1);
+    CHECK(keys[0].start == Catch::Approx(2.0));
+    CHECK(keys[0].length == Catch::Approx(1.0));
+    REQUIRE(roll.clip());
+    CHECK(roll.clip()->id == keys[0].id);
+    f.session->undo();
+    keysInClipView(f);
+    // Clip loop to selection: the clip loops it.
+    roll.setTimeSelection(fd::model::TimeSpan{2.0, 3.0});
+    REQUIRE(actions.perform("notes.loopClip"));
+    const auto& looped = keysClipIn(f);
+    CHECK(looped.loop.on());
+    CHECK(looped.loop.length == Catch::Approx(1.0));
+    // None selected: they say why.
+    roll.setTimeSelection(std::nullopt);
+    CHECK_FALSE(actions.isEnabled("notes.insertTime"));
+    CHECK(actions.find("notes.cropClip")->whyNot().contains("Select a stretch"));
+}
+
+TEST_CASE(
+    "time selection: inside one clip, the clip view selects the same stretch, once; after that the two are "
+    "separate (§14.3)",
+    "[integration]")
+{
+    TimeFixture f;
+    auto& view = f.shell->arrangement();
+    auto& detail = f.shell->detail();
+    view.selectTime({2.0, 4.0}, {f.keys}, {}, f.keys);
+    f.settle();
+    REQUIRE(detail.showsPianoRoll());
+    auto& roll = detail.pianoRoll();
+    REQUIRE(roll.timeSelection());
+    CHECK(roll.timeSelection()->start == Catch::Approx(2.0));
+    CHECK(roll.timeSelection()->end == Catch::Approx(4.0));
+    // The clip view's own stretch changes nothing in the arrangement, and a snapshot doesn't undo it.
+    roll.setTimeSelection(fd::model::TimeSpan{1.0, 1.5});
+    f.settle();
+    CHECK(view.selection().time == fd::model::TimeSpan{2.0, 4.0});
+    CHECK(roll.timeSelection() == fd::model::TimeSpan{1.0, 1.5});
+    // A new one in the arrangement: shown again.
+    view.selectTime({3.0, 5.0}, {f.keys}, {}, f.keys);
+    f.settle();
+    CHECK(roll.timeSelection() == fd::model::TimeSpan{3.0, 5.0});
+
+    // An audio clip's: its range.
+    view.selectTime({1.0, 2.0}, {f.drums}, {}, f.drums);
+    f.settle();
+    REQUIRE(detail.showsAudioClip());
+    REQUIRE(detail.audioClipView().range());
+    CHECK(detail.audioClipView().range()->first == Catch::Approx(1.0));
+    CHECK(detail.audioClipView().range()->second == Catch::Approx(2.0));
+}
+
+TEST_CASE("time selection in the piano roll: a drag from a controller lane's empty spot selects time and the "
+          "lane's "
+          "points in it (§14.1)",
+          "[integration]")
+{
+    TimeFixture f;
+    namespace cc = fd::model::controllers;
+    f.session->setControllers(
+        f.keysClip,
+        {{.controller = cc::modWheel,
+          .points = {{0.0, 0.1f, 0.0f}, {2.0, 0.4f, 0.0f}, {5.0, 0.6f, 0.0f}, {9.0, 0.9f, 0.0f}}}});
+    auto& roll = keysInClipView(f);
+    roll.setLane({.kind = fd::model::BottomLane::Kind::Controller, .controller = cc::modWheel});
+    f.settle();
+    // From beat 1 to beat 6, low in the lane (away from the curve).
+    drag(roll, roll.lanePointFor(0.98, 0.95f), roll.lanePointFor(6.02, 0.95f));
+    REQUIRE(roll.timeSelection());
+    CHECK(roll.timeSelection()->start == Catch::Approx(0.5));
+    CHECK(roll.timeSelection()->end == Catch::Approx(3.0));
+    CHECK(roll.pointSelection() == std::set<size_t>{1, 2});
+    f.dump("time-selection-controller-lane", f.shell->detail());
+}
+
+TEST_CASE("time selection: Song ▸ Add section makes a section of exactly the selection (§13)",
+          "[integration]")
+{
+    TimeFixture f;
+    auto& view = f.shell->arrangement();
+    const auto& actions = f.shell->actions();
+    view.selectTime({2.0, 6.0}, {f.drums, f.bass}, {}, f.drums);
+    f.settle();
+    CHECK(actions.label("song.addSection") == "Add section from selection");
+    REQUIRE(actions.perform("song.addSection"));
+    f.settle();
+    const auto& sections = f.session->snapshot()->sections;
+    REQUIRE(sections.size() == 1);
+    CHECK(sections[0].start == Catch::Approx(2.0));
+    CHECK(sections[0].end == Catch::Approx(6.0));
+    CHECK(view.selection().sections == std::set<std::uint64_t>{sections[0].id});
+    // Overlapping it, another is refused, saying why.
+    view.selectTime({4.0, 7.0}, {f.drums}, {}, f.drums);
+    f.settle();
+    REQUIRE(actions.perform("song.addSection"));
+    CHECK(f.session->snapshot()->sections.size() == 1);
+    CHECK(f.shell->lastWarning().contains("overlap"));
+}

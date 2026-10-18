@@ -118,6 +118,10 @@ struct NoteDrag
 /// phrase stays on its beats).
 [[nodiscard]] NoteEdit duplicateNotes(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                                       double gridStep, double beatsPerBar);
+/// Copies of the selection `beats` later, selected, winning over the notes they land on (a time
+/// selection's Ctrl+D: right after its stretch, time-selection.md §14.1).
+[[nodiscard]] NoteEdit duplicateNotesBy(const std::vector<Note>& notes,
+                                        const std::set<std::size_t>& selection, double beats);
 
 /// Moves the selection by `semitones`, limited so every note stays within 0..127.
 [[nodiscard]] NoteEdit transposeNotes(const std::vector<Note>& notes, const std::set<std::size_t>& selection,

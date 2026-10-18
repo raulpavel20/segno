@@ -55,7 +55,7 @@ Segno does the baseline, and goes further in three ways:
 
 - **Song** (the default): from the song's start (bar 1) to the end of the last clip on any track, then on until the mix falls silent: below −100 dBFS, at most 10 s, as bounce does ([bounce.md](bounce.md) §7). The panel shows the length it will be ("3:24 + tail").
 - **Loop:** exactly the loop brace, with no tail, for loops and sections. Offered only while there is a loop brace.
-- **A selected time range** comes with range selection ([ADR 0028](../decisions/0028-automation-lanes.md)). Markers, regions and "Render as loop" (a tail folded onto the start) are in §16.
+- **Selection** ([time-selection.md](time-selection.md) §13, 2026-10-18): exactly the arrangement's time selection, with no tail, as Loop. Offered while there's one ("Selection  Bars 9-17"), and chosen when the panel opens with one, as Live and Bitwig do. Remembered with none now, the range is Song. The mix is the whole mix, whatever the selection's rows; with stems, its tracks are the selected tracks. Its files are named for its bars, as a loop's. Markers, regions and "Render as loop" (a tail folded onto the start) are in §16.
 
 ## 4. Format
 
@@ -145,7 +145,7 @@ Ctrl+Shift+E is free: Ctrl+E is split, and Ctrl+Shift+R, Live's export key, is C
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `export_audio` | `what?` ("mix" or "tracks"), `tracks?` (default all), `throughReturns?`, `range?` ("song" or "loop"), `format?`, `bitDepth?`, `sampleRate?`, `dither?`, `normalise?` ("off", "peak", "loudness"), `target?` (LUFS), `name?` | Waits for the export. Each file's path and report (§8). Never an undo step |
+| `export_audio` | `what?` ("mix" or "tracks"), `tracks?` (default all), `throughReturns?`, `range?` ("song", "loop", or a stretch `{from, to}`, exact; time-selection.md §18), `format?`, `bitDepth?`, `sampleRate?`, `dither?`, `normalise?` ("off", "peak", "loudness"), `target?` (LUFS), `name?` | Waits for the export. Each file's path and report (§8). Never an undo step |
 
 - Without arguments it uses the project's remembered settings, as Ctrl+Shift+E then Enter does.
 - **An assistant exports only into the project's `Exports/` folder, or the location the user chose in the panel.** It can't pick a path on disk itself.

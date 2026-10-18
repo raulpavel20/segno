@@ -149,6 +149,14 @@ void ExportPopover::open(juce::Component& parent)
 {
     if (getParentComponent() != &parent)
         parent.addChildComponent(this);
+    // A time selection is the range when the panel opens with one (time-selection.md §13), as in
+    // Live and Bitwig; remembered with none now, the range is the song.
+    const bool selection = selectedTime && selectedTime().has_value();
+    if (auto s = session_.exportSettings(); selection != (s.range == ExportRange::Selection))
+    {
+        s.range = selection ? ExportRange::Selection : ExportRange::Song;
+        session_.setExportSettings(s);
+    }
     load();
     const auto& sh = ui::Theme::current().shell;
     setBounds(juce::Rectangle<int>(sh.formPopoverWidth, preferredHeight())
@@ -202,7 +210,17 @@ void ExportPopover::load()
     const bool loop = loopEnd > loopStart;
     range_.addItem("Loop  " + (loop ? juce::String(model::loopBars(snapshot.tempo, loopStart, loopEnd)) : juce::String("(no loop)")), 2);
     range_.setItemEnabled(2, loop);
-    range_.setSelectedId(s.range == ExportRange::Loop && loop ? 2 : 1, juce::dontSendNotification);
+    // A time selection is offered while there's one (time-selection.md §13).
+    const auto selection = selectedTime ? selectedTime() : std::nullopt;
+    range_.addItem("Selection  " + (selection ? juce::String(model::loopBars(snapshot.tempo, selection->start,
+                                                                             selection->end))
+                                              : juce::String("(no selection)")),
+                   3);
+    range_.setItemEnabled(3, selection.has_value());
+    range_.setSelectedId(s.range == ExportRange::Selection && selection ? 3
+                         : s.range == ExportRange::Loop && loop         ? 2
+                                                                        : 1,
+                         juce::dontSendNotification);
     format_.setSelectedId(static_cast<int>(s.format) + 1, juce::dontSendNotification);
     depth_.setSelectedId(s.bitDepth, juce::dontSendNotification);
     fillDetail(quality_, s.format, s.bitDepth, s.kbps);
@@ -235,7 +253,9 @@ void ExportPopover::store()
     auto s = session_.exportSettings();
     s.what = static_cast<ExportWhat>(kWhat[std::clamp(what_.getSelectedId() - 1, 0, 2)]);
     s.throughReturns = through_.getToggleState();
-    s.range = range_.getSelectedId() == 2 ? ExportRange::Loop : ExportRange::Song;
+    s.range = range_.getSelectedId() == 3   ? ExportRange::Selection
+              : range_.getSelectedId() == 2 ? ExportRange::Loop
+                                            : ExportRange::Song;
     const auto format = static_cast<ExportFormat>(std::clamp(format_.getSelectedId() - 1, 0, 5));
     if (format == s.format) // its bit depth or rate, as chosen
     {
@@ -372,27 +392,32 @@ bool ExportPopover::exportNow()
         return false;
     const auto s = session_.exportSettings();
     const auto tracks = selectedTracks ? selectedTracks() : std::vector<std::uint64_t>{};
-    if (const auto why = session_.exportRefusal(s, tracks); !why.empty())
+    const auto selection = selectedTime ? selectedTime() : std::nullopt;
+    if (const auto why = session_.exportRefusal(s, tracks, selection); !why.empty())
     {
         if (onMessage)
             onMessage(juce::String::fromUTF8(why.c_str()));
         return false;
     }
     juce::Component::SafePointer<ExportPopover> self(this);
-    job_ = session_.exportAudio(s, tracks, [self](const engine::Session::ExportResult& result) {
-        if (self == nullptr)
-            return;
-        self->job_.reset();
-        if (!result.cancelled && result.error.empty())
-            self->last_ = result;
-        else if (!result.cancelled && self->onMessage)
-            self->onMessage(juce::String::fromUTF8(result.error.c_str()));
-        self->updateEnabled();
-        self->resized();
-        self->repaint();
-        if (self->onExported)
-            self->onExported(result);
-    });
+    job_ = session_.exportAudio(
+        s, tracks,
+        [self](const engine::Session::ExportResult& result)
+        {
+            if (self == nullptr)
+                return;
+            self->job_.reset();
+            if (!result.cancelled && result.error.empty())
+                self->last_ = result;
+            else if (!result.cancelled && self->onMessage)
+                self->onMessage(juce::String::fromUTF8(result.error.c_str()));
+            self->updateEnabled();
+            self->resized();
+            self->repaint();
+            if (self->onExported)
+                self->onExported(result);
+        },
+        selection);
     updateEnabled();
     repaint();
     return job_ != nullptr;

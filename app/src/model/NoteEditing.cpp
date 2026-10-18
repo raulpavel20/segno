@@ -316,12 +316,20 @@ NoteEdit duplicateNotes(const std::vector<Note>& notes, const std::set<std::size
     double offset = unit > 0.0 ? std::ceil(span / unit - kEps) * unit : span;
     if (offset <= 0.0)
         offset = unit > 0.0 ? unit : minNoteLength;
+    return duplicateNotesBy(notes, sel, offset);
+}
 
+NoteEdit duplicateNotesBy(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                          double beats)
+{
+    const auto sel = valid(notes, selection);
+    if (sel.empty() || beats <= 0.0)
+        return {notes, sel};
     auto items = itemsOf(notes, {});
     for (auto i : sel)
     {
         auto copy = notes[i];
-        copy.start += offset;
+        copy.start += beats;
         items.push_back({copy, true});
     }
     resolve(items);

@@ -747,7 +747,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "audio.followKey", "audio.slice",
         // Time selection (time-selection.md §6, §9): Select loop (Live's Ctrl+Shift+L adds a lane
         // here) and Cut time (Live's Ctrl+Shift+X crossfades here); both on a selection's menus.
-        "edit.selectLoop", "song.cutTime"};
+        // Crop clip and Clip loop to selection (§14.1): the audio editor's have none either.
+        "edit.selectLoop", "song.cutTime", "notes.cropClip", "notes.loopClip"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);

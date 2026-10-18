@@ -235,6 +235,19 @@ bool Session::setCrossfade(std::uint64_t clipId, std::optional<model::Crossfade>
     return true;
 }
 
+bool Session::seamlessJoin(std::uint64_t clipId) const
+{
+    auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
+    auto* track = c != nullptr ? dynamic_cast<te::AudioTrack*>(c->getClipTrack()) : nullptr;
+    if (track == nullptr)
+        return false;
+    const auto t = fadeTrack(*track);
+    for (size_t i = 0; i + 1 < t.clips.size(); ++i)
+        if (t.clips[i].id == clipId)
+            return model::seamless(t.clips[i], t.clips[i + 1]);
+    return false;
+}
+
 void Session::setEdgeFades(bool on)
 {
     if (edgeFades() == on)

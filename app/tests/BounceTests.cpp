@@ -145,6 +145,71 @@ TEST_CASE("bounce: a clip with takes is one piece", "[fast]")
     CHECK(runs[0].pieces[0].limit == 4.0);
 }
 
+TEST_CASE("bounce: a stretch of time is one piece per track, gaps and all, cut at its edges", "[fast]")
+{
+    Snapshot s;
+    // Bass: A at 0-2, B at 3-6 (crossing the stretch's end at 5), C at 8-9. Keys: nothing there.
+    s.tracks.push_back(track(1, {midi(10, 0.0, 2.0, "A"), midi(11, 3.0, 3.0, "B"), midi(12, 8.0, 1.0, "C")}));
+    s.tracks.push_back(track(2, {midi(20, 6.0, 1.0)}));
+
+    // 1 .. 5: A crosses the start and B the end; both are in, the piece spans the stretch.
+    auto runs = stretchRuns(s, {1, 2}, 1.0, 5.0, BounceMode::InPlace);
+    REQUIRE(runs.size() == 1);
+    CHECK(runs[0].track == 1);
+    CHECK(runs[0].start == 1.0);
+    CHECK(runs[0].renderEnd == Approx(5.0 + kBounceTailSeconds));
+    REQUIRE(runs[0].pieces.size() == 1);
+    const auto& piece = runs[0].pieces[0];
+    CHECK(piece.parts == std::vector<std::uint64_t>{10, 11});
+    CHECK(piece.start == 1.0);
+    CHECK(piece.end == 5.0);
+    CHECK(piece.cutAtEdges);
+    CHECK(piece.name == "A");
+    // In place it stops where what's left of B starts; to a new track nothing limits it.
+    CHECK(piece.limit == 5.0);
+    CHECK(piece.limitName == "B");
+    CHECK(stretchRuns(s, {1}, 1.0, 5.0, BounceMode::NewTrack)[0].pieces[0].limit == kNone);
+    // Wholly inside: nothing to cut, and the next clip limits it.
+    runs = stretchRuns(s, {1}, 0.0, 7.0, BounceMode::InPlace);
+    REQUIRE(runs.size() == 1);
+    CHECK_FALSE(runs[0].pieces[0].cutAtEdges);
+    CHECK(runs[0].pieces[0].limit == 8.0);
+
+    // Nothing there: none, and why.
+    std::string why;
+    CHECK(stretchRuns(s, {1, 2}, 10.0, 12.0, BounceMode::InPlace, &why).empty());
+    CHECK(why == "No clip in the selection to bounce");
+    CHECK(stretchRuns(s, {1}, 5.0, 4.0, BounceMode::InPlace).empty());
+}
+
+TEST_CASE("bounce: a stretch in place refuses takes, and MIDI with audio; a new track takes both", "[fast]")
+{
+    Snapshot s;
+    auto t = track(1, {midi(10, 0.0, 1.0, "Comp"), midi(11, 1.0, 1.0, "Comp"), audio(12, 3.0, 1.0)});
+    t.clips[0].stack = t.clips[1].stack = 100;
+    t.stacks.push_back({.id = 100, .start = 0.0, .end = 2.0, .parts = {10, 11}});
+    s.tracks.push_back(t);
+    s.tracks.push_back(track(2, {midi(20, 0.0, 1.0), audio(21, 2.0, 1.0)}));
+    s.tracks.push_back(track(3, {midi(30, 0.0, 1.0)}, {})); // no instrument
+
+    std::string why;
+    CHECK(stretchRuns(s, {1}, 0.0, 2.0, BounceMode::InPlace, &why).empty());
+    CHECK(why.find("takes") != std::string::npos);
+    why.clear();
+    CHECK(stretchRuns(s, {2}, 0.0, 4.0, BounceMode::InPlace, &why).empty());
+    CHECK(why.find("MIDI and audio") != std::string::npos);
+    why.clear();
+    CHECK(stretchRuns(s, {3}, 0.0, 4.0, BounceMode::NewTrack, &why).empty());
+    CHECK(why == refusalText(BounceRefusal::NoInstrument));
+    // The tracks that can be bounced are, the others left out.
+    CHECK(stretchRuns(s, {1, 2, 3}, 0.0, 4.0, BounceMode::InPlace).empty());
+    const auto runs = stretchRuns(s, {1, 2, 3}, 0.0, 4.0, BounceMode::NewTrack);
+    REQUIRE(runs.size() == 2);
+    CHECK(runs[0].pieces[0].parts == std::vector<std::uint64_t>{10, 11, 12});
+    CHECK(runs[0].kind == ClipInfo::Kind::Midi); // MIDI and audio: rendered through the chain with the tail
+    CHECK(runs[1].track == 2);
+}
+
 TEST_CASE("bounce: a tail runs until silent, within the allowance and its limit", "[fast]")
 {
     Snapshot s;

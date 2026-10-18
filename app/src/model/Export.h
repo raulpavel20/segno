@@ -22,8 +22,9 @@ enum class ExportWhat
 };
 enum class ExportRange
 {
-    Song, // bar 1 to the last clip's end, then the tail until silent
-    Loop, // exactly the loop brace
+    Song,      // bar 1 to the last clip's end, then the tail until silent
+    Loop,      // exactly the loop brace
+    Selection, // exactly the time selection's stretch (time-selection.md §13)
 };
 enum class ExportFormat
 {
@@ -108,15 +109,18 @@ struct ExportSpan
     double start = 0.0, end = 0.0;
     bool tail = false;
 };
-/// The span for a range; nullopt (with `why`) when there's nothing to export: no clips, or no loop.
+/// The span for a range; nullopt (with `why`) when there's nothing to export: no clips, no loop, or
+/// no selection. Loop and Selection have no tail.
 [[nodiscard]] std::optional<ExportSpan> exportSpan(const Snapshot& snapshot, ExportRange range,
-                                                   std::optional<std::pair<double, double>> loop, std::string* why = nullptr);
+                                                   std::optional<std::pair<double, double>> loop,
+                                                   std::optional<std::pair<double, double>> selection,
+                                                   std::string* why = nullptr);
 /// How long the export runs: to `span.end`, then (with a tail) to where `levels` (from the span's
 /// start) last rise above kBounceSilenceDb, within kBounceTailSeconds.
 [[nodiscard]] double exportLength(const ExportSpan& span, const BlockLevels& levels);
 
 /// A file's name, without folder: the base (the project's name, or the panel's), a stem's track,
-/// a loop's bars ("Song - Bass - Bars 9-17.wav").
+/// a loop's or a selection's bars ("Song - Bass - Bars 9-17.wav").
 [[nodiscard]] std::string exportFileName(const std::string& base, const std::string& track, const std::string& bars,
                                          ExportFormat format);
 /// `name` if `exists` says it's free, else with a number before the extension ("Song 2.wav").

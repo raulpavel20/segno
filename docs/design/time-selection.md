@@ -351,7 +351,7 @@ Nothing changes in the mixer view.
 | **Edit** | Cut, Copy, Paste, Delete, Duplicate, Split, Select all: on a time selection when it's what was used last (§8). New: **Select none**, **Select loop** | Escape for Select none (while no bounce runs) |
 | **Clip** | New: **Crop to selection**. On a selection: New MIDI clip, Bounce in place, Bounce to new track, Mute, and Crossfade, which reads **Fade to selection** | Ctrl+Shift+J |
 | **Audio** | Crop to selection, Fade to selection, Clip loop to selection (renamed); Reverse on a selection | |
-| **Notes** | New: **Time ▸** Insert time, Delete time, Duplicate time; Crop clip to selection; Clip loop to selection | The Song menu's keys, shared (`Action::keysFrom`) |
+| **Notes** | New: **Time ▸** Insert time, Delete time, Duplicate time, and Crop clip to selection, Clip loop to selection (in the submenu too, so Notes stays short enough to open over the piano roll; §26) | The Song menu's keys, shared (`Action::keysFrom`) |
 | **Song** | New: **Insert time**, **Delete time**, **Cut time**, **Copy time**, **Paste time**, **Duplicate time**; Add section from the selection; **Select section's time** in place of Select clips in section | Ctrl+I, Ctrl+Shift+Delete, –, Ctrl+Shift+C, Ctrl+Shift+V, Ctrl+Shift+D |
 | **Transport** | Loop, which reads **Loop selection** with one | Ctrl+L |
 | **View** | Zoom to fit, which reads **Zoom to selection** with one | Ctrl+0 |
@@ -566,3 +566,34 @@ Then groups ([groups.md](groups.md), P9).
 - the audio editor's own selection, which has the shared look already.
 
 **Found:** Fade to selection across a join two halves of one split clip make does nothing there. Such a join plays on seamlessly and takes no crossfade ([fades.md](fades.md) §4), but `stretchRefusal` doesn't know that yet, so the command isn't dimmed. To fix with step 2.
+
+## 26. Step 2, what waited and the clip view, built (2026-10-18; for the product owner's tasks)
+
+**Built:**
+- **Export** (§13): the Range's **Selection** ("Selection  Bars 9-17"), offered while there's a selection and chosen when the panel opens with one; with none, a remembered Selection is Song. Exactly the stretch, no tail, named for its bars; with stems, the selection's tracks. `export_audio` takes a `range` of `{from, to}`; an assistant's export never uses a remembered Selection, which is the user's.
+- **Bounce** (§13): each selected track's stretch, gaps and all, as one clip spanning it, in place (the parts it replaces its Before bounce take) or to a new track (the parts inside muted). Clips crossing its edges are cut there as it lands, in the same undo step; in place, the bounce stops where the rest of a crossing clip starts. Refused in place for a clip with takes, and for MIDI and audio clips together, each saying why. `bounce_clips` takes `from`, `to` and `tracks`.
+- **Fade to selection** leaves out seamless joins, so it's dimmed where it would do nothing (step 1's finding).
+- **Song ▸ Add section** reads **Add section from selection** with one, and makes a section of exactly it.
+- **The clip view** (§14):
+  - a box's stretch is the piano roll's time selection, on the grid (Alt: free); a click on an empty spot or on a note, or Select all, clears it;
+  - Ctrl+D copies the selected notes (else those starting in it) right after it and moves it along; Ctrl+E (Split at selection) cuts the notes crossing its edges; the Transform and Generate tools take it as their span;
+  - **Notes ▸ Time:** Insert time, Delete time and Duplicate time inside the clip on the Song menu's keys, while the clip view was used last; Crop clip to selection and Clip loop to selection (the audio editor's range commands now take a MIDI clip's stretch too: Split, Delete, Crop and Loop);
+  - a drag from a controller lane's empty spot selects time and the lane's points in it; Shift+drag still box-selects;
+  - from the arrangement (§14.3): a selection inside one clip is selected in the clip view too, once as it's made or changed, scrolled into view; an audio clip's becomes the audio editor's selection;
+  - `edit_clip_time`: insert, delete, duplicate or split inside a MIDI clip.
+
+**Tests:**
+- `[fast]`: a stretch's bounce runs and refusals; notes and controller lanes under inserted, deleted and duplicated time; the clip's edges; notes cut at a stretch's edges; Ctrl+D's copies; the export's Selection range.
+- A stretch crossing a clip bounced in place nulls against its source over the stretch (< −100 dB), and after it against the same clips muted by hand; to a new track, the two tracks null against the clips (< −100 dB); one undo puts the clips back whole.
+- The export panel opens on Selection and exports exactly it, and its tracks as stems.
+- The piano roll's box, Ctrl+D, Ctrl+E, Escape, the Song keys inside the clip, Crop and Clip loop, the controller lane's drag, and the link, through the real shell.
+- `edit_clip_time`, `bounce_clips` with a stretch and `export_audio` with a range, through MCP.
+- 1360 tests pass. In one full parallel run the piano roll's 2 000-note frame test missed its budget under the load; alone it passes every time (it draws no stretch).
+
+**Settled while building:**
+- **Time put into a clip cuts a note held across it** (the gap is silence, as Insert time cuts clips); **time taken out shortens a note held across it** to one note, so a held chord stays held.
+- **A clip's end follows the time inside it;** a looped clip keeps its length and its loop's edges follow instead.
+- **Notes ▸ Time holds all five commands,** Crop clip to selection and Clip loop to selection too, so Notes stays short enough to open over the piano roll (§17's table updated).
+- **Escape in the clip view clears the clip view's own selection** (its notes and stretch, or the audio editor's selection), not the arrangement's. In step 1 it cleared the arrangement's, which emptied the clip view.
+- **After the edge of a bounced stretch,** the rest of a crossing MIDI clip plays on an instrument that no longer played the notes before it, so the first note there starts a hair differently (about −65 dB, fading within the note). That's what muting those clips by hand does too, which the test checks.
+- **Crop clip to selection selects what's left of the clip,** so the clip view keeps showing it, as the audio editor's Crop does.

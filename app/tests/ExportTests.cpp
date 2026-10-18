@@ -66,25 +66,36 @@ TEST_CASE("export: settings are valid, and kept as JSON", "[fast]")
     CHECK(extensionFor(ExportFormat::Opus) == ".opus");
 }
 
-TEST_CASE("export: the song runs to its last clip, then its tail until silent; a loop is exact", "[fast]")
+TEST_CASE(
+    "export: the song runs to its last clip, then its tail until silent; a loop and a selection are exact",
+    "[fast]")
 {
     Snapshot s;
     std::string why;
-    CHECK_FALSE(exportSpan(s, ExportRange::Song, std::nullopt, &why));
+    CHECK_FALSE(exportSpan(s, ExportRange::Song, std::nullopt, std::nullopt, &why));
     CHECK(why.find("no clips") != std::string::npos);
     s.tracks.push_back({.id = 1, .clips = {ClipInfo{.start = 2.0, .length = 4.0}}});
     s.tracks.push_back({.id = 2, .clips = {ClipInfo{.start = 1.0, .length = 7.5}}});
     CHECK(songEnd(s) == 8.5);
-    const auto song = exportSpan(s, ExportRange::Song, std::nullopt);
+    const auto song = exportSpan(s, ExportRange::Song, std::nullopt, std::nullopt);
     REQUIRE(song);
     CHECK(song->start == 0.0);
     CHECK(song->end == 8.5);
     CHECK(song->tail);
-    CHECK_FALSE(exportSpan(s, ExportRange::Loop, std::nullopt, &why));
+    CHECK_FALSE(exportSpan(s, ExportRange::Loop, std::nullopt, std::nullopt, &why));
     CHECK(why.find("loop") != std::string::npos);
-    const auto loop = exportSpan(s, ExportRange::Loop, std::pair{4.0, 6.0});
+    const auto loop = exportSpan(s, ExportRange::Loop, std::pair{4.0, 6.0}, std::nullopt);
     REQUIRE(loop);
     CHECK_FALSE(loop->tail);
+    // A selection (time-selection.md §13): exactly its stretch, whatever the loop; none, a refusal.
+    CHECK_FALSE(exportSpan(s, ExportRange::Selection, std::pair{4.0, 6.0}, std::nullopt, &why));
+    CHECK(why.find("selection") != std::string::npos);
+    const auto selection = exportSpan(s, ExportRange::Selection, std::pair{4.0, 6.0}, std::pair{1.5, 3.0});
+    REQUIRE(selection);
+    CHECK(selection->start == 1.5);
+    CHECK(selection->end == 3.0);
+    CHECK_FALSE(selection->tail);
+    CHECK(exportSettingsFromJson(toJson({.range = ExportRange::Selection})).range == ExportRange::Selection);
 
     // Blocks of 0.5 s: sound until 9.5 s (a second past the end), then silence.
     BlockLevels levels{.blockSeconds = 0.5};

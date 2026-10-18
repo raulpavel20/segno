@@ -222,6 +222,13 @@ private:
     // and the existing ones amended to act on it when it's what was used last.
     void registerTimeActions();
     [[nodiscard]] bool timeActive() const; // a time selection, in the arrangement used last
+    /// The clip view's time selection inside a MIDI clip (§14.1): its Notes ▸ Time commands, and
+    /// the Song menu's keys while the clip view was used last.
+    void registerClipTimeActions();
+    [[nodiscard]] bool clipTimeActive() const;
+    /// The arrangement's time selection last shown in the clip view (§14.3): its clip and stretch,
+    /// so it's shown there once as it's made or changed, the two separate after.
+    std::optional<std::pair<std::uint64_t, model::TimeSpan>> linkedTime_;
     /// A command on the stretch on its rows (§8): refused with a toast saying why, else carried
     /// out, the selection following the result.
     void timeCommand(engine::Session::StretchCommand command);

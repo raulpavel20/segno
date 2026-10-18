@@ -32,7 +32,8 @@ std::string nameOf(E value, std::initializer_list<std::pair<const char*, E>> nam
 
 const std::initializer_list<std::pair<const char*, ExportWhat>> kWhat{
     {"mix", ExportWhat::Mix}, {"selected", ExportWhat::SelectedTracks}, {"all", ExportWhat::AllTracks}};
-const std::initializer_list<std::pair<const char*, ExportRange>> kRange{{"song", ExportRange::Song}, {"loop", ExportRange::Loop}};
+const std::initializer_list<std::pair<const char*, ExportRange>> kRange{
+    {"song", ExportRange::Song}, {"loop", ExportRange::Loop}, {"selection", ExportRange::Selection}};
 const std::initializer_list<std::pair<const char*, ExportFormat>> kFormat{
     {"wav", ExportFormat::Wav}, {"flac", ExportFormat::Flac}, {"aiff", ExportFormat::Aiff},
     {"mp3", ExportFormat::Mp3}, {"ogg", ExportFormat::Ogg},   {"opus", ExportFormat::Opus}};
@@ -240,18 +241,22 @@ double songEnd(const Snapshot& snapshot)
     return end;
 }
 
-std::optional<ExportSpan> exportSpan(const Snapshot& snapshot, ExportRange range, std::optional<std::pair<double, double>> loop,
-                                     std::string* why)
+std::optional<ExportSpan> exportSpan(const Snapshot& snapshot, ExportRange range,
+                                     std::optional<std::pair<double, double>> loop,
+                                     std::optional<std::pair<double, double>> selection, std::string* why)
 {
-    if (range == ExportRange::Loop)
+    if (range == ExportRange::Loop || range == ExportRange::Selection)
     {
-        if (!loop || !(loop->second > loop->first))
+        const bool isLoop = range == ExportRange::Loop;
+        const auto& span = isLoop ? loop : selection;
+        if (!span || !(span->second > span->first))
         {
             if (why != nullptr)
-                *why = "There's no loop to export: draw a loop brace first.";
+                *why = isLoop ? "There's no loop to export: draw a loop brace first."
+                              : "There's no selection to export: select a stretch of time first.";
             return std::nullopt;
         }
-        return ExportSpan{.start = loop->first, .end = loop->second, .tail = false};
+        return ExportSpan{.start = span->first, .end = span->second, .tail = false};
     }
     const double end = songEnd(snapshot);
     if (!(end > 0.0))

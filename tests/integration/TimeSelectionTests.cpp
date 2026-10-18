@@ -335,6 +335,10 @@ TEST_CASE(
     REQUIRE(f.session->editStretch({{0.0, 1.0}, {f.b}, {}}, Command::Fade).changed);
     CHECK(f.session->undoDescription() == "Fade");
     CHECK(f.info(f.b).clips.front().fadeIn.length == Approx(1.0).margin(1e-6));
+    // Across a split alone it would do nothing, so it's refused there, saying why.
+    REQUIRE_FALSE(f.session->splitClips({f.info(f.b).clips.front().id}, 3.0).empty());
+    CHECK_FALSE(f.session->stretchRefusal({{2.75, 3.25}, {f.b}, {}}, Command::Fade).empty());
+    f.session->undo();
     REQUIRE(f.session->moveStretch({{4.0, 6.0}, {f.b}, {}}, -2.0, 0, false).changed);
     REQUIRE(f.session->editStretch({{1.75, 2.25}, {f.b}, {}}, Command::Fade).changed);
     bool crossed = false;

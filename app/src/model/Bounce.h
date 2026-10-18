@@ -55,6 +55,9 @@ struct BouncePiece
     std::string limitName; // the clip there (to say whose start cut a tail)
     /// The limit is the next piece of the same run: the tail carries on in that piece's bounce.
     bool limitIsBounced = false;
+    /// A stretch of time (time-selection.md §13): its clips crossing `start` or `end` are cut there
+    /// first, in the render's copy and, as it lands, in the project, and only what's inside plays.
+    bool cutAtEdges = false;
 };
 
 /// Pieces on one track rendered in one pass (§7): each within the tail allowance of the one
@@ -73,13 +76,15 @@ struct BounceRun
 [[nodiscard]] std::vector<BounceRun> bounceRuns(const Snapshot& snapshot, const std::set<std::uint64_t>& clips, BounceMode mode);
 
 /// The runs for bouncing a stretch of time (docs/design/time-selection.md §13): on each of
-/// `tracks`, the clips lying within [from, to] as one piece spanning it, gaps and all, so a bounce
-/// in place keeps them as one "Before bounce" take. A clip with takes counts whole. Tracks with
-/// nothing there, or with a clip that can't be bounced, are left out. Clips crossing an edge are
-/// the caller's to split first.
+/// `tracks`, the clips in [from, to] as one piece spanning it, gaps and all, so a bounce in place
+/// keeps them as one "Before bounce" take; clips crossing an edge are cut there (`cutAtEdges`).
+/// Tracks with nothing there are left out, and so is a track whose clips can't be bounced: a clip
+/// refused on its own, a clip with takes in place (its takes would need a take of their own), or
+/// MIDI and audio together in place (the audio would pass through the instrument). `why` gets the
+/// first track's reason.
 [[nodiscard]] std::vector<BounceRun> stretchRuns(const Snapshot& snapshot,
                                                  const std::set<std::uint64_t>& tracks, double from,
-                                                 double to, BounceMode mode);
+                                                 double to, BounceMode mode, std::string* why = nullptr);
 
 /// The tail allowance after a clip: none for an audio clip bounced in place (nothing rings after
 /// it), else kBounceTailSeconds.

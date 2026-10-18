@@ -112,6 +112,18 @@ using Plan = std::vector<Stretch>;
 /// each stretch moves exactly (§9).
 [[nodiscard]] std::vector<double> cutPoints(const Plan& plan);
 
+/// Where what was at `t` lands: as itself (none if it's gone), and as each copy.
+struct PlanLandings
+{
+    std::optional<double> itself;
+    std::vector<double> copies;
+};
+[[nodiscard]] PlanLandings landingsOf(const Plan& plan, double t);
+/// Where an edge at `t` lands: a start edge with the stretch it's in, an end edge with the one just
+/// before it, so time taken out after a start or before an end moves it, and time put in between
+/// them lengthens what they bound; an edge in time that's gone lands where its gap closed.
+[[nodiscard]] double planEdge(const Plan& plan, double t, bool isEnd);
+
 /// What a plan acts on.
 struct SongContent
 {

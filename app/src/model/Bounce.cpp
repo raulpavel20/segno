@@ -148,17 +148,23 @@ std::vector<BounceRun> bounceRuns(const Snapshot& snapshot, const std::set<std::
 }
 
 std::vector<BounceRun> stretchRuns(const Snapshot& snapshot, const std::set<std::uint64_t>& tracks,
-                                   double from, double to, BounceMode mode)
+                                   double from, double to, BounceMode mode, std::string* why)
 {
     std::vector<BounceRun> out;
     if (!(to > from))
         return out;
+    const auto refuse = [why](std::string reason)
+    {
+        if (why != nullptr && why->empty())
+            *why = std::move(reason);
+    };
     for (const auto& track : snapshot.tracks)
     {
         if (!tracks.contains(track.id) || !track.holdsClips())
             continue;
         BouncePiece piece{.start = from, .end = to, .limit = kInfinity};
-        bool midi = false, refused = false;
+        bool midi = false, audio = false, takes = false;
+        std::string refused;
         const ClipInfo* first = nullptr;
         for (const auto& group : clipGroups(track))
         {
@@ -172,18 +178,44 @@ std::vector<BounceRun> stretchRuns(const Snapshot& snapshot, const std::set<std:
                 }
                 continue;
             }
-            if (group.start() < from - kEpsilon || group.end() > to + kEpsilon)
+            if (group.end() <= from + kEpsilon)
                 continue;
+            takes = takes || group.stack != nullptr;
+            piece.cutAtEdges =
+                piece.cutAtEdges || group.start() < from - kEpsilon || group.end() > to + kEpsilon;
+            // Crossing the end, what's left of it starts there: a bounce in place stops at it too.
+            if (mode == BounceMode::InPlace && group.end() > to + kEpsilon && piece.limit == kInfinity)
+            {
+                piece.limit = to;
+                piece.limitName = group.parts.back()->name;
+            }
             for (const auto* c : group.parts)
             {
-                refused = refused || bounceRefusal(track, *c, mode) != BounceRefusal::None;
-                midi = midi || c->kind == ClipInfo::Kind::Midi;
+                if (const auto r = bounceRefusal(track, *c, mode);
+                    r != BounceRefusal::None && refused.empty())
+                    refused = refusalText(r);
+                (c->kind == ClipInfo::Kind::Midi ? midi : audio) = true;
                 piece.parts.push_back(c->id);
                 first = first != nullptr ? first : c;
             }
         }
-        if (first == nullptr || refused)
+        if (first == nullptr)
             continue;
+        if (!refused.empty())
+        {
+            refuse(refused);
+            continue;
+        }
+        if (mode == BounceMode::InPlace && takes)
+        {
+            refuse("A clip with takes is in the selection: bounce it as a clip, or to a new track");
+            continue;
+        }
+        if (mode == BounceMode::InPlace && midi && audio)
+        {
+            refuse("Its MIDI and audio clips can't be bounced in place together: bounce to a new track");
+            continue;
+        }
         piece.name = first->name;
         piece.colour = first->colour;
         const auto kind = midi ? ClipInfo::Kind::Midi : ClipInfo::Kind::Audio;
@@ -193,6 +225,8 @@ std::vector<BounceRun> stretchRuns(const Snapshot& snapshot, const std::set<std:
                        .start = from,
                        .renderEnd = to + tailAllowance(kind, mode)});
     }
+    if (out.empty())
+        refuse("No clip in the selection to bounce");
     return out;
 }
 

@@ -445,14 +445,24 @@ bool Session::isExporting() const
     return impl_->exporting != nullptr;
 }
 
-std::string Session::exportRefusal(const model::ExportSettings& settings, const std::vector<std::uint64_t>& tracks)
+namespace
+{
+std::optional<std::pair<double, double>> spanOf(std::optional<model::TimeSpan> span)
+{
+    return span ? std::optional(std::pair{span->start, span->end}) : std::nullopt;
+}
+} // namespace
+
+std::string Session::exportRefusal(const model::ExportSettings& settings,
+                                   const std::vector<std::uint64_t>& tracks,
+                                   std::optional<model::TimeSpan> selection)
 {
     if (impl_->exporting)
         return "An export is running: wait for it, or cancel it.";
     std::string why;
     const auto [loopStart, loopEnd] = loopRange();
     const auto loop = loopEnd > loopStart ? std::optional(std::pair{loopStart, loopEnd}) : std::nullopt;
-    if (!model::exportSpan(*snapshot(), settings.range, loop, &why))
+    if (!model::exportSpan(*snapshot(), settings.range, loop, spanOf(selection), &why))
         return why;
     if (settings.what == model::ExportWhat::SelectedTracks)
     {
@@ -466,22 +476,24 @@ std::string Session::exportRefusal(const model::ExportSettings& settings, const 
     return {};
 }
 
-std::shared_ptr<Session::RenderJob> Session::exportAudio(const model::ExportSettings& asked, const std::vector<std::uint64_t>& tracks,
-                                                         std::function<void(const ExportResult&)> done)
+std::shared_ptr<Session::RenderJob> Session::exportAudio(const model::ExportSettings& asked,
+                                                         const std::vector<std::uint64_t>& tracks,
+                                                         std::function<void(const ExportResult&)> done,
+                                                         std::optional<model::TimeSpan> selection)
 {
     updateSnapshotNow();
-    if (!exportRefusal(asked, tracks).empty())
+    if (!exportRefusal(asked, tracks, selection).empty())
         return nullptr;
     auto& impl = *impl_;
     auto job = std::make_shared<Impl::Export>(impl);
     job->settings = model::validated(asked);
     const auto [loopStart, loopEnd] = loopRange();
     const auto loop = loopEnd > loopStart ? std::optional(std::pair{loopStart, loopEnd}) : std::nullopt;
-    job->span = *model::exportSpan(*snapshot(), job->settings.range, loop);
+    job->span = *model::exportSpan(*snapshot(), job->settings.range, loop, spanOf(selection));
     job->rate = job->settings.sampleRate > 0.0 ? job->settings.sampleRate : sampleRate();
     job->folder = exportFolder(job->settings);
     job->base = job->settings.name.empty() ? projectName() : job->settings.name;
-    if (job->settings.range == model::ExportRange::Loop)
+    if (job->settings.range != model::ExportRange::Song)
         job->bars = model::loopBars(snapshot()->tempo, job->span.start, job->span.end);
     using K = Target::Kind;
     const auto& s = *snapshot();

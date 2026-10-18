@@ -45,6 +45,10 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         const auto& sel = arrangement_.selection();
         if (sel.channel)
             out.push_back(*sel.channel);
+        // A time selection's tracks (time-selection.md §13), in the arrangement's order.
+        for (const auto& t : session_.snapshot()->tracks)
+            if (sel.rowTracks.contains(t.id) && std::find(out.begin(), out.end(), t.id) == out.end())
+                out.push_back(t.id);
         for (const auto id : sel.clips)
             if (const auto found = model::findClip(*session_.snapshot(), id))
             {
@@ -54,6 +58,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             }
         return out;
     };
+    exportPanel_.selectedTime = [this] { return arrangement_.selection().time; };
     exportPanel_.onMessage = [this](const juce::String& m) { showWarning(m); };
     // Show in browser (export.md §17.3): the project's Exports, the file selected, to drag in.
     exportPanel_.onShowInBrowser = [this](const juce::File& file)
@@ -2786,6 +2791,23 @@ void Shell::selectionChanged()
                     detailChannel = *c;
     detail_.setSelection(detailChannel);
     detail_.setClip(context.clip, snapshot->tempo); // either kind: the piano roll or the audio clip view
+    // A time selection inside one clip: the same stretch selected in the clip view, once as it's
+    // made or changed; after that the two are separate (time-selection.md §14.3).
+    if (context.subject == model::Subject::Time && context.clip && context.time)
+    {
+        if (const auto linked = std::pair{context.clip->id, *context.time}; linked != linkedTime_)
+        {
+            linkedTime_ = linked;
+            const double start = model::clipViewTime(*context.clip, context.time->start);
+            const model::TimeSpan span{start, start + context.time->length()};
+            if (context.clip->kind == model::ClipInfo::Kind::Midi)
+                detail_.pianoRoll().showTimeSelection(span);
+            else
+                detail_.audioClipView().setRange(std::pair{span.start, span.end});
+        }
+    }
+    else
+        linkedTime_.reset();
 
     // The detail panel follows the subject: a MIDI clip opens the clip view, anything else the
     // modules; Tab switches until the subject changes.

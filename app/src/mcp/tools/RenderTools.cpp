@@ -212,18 +212,33 @@ void addRenderTools(Registry& registry, ToolEnv& env)
     bounce.title = "Bounce clips to audio";
     bounce.description =
         "Renders clips to audio offline (playback goes on) and lands them as one undo step. In place (the "
-        "default): a MIDI clip through its track's modules up to and including its instrument, an audio clip as "
-        "it plays; the modules after it, the mixer and sends keep running on the bounce, so the track sounds the "
+        "default): a MIDI clip through its track's modules up to and including its instrument, an audio clip "
+        "as "
+        "it plays; the modules after it, the mixer and sends keep running on the bounce, so the track sounds "
+        "the "
         "same. The clip keeps its source as a take, \"Before bounce\" (use_take brings the MIDI back). With "
-        "\"newTrack\": the clips through the track's whole chain before the fader, onto a new track right after "
-        "it that copies its volume, pan, sends and the lanes driving them; the source clips are muted. A bounce "
-        "runs past its clip until its tail is silent (10 s at most), never past the next clip. Refused for a MIDI "
-        "clip on a track without an instrument, a muted clip, and (in place) a MIDI clip after audio modules on "
-        "its track. render the track before and after: the measurements match (an instrument's own randomness, such "
-        "as drift, moves them by a hair).";
-    bounce.inputSchema = object({{"clips", ids(IdKind::Clip, "The clips (a clip with takes is bounced whole)")},
-                                 {"newTrack", boolean("Onto a new track, through the whole chain (default false: in place)")}},
-                                {"clips"});
+        "\"newTrack\": the clips through the track's whole chain before the fader, onto a new track right "
+        "after "
+        "it that copies its volume, pan, sends and the lanes driving them; the source clips are muted. A "
+        "bounce "
+        "runs past its clip until its tail is silent (10 s at most), never past the next clip. Refused for a "
+        "MIDI "
+        "clip on a track without an instrument, a muted clip, and (in place) a MIDI clip after audio modules "
+        "on "
+        "its track. render the track before and after: the measurements match (an instrument's own "
+        "randomness, such "
+        "as drift, moves them by a hair). A stretch of time instead (time-selection.md §13): `from`, `to` "
+        "and "
+        "`tracks`, and on each track what plays there becomes one clip spanning it, gaps and all; clips "
+        "crossing its edges are cut there. In place, the parts it replaces become its \"Before bounce\" "
+        "take; "
+        "refused there for a clip with takes, or MIDI and audio clips together.";
+    bounce.inputSchema = object(
+        {{"clips", ids(IdKind::Clip, "The clips (a clip with takes is bounced whole)")},
+         {"from", position("A stretch's start (with `to` and `tracks`, instead of `clips`).")},
+         {"to", position("Its end.")},
+         {"tracks", ids(IdKind::Track, "The stretch's tracks")},
+         {"newTrack", boolean("Onto a new track, through the whole chain (default false: in place)")}});
     bounce.outputSchema = result({{"clips", arrayOf(clipResultSchema(), "The bounced clips", std::nullopt)},
                                   {"tracks", arrayOf(string("A new track's id"), "The new tracks (newTrack)", std::nullopt)},
                                   {"cutTails", arrayOf(result({{"clip", string("")}, {"next", string("")}}),
@@ -243,22 +258,45 @@ void addRenderTools(Registry& registry, ToolEnv& env)
             try
             {
                 env.session.flushSnapshot();
-                std::vector<std::uint64_t> clips;
-                for (const auto& value : args["clips"])
-                    clips.push_back(clip(env, value).id);
                 const auto mode = args.value("newTrack", false) ? model::BounceMode::NewTrack : model::BounceMode::InPlace;
-                if (const auto why = env.session.bounceRefusal(clips, mode); !why.empty())
-                    throw Problem{why};
-                job = env.session.bounce(
-                    clips, mode,
-                    [landed](const engine::Session::BounceResult& r) {
-                        {
-                            std::lock_guard lock(landed->mutex);
-                            landed->result = r;
-                        }
-                        landed->changed.notify_all();
-                    },
-                    "Assistant: bounce clips"); // one call, one step (ADR 0021), though it lands later
+                const auto onLanded = [landed](const engine::Session::BounceResult& r)
+                {
+                    {
+                        std::lock_guard lock(landed->mutex);
+                        landed->result = r;
+                    }
+                    landed->changed.notify_all();
+                };
+                const bool stretch = args.contains("from") || args.contains("to") || args.contains("tracks");
+                if (stretch == args.contains("clips"))
+                    throw Problem{"Give `clips`, or a stretch: `from`, `to` and `tracks`."};
+                if (stretch)
+                {
+                    if (!args.contains("from") || !args.contains("to") || !args.contains("tracks"))
+                        throw Problem{"A stretch takes `from`, `to` and `tracks`."};
+                    const double from = seconds(env, positionArg(env, args["from"])),
+                                 to = seconds(env, positionArg(env, args["to"]));
+                    if (!(to > from))
+                        throw Problem{"\"to\" comes after \"from\"."};
+                    std::vector<std::uint64_t> tracks;
+                    for (const auto& value : args["tracks"])
+                        tracks.push_back(track(env, value).id);
+                    if (const auto why = env.session.stretchBounceRefusal(tracks, from, to, mode);
+                        !why.empty())
+                        throw Problem{why};
+                    job = env.session.bounceStretch(tracks, from, to, mode, onLanded,
+                                                    "Assistant: bounce clips");
+                }
+                else
+                {
+                    std::vector<std::uint64_t> clips;
+                    for (const auto& value : args["clips"])
+                        clips.push_back(clip(env, value).id);
+                    if (const auto why = env.session.bounceRefusal(clips, mode); !why.empty())
+                        throw Problem{why};
+                    // One call, one step (ADR 0021), though it lands later.
+                    job = env.session.bounce(clips, mode, onLanded, "Assistant: bounce clips");
+                }
                 if (job == nullptr)
                     throw Problem{"There's nothing to bounce."};
             }
@@ -317,8 +355,8 @@ void addRenderTools(Registry& registry, ToolEnv& env)
     exporting.title = "Export audio files";
     exporting.description =
         "Exports the mix, or tracks as stems, of the song (bar 1 to the last clip, then the tail until "
-        "silent) or "
-        "the loop, as WAV, FLAC, AIFF, MP3, Ogg Vorbis or Opus, offline (playback goes on), and waits for "
+        "silent), the loop or a stretch of time, as WAV, FLAC, AIFF, MP3, Ogg Vorbis or Opus, offline "
+        "(playback goes on), and waits for "
         "the "
         "files; alsoAs writes a second format of each from the same render (a master and an MP3). Stems are "
         "each track "
@@ -341,9 +379,13 @@ void addRenderTools(Registry& registry, ToolEnv& env)
          {"tracks", ids(IdKind::Track, "The tracks or return tracks as stems (default: all of them)")},
          {"throughReturns", boolean("Stems through the returns and master")},
          {"range",
-          {{"type", "string"},
-           {"enum", Json::array({"song", "loop"})},
-           {"description", "The song, or the loop"}}},
+          {{"oneOf",
+            Json::array({{{"type", "string"}, {"enum", Json::array({"song", "loop"})}},
+                         object({{"from", position("Where it starts")}, {"to", position("Where it ends")}},
+                                {"from", "to"})})},
+           {"description",
+            "The song (to its last clip, then its tail), the loop, or a stretch {from, to}; the "
+            "loop and a stretch are exact, with no tail"}}},
          {"format",
           {{"type", "string"},
            {"enum", Json::array({"wav", "flac", "aiff", "mp3", "ogg", "opus"})},
@@ -396,7 +438,21 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                         tracks.push_back(channel(env, value).id);
                 }
                 s.throughReturns = args.value("throughReturns", s.throughReturns);
-                if (args.contains("range"))
+                // A stretch (time-selection.md §18); the panel's remembered selection is the song's,
+                // as assistants never see the selection.
+                std::optional<model::TimeSpan> stretch;
+                if (s.range == model::ExportRange::Selection)
+                    s.range = model::ExportRange::Song;
+                if (args.contains("range") && args["range"].is_object())
+                {
+                    const auto& r = args["range"];
+                    stretch = model::TimeSpan{seconds(env, positionArg(env, r["from"])),
+                                              seconds(env, positionArg(env, r["to"]))};
+                    if (!(stretch->end > stretch->start))
+                        throw Problem{"The range's \"to\" comes after its \"from\"."};
+                    s.range = model::ExportRange::Selection;
+                }
+                else if (args.contains("range"))
                     s.range = args["range"] == "loop" ? model::ExportRange::Loop : model::ExportRange::Song;
                 const auto formatOf = [](const Json& name)
                 {
@@ -455,15 +511,19 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                 s.name = args.value("name", s.name);
                 if (s.name.find_first_of("/\\") != std::string::npos)
                     throw Problem{"A name, not a path: files go where the project's export settings say."};
-                if (const auto why = env.session.exportRefusal(s, tracks); !why.empty())
+                if (const auto why = env.session.exportRefusal(s, tracks, stretch); !why.empty())
                     throw Problem{why};
-                job = env.session.exportAudio(s, tracks, [done](const engine::Session::ExportResult& r) {
+                job = env.session.exportAudio(
+                    s, tracks,
+                    [done](const engine::Session::ExportResult& r)
                     {
-                        std::lock_guard lock(done->mutex);
-                        done->result = r;
-                    }
-                    done->changed.notify_all();
-                });
+                        {
+                            std::lock_guard lock(done->mutex);
+                            done->result = r;
+                        }
+                        done->changed.notify_all();
+                    },
+                    stretch);
                 if (job == nullptr)
                     throw Problem{"There's nothing to export."};
             }

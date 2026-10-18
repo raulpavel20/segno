@@ -1,6 +1,8 @@
 #pragma once
 
 #include "model/Automation.h"
+#include "model/NoteEditing.h"
+#include "model/Sections.h"
 #include "model/Selection.h"
 #include "model/Snapshot.h"
 
@@ -81,4 +83,35 @@ struct StretchFades
 /// from the stretch's start; one across a join of two audio clips crossfades them over the
 /// stretch. A clip wholly inside, a MIDI clip, or a stretch inside a clip changes nothing.
 [[nodiscard]] StretchFades stretchFades(const std::vector<ClipInfo>& clips, TimeSpan span);
+
+// ---- time inside a MIDI clip (§14.1) ---------------------------------------------------------
+// Times in beats from the clip's content start, as its notes' and controller points'.
+
+/// The commands on a stretch [a, b) inside a clip: the Song menu's, inside the clip.
+enum class ClipTimeCommand
+{
+    Insert,    // empty time as long as the stretch at its start
+    Delete,    // the stretch taken out, what's after it moving earlier
+    Duplicate, // a copy of it right after it, what's after it moving later
+};
+/// The plan (Sections.h) a command carries out.
+[[nodiscard]] Plan clipTimePlan(ClipTimeCommand command, double a, double b);
+
+/// A plan carried out on a clip's notes: notes crossing its cuts are cut there and each piece goes
+/// with its stretch (twice for a copy, not at all when it's gone); the pieces of one note that meet
+/// again are one note again, so a note held across deleted time is shortened. The copies are
+/// selected.
+[[nodiscard]] NoteEdit planNotes(const std::vector<Note>& notes, const Plan& plan);
+/// ... and on its controller lanes' points, as on a song's automation lanes (applyPlan): the curve
+/// keeps its values, inserted time holding the value where it went in.
+[[nodiscard]] std::vector<ControllerLane> planControllers(const std::vector<ControllerLane>& lanes,
+                                                          const Plan& plan);
+/// Where a clip's edge (its end, or its loop's start or end) at `t` goes: with the time it's in,
+/// a duplicate's copy inside what an end edge bounds when the stretch starts before it.
+[[nodiscard]] double clipTimeEdge(ClipTimeCommand command, double a, double b, double t, bool isEnd);
+
+/// The notes crossing `a` or `b` cut there (Ctrl+E on a stretch): the selected ones, or every one
+/// with none selected. The pieces inside the stretch of the selected notes stay selected.
+[[nodiscard]] NoteEdit splitNotesAt(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                                    double a, double b);
 } // namespace fd::model

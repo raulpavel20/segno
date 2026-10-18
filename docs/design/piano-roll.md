@@ -97,6 +97,7 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 ## 5. Selection, as before and more
 
 - Click, Shift/Ctrl+click and box selection, as now. **Clicking a chord in the chord lane selects its notes**, so every command applies to a chord at once.
+- **A box's stretch is the clip view's time selection** ([time-selection.md](time-selection.md) §14.1, 2026-10-18), on the grid (Alt: free). A click on an empty spot or on a note, or Select all, clears it. With one, Ctrl+D copies the selected notes (else those starting in it) right after it and moves it along; Ctrl+E cuts the notes crossing its edges; Notes ▸ Time inserts, deletes or duplicates time inside the clip (the Song menu's keys), crops the clip to it or loops it; the Transform and Generate tools take it as their span.
 - **Select ▸** in the Notes menu: same pitch, outside the key, in the loop, invert selection. Edit ▸ Select all (Ctrl+A) selects every note, as now.
 - Commands act on the selected notes, or on all of them when none are selected, as Quantise does today.
 
@@ -511,7 +512,7 @@ Built as §10 and §11 say. What building settled:
 **Controllers:**
 - **A lane is points,** as an automation lane's, in beats from the clip's content start. It plays as MIDI events: each point's own, and between two points that aren't a step, a ramp with an event wherever the MIDI value changes, at most every 64th of a beat. The lane's points are marked on their events (`fdPoint`, `fdCurve`) and the ramps too (`fdRamp`). Reading back drops the ramps, so a lane reads as it was drawn. **Recorded controllers** (unmarked) are points that hold.
 - **Ranges:** CC and aftertouch 0–127; pitch bend in 16 384ths, so its rest (8 192) is exactly the middle and its top exactly the top. The pedals (CC 64–69) are on or off: steps of two values.
-- **The gestures are the automation lanes' own,** one shared piece (`LaneGesture`) used by the arrangement and the clip view: double-click adds or deletes, drag moves (Shift fine, Alt free), Alt bends, Ctrl+drag draws, an empty spot box-selects. Delete deletes the selected points when the lane was used last. An edit kept builds on the last one until the snapshot has it.
+- **The gestures are the automation lanes' own,** one shared piece (`LaneGesture`) used by the arrangement and the clip view: double-click adds or deletes, drag moves (Shift fine, Alt free), Alt bends, Ctrl+drag draws, an empty spot box-selects. In the clip view, a drag from an empty spot selects time and the lane's points in it, as in the arrangement's lanes; Shift+drag still box-selects ([time-selection.md](time-selection.md) §14.1). Delete deletes the selected points when the lane was used last. An edit kept builds on the last one until the snapshot has it.
 - **Drawn** by the automation lanes' painter in the clip's colour. An empty lane shows its resting value dashed, and the hint gives way where the two would cross (pitch bend rests in the middle).
 
 **The bottom lane:**

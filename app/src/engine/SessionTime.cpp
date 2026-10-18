@@ -75,6 +75,15 @@ double Session::StretchClipboard::length() const noexcept
     return data_ == nullptr ? 0.0 : data_->length;
 }
 
+model::StretchFades Session::fadesOf(const std::vector<model::ClipInfo>& clips,
+                                     const model::TimeSpan& span) const
+{
+    // Fade to selection's plan, without crossfades where two halves of one clip play on seamlessly.
+    auto fades = model::stretchFades(clips, span);
+    std::erase_if(fades.crossfades, [this](const auto& x) { return seamlessJoin(x.out); });
+    return fades;
+}
+
 std::string Session::stretchRefusal(const model::TimeSelection& stretch, StretchCommand command)
 {
     using C = StretchCommand;
@@ -119,7 +128,7 @@ std::string Session::stretchRefusal(const model::TimeSelection& stretch, Stretch
                    : "No audio clip in the selection";
     case C::Fade:
         return std::any_of(tracks.begin(), tracks.end(),
-                           [&](const auto* t) { return !model::stretchFades(t->clips, span).empty(); })
+                           [&](const auto* t) { return !fadesOf(t->clips, span).empty(); })
                    ? std::string()
                    : "Put the selection over a clip's start or end, or across two audio clips that meet";
     case C::NewMidiClip:
@@ -247,7 +256,7 @@ Session::StretchResult Session::editStretch(const model::TimeSelection& stretch,
         {
             if (!stretch.tracks.contains(track.id))
                 continue;
-            const auto fades = model::stretchFades(track.clips, span);
+            const auto fades = fadesOf(track.clips, span);
             for (const auto& f : fades.fadeIns)
                 setFades({f.clip}, model::Fade{f.length}, std::nullopt);
             for (const auto& f : fades.fadeOuts)
@@ -466,5 +475,62 @@ Session::StretchResult Session::moveStretch(const model::TimeSelection& stretch,
     result.changed = true;
     result.span = {at, at + length};
     return result;
+}
+
+bool Session::editClipTime(std::uint64_t clipId, model::ClipTimeCommand command, double start, double end)
+{
+    updateSnapshotNow();
+    const auto snap = snapshot();
+    const auto found = model::findClip(*snap, clipId);
+    if (!found || found->first->kind != model::ClipInfo::Kind::Midi)
+        return false;
+    const auto& clip = *found->first;
+    const auto& tempo = snap->tempo;
+    // The clip view's seconds as its notes' beats, and its content's seconds as beats and back.
+    const double origin = model::clipViewOrigin(clip);
+    const double a = std::max(0.0, tempo.beatsForSeconds(start - origin)),
+                 b = tempo.beatsForSeconds(end - origin);
+    if (!(b - a > kEpsilon))
+        return false;
+    const auto plan = model::clipTimePlan(command, a, b);
+    const auto notes = model::planNotes(clip.notes, plan).notes;
+    const auto controllers = model::planControllers(clip.controllers, plan);
+    const auto edge = [&](double contentSeconds, bool isEnd)
+    {
+        return tempo.secondsForBeats(
+            model::clipTimeEdge(command, a, b, tempo.beatsForSeconds(contentSeconds), isEnd));
+    };
+    std::optional<model::ClipLoop> loop;
+    std::optional<double> length;
+    if (clip.loop.on())
+    {
+        const double loopStart = edge(clip.loop.start, false), loopEnd = edge(clip.loop.end(), true);
+        if (std::abs(loopStart - clip.loop.start) > kEpsilon ||
+            std::abs(loopEnd - clip.loop.end()) > kEpsilon)
+            loop = model::ClipLoop{loopStart, loopEnd - loopStart};
+    }
+    else if (const double to = edge(clip.offset + clip.length, true) - clip.offset;
+             std::abs(to - clip.length) > kEpsilon)
+        length = std::max(model::minClipLength, to);
+    if (notes == clip.notes && controllers == clip.controllers && !loop && !length)
+        return false;
+
+    const char* name = command == model::ClipTimeCommand::Insert   ? "Insert time"
+                       : command == model::ClipTimeCommand::Delete ? "Delete time"
+                                                                   : "Duplicate time";
+    const EditGroup group(*this, name);
+    if (length)
+        applyClipEdits({{.clip = clipId,
+                         .track = snap->tracks[static_cast<size_t>(found->second)].id,
+                         .start = clip.start,
+                         .length = *length,
+                         .offset = clip.offset}},
+                       name);
+    if (loop && loop->length > model::minClipLength)
+        setClipLoop(clipId, *loop, name);
+    setNotes(clipId, notes);
+    if (controllers != clip.controllers)
+        setControllers(clipId, controllers, name);
+    return true;
 }
 } // namespace fd::engine

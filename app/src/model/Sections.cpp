@@ -284,6 +284,59 @@ std::vector<double> cutPoints(const Plan& plan)
     return times;
 }
 
+namespace
+{
+/// Where each of a (merged) plan's stretches lands.
+std::vector<double> landsOf(const Plan& plan)
+{
+    std::vector<double> lands;
+    double at = 0.0;
+    for (const auto& s : plan)
+    {
+        lands.push_back(at);
+        at += s.length();
+    }
+    return lands;
+}
+} // namespace
+
+PlanLandings landingsOf(const Plan& asked, double t)
+{
+    const auto plan = merged(asked);
+    const auto lands = landsOf(plan);
+    PlanLandings out;
+    for (size_t k = 0; k < plan.size(); ++k)
+        if (!plan[k].empty() && inside(t, plan[k]))
+        {
+            const double to = lands[k] + (t - plan[k].from);
+            if (plan[k].copy)
+                out.copies.push_back(to);
+            else
+                out.itself = to;
+        }
+    return out;
+}
+
+double planEdge(const Plan& asked, double t, bool isEnd)
+{
+    const auto plan = merged(asked);
+    const auto lands = landsOf(plan);
+    for (size_t k = 0; k < plan.size(); ++k)
+    {
+        const auto& st = plan[k];
+        if (st.empty() || st.copy)
+            continue;
+        const bool in = isEnd ? (t > st.from + kEpsilon && t <= st.to + kEpsilon) : inside(t, st);
+        if (in)
+            return lands[k] + (t - st.from);
+    }
+    double closed = 0.0;
+    for (size_t k = 0; k < plan.size(); ++k)
+        if (!plan[k].empty() && !plan[k].copy && plan[k].to <= t + kEpsilon)
+            closed = std::max(closed, lands[k] + plan[k].length());
+    return closed;
+}
+
 PlanResult applyPlan(const SongContent& content, const Plan& asked,
                      const std::optional<SectionInfo>& newSection, const SongPiece* piece)
 {
@@ -295,38 +348,12 @@ PlanResult applyPlan(const SongContent& content, const Plan& asked,
         return result;
     }
     // Where each stretch lands.
-    std::vector<double> lands;
-    double at = 0.0;
-    for (const auto& s : plan)
-    {
-        lands.push_back(at);
-        at += s.length();
-    }
-    // Where something that was at `t` lands: first as itself (none if it's gone), then each copy.
-    struct Landings
-    {
-        std::optional<double> itself;
-        std::vector<double> copies;
-    };
-    const auto landings = [&](double t)
-    {
-        Landings out;
-        for (size_t k = 0; k < plan.size(); ++k)
-            if (!plan[k].empty() && inside(t, plan[k]))
-            {
-                const double to = lands[k] + (t - plan[k].from);
-                if (plan[k].copy)
-                    out.copies.push_back(to);
-                else
-                    out.itself = to;
-            }
-        return out;
-    };
+    const auto lands = landsOf(plan);
 
     // Clips.
     for (const auto& c : content.clips)
     {
-        const auto to = landings(c.start);
+        const auto to = landingsOf(plan, c.start);
         if (!to.itself)
             result.deletes.push_back(c.id);
         else if (std::abs(*to.itself - c.start) > kEpsilon)
@@ -418,28 +445,11 @@ PlanResult applyPlan(const SongContent& content, const Plan& asked,
     // in, its end with the stretch just before it, so time taken out of it shortens it and time put
     // into it lengthens it; a time that's gone lands where its gap closed. For the sections' own
     // commands, whose cuts are at section edges, this moves each section whole.
-    const auto edge = [&](double t, bool isEnd)
-    {
-        for (size_t k = 0; k < plan.size(); ++k)
-        {
-            const auto& st = plan[k];
-            if (st.empty() || st.copy)
-                continue;
-            const bool in = isEnd ? (t > st.from + kEpsilon && t <= st.to + kEpsilon) : inside(t, st);
-            if (in)
-                return lands[k] + (t - st.from);
-        }
-        double closed = 0.0;
-        for (size_t k = 0; k < plan.size(); ++k)
-            if (!plan[k].empty() && !plan[k].copy && plan[k].to <= t + kEpsilon)
-                closed = std::max(closed, lands[k] + plan[k].length());
-        return closed;
-    };
     for (const auto& s : content.sections)
     {
         auto placed = s;
-        placed.start = edge(s.start, false);
-        placed.end = edge(s.end, true);
+        placed.start = planEdge(plan, s.start, false);
+        placed.end = planEdge(plan, s.end, true);
         if (placed.end - placed.start > kEpsilon)
             result.sections.push_back(placed);
         // Copies of the sections wholly inside a copied stretch.

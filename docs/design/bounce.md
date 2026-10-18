@@ -41,7 +41,9 @@ Segno offers both families, as two commands without a dialog. Its tracks are hyb
 | **The source** | Kept as a take of the new clip (§4) | Muted in place (clip mute, §6) |
 | **Sounds** | The same: the track nulls against itself before the bounce | The same while the source stays muted: the mix nulls |
 
-Both work on the selected clips, on one track or several. A clip with takes counts as one clip (ADR 0032). Time ranges across clips and gaps come with range selection (later, ADR 0028); until then, select the clips.
+Both work on the selected clips, on one track or several. A clip with takes counts as one clip (ADR 0032).
+
+**A time selection** ([time-selection.md](time-selection.md) §13, 2026-10-18) bounces each selected track's stretch instead: what plays there, gaps and all, becomes one clip spanning it. Clips crossing its edges are cut there as the bounce lands, in the same undo step. In place, the parts it replaces become its "Before bounce" take, and the bounce stops where the rest of a crossing clip starts. Refused in place for a clip with takes (its takes would need a take of their own) and for MIDI and audio clips together (the audio would pass through the instrument); to a new track both are fine.
 
 ## 3. What a bounce renders
 
@@ -126,7 +128,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021).
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `bounce_clips` | `clips`, `newTrack?` (false) | Waits for the render. The new clips (id, track, start and length in beats, file), the new tracks if any, and any tails cut. One undo step, "Assistant: bounce clips". Refused, with the reason, for MIDI clips without an instrument or with audio modules before it, and for muted clips |
+| `bounce_clips` | `clips`, or a stretch: `from`, `to`, `tracks` (time-selection.md §18); `newTrack?` (false) | Waits for the render. The new clips (id, track, start and length in beats, file), the new tracks if any, and any tails cut. One undo step, "Assistant: bounce clips". Refused, with the reason, for MIDI clips without an instrument or with audio modules before it, and for muted clips |
 | `mute_clips` | `clips`, `muted?` (true) | The clips and their state. One undo step |
 
 Clip results gain `muted`, and `get_takes` lists bounce takes like any other. **Checking a bounce:** `render` the track before and after, and compare the measurements: they match, but for a hair of an instrument's randomness (§3). An assistant can bounce a part, check it, and report.

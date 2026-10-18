@@ -220,8 +220,13 @@ bool Session::setGainLine(std::uint64_t clipId, const model::AutomationPoints& l
 
 std::string Session::rangeRefusal(std::uint64_t clipId, double from, double to, RangeAction action) const
 {
-    auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
-    if (c == nullptr)
+    auto* c = impl_->clip(clipId);
+    // A MIDI clip's range is its clip view's time selection (time-selection.md §14.1): split,
+    // deleted, cropped or looped as an audio clip's is.
+    const bool cuts = action == RangeAction::Split || action == RangeAction::Delete ||
+                      action == RangeAction::Crop || action == RangeAction::Loop;
+    if (dynamic_cast<te::AudioClipBase*>(c) == nullptr &&
+        !(cuts && dynamic_cast<te::MidiClip*>(c) != nullptr))
         return "Not an audio clip.";
     const auto info = clipInfoOf(*c);
     if (!(to - from > kEdge) || from < info.start - kEdge || to > info.end() + kEdge)

@@ -873,9 +873,11 @@ public:
     std::shared_ptr<RenderJob> bounce(const std::vector<std::uint64_t>& clips, model::BounceMode mode,
                                       std::function<void(const BounceResult&)> done, const std::string& undoName = {});
     /// Bounces a stretch of time on `tracks` (docs/design/time-selection.md §13): on each, the
-    /// clips within [from, to] as one clip spanning it (and its tail), gaps and all; in place, they
-    /// become its "Before bounce" take together. Clips crossing an edge are the caller's to split
-    /// first. As bounce() otherwise.
+    /// clips in [from, to] as one clip spanning it (and its tail), gaps and all; in place, they
+    /// become its "Before bounce" take together. Clips crossing an edge are cut there as it lands,
+    /// in the same undo step. As bounce() otherwise; stretchBounceRefusal says why it can't.
+    [[nodiscard]] std::string stretchBounceRefusal(const std::vector<std::uint64_t>& tracks, double from,
+                                                   double to, model::BounceMode mode);
     std::shared_ptr<RenderJob> bounceStretch(const std::vector<std::uint64_t>& tracks, double from, double to,
                                              model::BounceMode mode,
                                              std::function<void(const BounceResult&)> done,
@@ -916,14 +918,19 @@ public:
         std::string error; // empty: done
         bool cancelled = false;
     };
-    /// Why an export can't run now (empty: it can): nothing to export, no loop, no tracks, a
-    /// folder that can't be made, or one already running. `tracks`: the stems for SelectedTracks.
-    [[nodiscard]] std::string exportRefusal(const model::ExportSettings& settings, const std::vector<std::uint64_t>& tracks);
+    /// Why an export can't run now (empty: it can): nothing to export, no loop, no selection, no
+    /// tracks, a folder that can't be made, or one already running. `tracks`: the stems for
+    /// SelectedTracks; `selection`: the stretch the Selection range exports (time-selection.md §13).
+    [[nodiscard]] std::string exportRefusal(const model::ExportSettings& settings,
+                                            const std::vector<std::uint64_t>& tracks,
+                                            std::optional<model::TimeSpan> selection = std::nullopt);
     /// Exports in the background (export.md §7): playback and editing go on, and the project as it
     /// was when it started is what's exported. A cancelled or failed export leaves no file. `done`
     /// runs on the message thread. Null, with `done` not called, when refused.
-    std::shared_ptr<RenderJob> exportAudio(const model::ExportSettings& settings, const std::vector<std::uint64_t>& tracks,
-                                           std::function<void(const ExportResult&)> done);
+    std::shared_ptr<RenderJob> exportAudio(const model::ExportSettings& settings,
+                                           const std::vector<std::uint64_t>& tracks,
+                                           std::function<void(const ExportResult&)> done,
+                                           std::optional<model::TimeSpan> selection = std::nullopt);
     [[nodiscard]] bool isExporting() const;
     /// Where exports go by default: `Exports/` in the project's folder (ADR 0030).
     [[nodiscard]] juce::File exportsFolder();
@@ -960,6 +967,9 @@ public:
     /// that starts there. One undo step named `undoName`. False if there's no such join or no spare
     /// audio for it.
     bool setCrossfade(std::uint64_t clip, std::optional<model::Crossfade> crossfade, const std::string& undoName = "Crossfade");
+    /// Whether an audio clip's end meets the next clip seamlessly (two halves of one split clip,
+    /// playing on from the same audio): such a join takes no crossfade (fades.md §4).
+    [[nodiscard]] bool seamlessJoin(std::uint64_t clip) const;
     /// The project's edge fades (fades.md §2). One undo step, "Edge fades".
     void setEdgeFades(bool on);
     [[nodiscard]] bool edgeFades() const;
@@ -994,7 +1004,9 @@ public:
     bool setGainLine(std::uint64_t clip, const model::AutomationPoints& line,
                      const std::string& undoName = "Gain line");
 
-    /// What the audio editor does to a range of a clip (§5), [from, to) on the timeline within it.
+    /// What the audio editor does to a range of a clip (§5), [from, to) on the timeline within it;
+    /// to a MIDI clip, the piano roll's time selection, Split, Delete, Crop and Loop do the same
+    /// (time-selection.md §14.1).
     enum class RangeAction
     {
         Split,   // at the range's edges: the range becomes a clip of its own
@@ -1509,6 +1521,12 @@ public:
     /// Pastes a piece of the song at `at` exactly, the music after it moving later ("Paste time").
     SectionPaste pasteTime(const SectionClipboard& clipboard, double at);
 
+    // Inside a MIDI clip (§14.1): the clip view's stretch, from `start` to `end` on its timeline
+    // (clip view time: a looped clip's first lap). The notes and controller points after it move,
+    // and the clip's end (a looped clip's loop) follows them. One undo step, "Insert time", "Delete
+    // time" or "Duplicate time"; false when nothing changes or it isn't a MIDI clip.
+    bool editClipTime(std::uint64_t clip, model::ClipTimeCommand command, double start, double end);
+
     // ---- the song's key (M3 P3, ADR 0057, docs/design/key-and-scale.md) ----------------------
 
     /// The song's key: one for the whole song, or none (std::nullopt). One undo step, "Set key to
@@ -1631,6 +1649,9 @@ private:
     /// Pastes a piece of the song (pasteSections, pasteTime) with its start at `landing`, the music
     /// after moving later. One undo step, `undoName`.
     SectionPaste pastePiece(const SectionClipboard& clipboard, double landing, const std::string& undoName);
+    /// Fade to selection's plan for a track's clips, leaving out seamless joins (time-selection.md §8).
+    [[nodiscard]] model::StretchFades fadesOf(const std::vector<model::ClipInfo>& clips,
+                                              const model::TimeSpan& span) const;
     /// Starts a bounce of `runs` (bounce(), bounceStretch()); null if there are none.
     std::shared_ptr<RenderJob> startBounce(std::vector<model::BounceRun> runs, model::BounceMode mode,
                                            std::function<void(const BounceResult&)> done,

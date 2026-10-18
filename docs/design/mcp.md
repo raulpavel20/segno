@@ -108,7 +108,7 @@ The project, track, clip and module resources send change notifications when the
 | `set_fades` | `clips`, `in?`, `out?` (ms or text: "10 ms", "0.5 s", "1/16"), `inBend?`, `outBend?` | The clips' fades ([fades.md](fades.md) §7) |
 | `crossfade` | `clips`, `length?` (10 ms), `shape?`, `placement?` ("before", "centred", "after"), `remove?` | Each join between them: its crossfade (with its placement), or why it couldn't be made or placed |
 | `set_edge_fades` | `on` | The project's edge fades on or off |
-| `bounce_clips` | `clips`, `newTrack?` (false) | Renders them to audio ([bounce.md](bounce.md) §11): in place, through each clip's instrument, keeping its source as a take; or to a new track through the whole chain, muting the source. Waits for the render (with progress); one undo step when it lands. The bounced clips, the new tracks, and any audible tails a clip that wasn't bounced cut |
+| `bounce_clips` | `clips`, or a stretch (`from`, `to`, `tracks`: time-selection.md §13), `newTrack?` (false) | Renders them to audio ([bounce.md](bounce.md) §11): in place, through each clip's instrument, keeping its source as a take; or to a new track through the whole chain, muting the source. Waits for the render (with progress); one undo step when it lands. The bounced clips, the new tracks, and any audible tails a clip that wasn't bounced cut |
 
 **Notes** (MIDI clips; every tool is one undo step; notes past the clip's end lengthen it as in the piano roll, B15):
 
@@ -235,7 +235,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Plugin scanning | `scan_plugins` |
 | Settings (M3 C1, ADR 0045) | `get_settings`, `set_settings` (never the assistants' own or the shortcuts) |
 | The browser (M3 C2, ADR 0046) | `search`, `browse`, `preview`, `collect_files`; loading through `add_module` (with `preset`), `insert_audio_file`, `insert_midi_file`, `load_sample` (a sample or a multisample) |
-| A stretch of time on some rows, and the whole song's time (M3 P10, ADR 0073) | `edit_range` (delete, duplicate, split, crop, mute, reverse, fade, new_midi_clip over `from` .. `to` on track and lane rows, or `["all"]`), `copy_range` (to `at`, `onto` a track, `move`), `edit_time` (insert, delete, duplicate, copy, song-wide with the sections' marks); assistants name the stretch, never the selection |
+| A stretch of time on some rows, and the whole song's time (M3 P10, ADR 0073) | `edit_range` (delete, duplicate, split, crop, mute, reverse, fade, new_midi_clip over `from` .. `to` on track and lane rows, or `["all"]`), `copy_range` (to `at`, `onto` a track, `move`), `edit_time` (insert, delete, duplicate, copy, song-wide with the sections' marks), `edit_clip_time` (insert, delete, duplicate, split inside a MIDI clip); `bounce_clips` gains `from`, `to`, `tracks`; `export_audio`'s `range` a stretch `{from, to}`. Assistants name the stretch, never the selection |
 | The song's sections (M3 C3, ADR 0049) | `list_sections`, `add_section`, `set_section`, `move_section`, `copy_section` (before or after a section, or `at` a point), `insert_section`, `delete_section` (section ids are `s:`); `get_project` lists the sections |
 | The song's key (M3 P3, ADR 0057) | `set_key`, `list_scales`, `detect_key`; `get_project` has the key (root, scale, name, notes; ASCII # and b) or null |
 | Projects, undo | Project tools |

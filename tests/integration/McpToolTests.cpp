@@ -2264,6 +2264,23 @@ TEST_CASE("mcp tools: bounce clips in place and to a new track, and mute clips",
     CHECK(daw.call("get_clip", {{"clip", bounced}})["muted"] == true); // the source, muted
     const auto project = daw.project();
     CHECK(project["tracks"][1]["id"] == out["tracks"][0]); // right after the source
+
+    // A stretch (time-selection.md §18): what plays in it on the track, one clip; a clip crossing its
+    // end cut there.
+    daw.call("create_midi_clip", {{"track", t0}, {"start", 16}, {"length", 4}, {"notes", notes}});
+    r = daw.callAway("bounce_clips", {{"from", 16}, {"to", 18}, {"tracks", {t0}}});
+    INFO(r.dump().substr(0, 2000));
+    REQUIRE(r["isError"] == false);
+    out = r["structuredContent"];
+    REQUIRE(out["clips"].size() == 1);
+    CHECK(out["clips"][0]["kind"] == "audio");
+    CHECK(out["clips"][0]["takes"] == 2);
+    CHECK(daw.session->undoDescription() == "Assistant: bounce clips");
+    CHECK(daw.fails("bounce_clips", {{"from", 40}, {"to", 42}, {"tracks", {t0}}}).find("No clip") !=
+          std::string::npos);
+    CHECK(daw.fails("bounce_clips", {{"clips", {bounced}}, {"from", 16}}).find("or a stretch") !=
+          std::string::npos);
+    CHECK(daw.fails("bounce_clips", {{"from", 16}, {"to", 18}}).find("tracks") != std::string::npos);
 }
 
 TEST_CASE("mcp tools: fades, crossfades and edge fades", "[integration][mcp]")
@@ -2378,6 +2395,17 @@ TEST_CASE("mcp tools: export audio with the project's settings, only where the u
     CHECK(r["content"][0]["text"].get<std::string>().find("loop") != std::string::npos);
     r = daw.callAway("export_audio", {{"format", "flac"}, {"bitDepth", 32}});
     REQUIRE(r["isError"] == true);
+    // A stretch (time-selection.md §18): exactly it, no tail, named for its bars; a backward one refused.
+    r = daw.callAway("export_audio", {{"name", "Stretch"}, {"range", {{"from", "1.3.1"}, {"to", "2.1.1"}}}});
+    INFO(r.dump().substr(0, 2000));
+    REQUIRE(r["isError"] == false);
+    files = r["structuredContent"]["files"];
+    REQUIRE(files.size() == 1);
+    CHECK(juce::String(files[0]["file"].get<std::string>()).endsWith("Stretch - Bars 1-2.wav"));
+    CHECK(files[0]["seconds"].get<double>() == Catch::Approx(1.0).margin(1e-3)); // two beats at 120 BPM
+    r = daw.callAway("export_audio", {{"range", {{"from", 4}, {"to", 2}}}});
+    REQUIRE(r["isError"] == true);
+    CHECK(r["content"][0]["text"].get<std::string>().find("after") != std::string::npos);
 
     // MP3 at 256 kbps and a WAV beside it, from one render (C7, export.md §17); measured decoded.
     r = daw.callAway("export_audio", {{"name", "Both"},
@@ -3457,7 +3485,7 @@ TEST_CASE("mcp tools: a stretch of time on some rows edited, copied and moved; t
     REQUIRE(s.createMidiClip(t1, 0.0, 8.0) != 0);
     const auto track0 = fd::mcp::formatId(fd::mcp::IdKind::Track, t0),
                track1 = fd::mcp::formatId(fd::mcp::IdKind::Track, t1);
-    auto starts = [&](int track)
+    auto starts = [&](std::size_t track)
     {
         std::vector<double> out;
         const auto project = daw.project();
@@ -3501,4 +3529,60 @@ TEST_CASE("mcp tools: a stretch of time on some rows edited, copied and moved; t
     daw.call("edit_time", {{"action", "copy"}, {"from", "1.1.1"}, {"to", "2.1.1"}, {"at", "5.1.1"}});
     CHECK(daw.fails("edit_time", {{"action", "insert"}, {"at", "1.1.1"}}).find("length") !=
           std::string::npos);
+}
+
+TEST_CASE(
+    "mcp tools: edit_clip_time puts time in, takes it out, duplicates it and splits at it inside a MIDI clip",
+    "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A bar from bar 2: C3 on its first beat, E3 over its last two.
+    const Json notes = Json::array(
+        {{{"pitch", "C3"}, {"start", 0}, {"length", 1}}, {{"pitch", "E3"}, {"start", 2}, {"length", 2}}});
+    const auto clip =
+        daw.call("create_midi_clip", {{"track", t0}, {"start", "2.1.1"}, {"notes", notes}})["clip"]["id"]
+            .get<std::string>();
+    const auto shape = [&]
+    {
+        const auto c = daw.call("get_clip", {{"clip", clip}});
+        std::vector<std::pair<double, double>> out;
+        for (const auto& n : c["notes"])
+            out.emplace_back(n["start"].get<double>(), n["length"].get<double>());
+        return std::pair{out, c["length"].get<double>()};
+    };
+    using Notes = std::vector<std::pair<double, double>>;
+
+    // A beat put in at its second beat: E3 a beat later, the clip a beat longer.
+    auto r = daw.call("edit_clip_time",
+                      {{"clip", clip}, {"action", "insert"}, {"from", "2.2.1"}, {"to", "2.3.1"}});
+    CHECK(r["clip"]["length"] == Catch::Approx(5.0));
+    CHECK(daw.session->undoDescription() == "Assistant: edit clip time");
+    CHECK(shape() == std::pair{Notes{{0.0, 1.0}, {3.0, 2.0}}, 5.0});
+    daw.call("undo");
+
+    // Its third beat taken out: E3 loses the half of it there, the clip a beat shorter.
+    daw.call("edit_clip_time", {{"clip", clip}, {"action", "delete"}, {"from", "2.3.1"}, {"to", "2.4.1"}});
+    CHECK(shape() == std::pair{Notes{{0.0, 1.0}, {2.0, 1.0}}, 3.0});
+    daw.call("undo");
+
+    // Its first beat duplicated: a copy of C3 right after it, E3 and the clip's end later.
+    daw.call("edit_clip_time", {{"clip", clip}, {"action", "duplicate"}, {"from", "2.1.1"}, {"to", "2.2.1"}});
+    CHECK(shape() == std::pair{Notes{{0.0, 1.0}, {1.0, 1.0}, {3.0, 2.0}}, 5.0});
+    daw.call("undo");
+
+    // Split: E3 cut at both edges.
+    daw.call("edit_clip_time", {{"clip", clip}, {"action", "split"}, {"from", "2.3.2"}, {"to", "2.4.1"}});
+    CHECK(shape() == std::pair{Notes{{0.0, 1.0}, {2.0, 0.25}, {2.25, 0.75}, {3.0, 1.0}}, 4.0});
+
+    // Refused, saying why: outside the clip, nothing to split, an unknown action.
+    CHECK(daw.fails("edit_clip_time",
+                    {{"clip", clip}, {"action", "insert"}, {"from", "1.1.1"}, {"to", "2.2.1"}})
+              .find("isn't inside") != std::string::npos);
+    CHECK(
+        daw.fails("edit_clip_time", {{"clip", clip}, {"action", "split"}, {"from", "2.2.1"}, {"to", "2.2.3"}})
+            .find("No note") != std::string::npos);
+    CHECK(daw.fails("edit_clip_time",
+                    {{"clip", clip}, {"action", "stretch"}, {"from", "2.1.1"}, {"to", "2.2.1"}})
+              .find("one of") != std::string::npos);
 }

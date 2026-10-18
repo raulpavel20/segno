@@ -155,6 +155,9 @@ public:
     /// it. None clears it.
     void setTimeSelection(std::optional<model::TimeSpan> span);
     [[nodiscard]] const std::optional<model::TimeSpan>& timeSelection() const noexcept { return timeSpan_; }
+    /// The arrangement's time selection inside this clip (§14.3): selected here too, scrolled into
+    /// view.
+    void showTimeSelection(model::TimeSpan span);
     /// The notes or the selection changed (the inspector's NOTES section follows).
     std::function<void()> onSelectionChanged;
     /// Counts changes of the notes and the selection: the Tools pane shows its tool again on them.
@@ -180,6 +183,8 @@ public:
     void join();
     /// Splits the notes crossing the playhead (Edit ▸ Split at playhead, §9.1).
     void splitAtPlayhead();
+    /// Splits the notes crossing the time selection's edges (Ctrl+E on it, time-selection.md §14.1).
+    void splitAtSelection();
     void legato();
     void fixedLength();
     /// Double speed (0.5), half speed (2): from the first note's start.
@@ -302,7 +307,8 @@ private:
         Brace,
         TimeHandle,
         ChordLane,
-        Controller // a controller lane's points (LaneGesture)
+        Controller, // a controller lane's points (LaneGesture)
+        LaneTime    // a drag from a controller lane's empty spot: time, and its points in it
     };
 
     /// Another track's note, in this clip's content beats (§8).
@@ -358,6 +364,8 @@ private:
     /// The bottom lane's head: what it shows, and a lock while the Chance view's clip keeps its roll.
     void updateLaneHead();
     [[nodiscard]] LaneGesture::Lane gestureLane() const;
+    /// A box's or a lane drag's stretch, from the press to `e`, on the grid; none inside a step.
+    [[nodiscard]] std::optional<model::TimeSpan> boxStretch(const juce::MouseEvent& e) const;
     [[nodiscard]] LaneGeometry laneGeometry() const;
     /// Keeps an edit of the controller lane (seconds) as one undo step.
     void keepLane(const model::PointEdit& edit, const std::string& undoName);

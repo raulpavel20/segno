@@ -34,6 +34,9 @@ public:
 
     /// The tracks "Selected tracks" exports: the shell's selection.
     std::function<std::vector<std::uint64_t>()> selectedTracks;
+    /// The stretch the Selection range exports: the arrangement's time selection, if any
+    /// (time-selection.md §13).
+    std::function<std::optional<model::TimeSpan>()> selectedTime;
     /// A refusal or failure to say (the shell's toast).
     std::function<void(const juce::String&)> onMessage;
     /// An export finished: its files and their reports (the shell's toast, with Show).

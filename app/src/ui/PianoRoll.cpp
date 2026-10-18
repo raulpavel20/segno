@@ -309,7 +309,9 @@ model::ToolContext PianoRoll::toolContext() const
                          .origin = clip_ ? clip_->contentStartBeat : 0.0,
                          .gridStep = gridStep(),
                          .drums = onPads()};
-    if (const auto span = model::notesSpan(notes_, selection_))
+    if (timeSpan_) // the time selection first (time-selection.md §14.1)
+        c.span = {beatForSeconds(timeSpan_->start), beatForSeconds(timeSpan_->end)};
+    else if (const auto span = model::notesSpan(notes_, selection_))
         c.span = *span;
     else
     {
@@ -819,6 +821,7 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
         lanePreview_.reset();
         laneKept_.reset();
         laneChoice_.setVisible(false);
+        timeSpan_.reset();
         repaint();
         return;
     }
@@ -858,6 +861,7 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
         needsFit_ = true;
         fitToClip();
         points_.clear(); // another clip's lanes
+        timeSpan_.reset();
     }
     // Its controller lane as the snapshot has it now (a gesture's preview until then).
     updateLanePoints();
@@ -1072,6 +1076,22 @@ void PianoRoll::deleteSelection()
 
 void PianoRoll::duplicateSelection()
 {
+    if (clip_ && timeSpan_)
+    {
+        // Right after the time selection, which moves along (time-selection.md §14.1): the
+        // selected notes, else those starting in it.
+        const auto span = *timeSpan_;
+        const double a = beatForSeconds(span.start), b = beatForSeconds(span.end);
+        auto which = selection_;
+        if (which.empty())
+            for (std::size_t i = 0; i < notes_.size(); ++i)
+                if (notes_[i].start >= a - 1e-9 && notes_[i].start < b - 1e-9)
+                    which.insert(i);
+        if (!which.empty())
+            commit(model::duplicateNotesBy(notes_, which, b - a));
+        setTimeSelection(model::TimeSpan{span.end, span.end + span.length()});
+        return;
+    }
     if (clip_ && !selection_.empty())
         commit(model::duplicateNotes(notes_, selection_, gridStep(), tempo_.beatsPerBar()));
 }
@@ -1109,6 +1129,7 @@ void PianoRoll::pasteNotes(const std::vector<model::Note>& notes, double seconds
 
 void PianoRoll::selectAll()
 {
+    setTimeSelection(std::nullopt); // the notes, not a box's stretch
     std::set<std::size_t> all;
     for (std::size_t i = 0; i < notes_.size(); ++i)
         all.insert(i);
@@ -1182,6 +1203,13 @@ void PianoRoll::splitAtPlayhead()
 {
     if (clip_ && !notes_.empty())
         commit(model::splitNotes(notes_, selection_, beatForSeconds(playhead_)));
+}
+
+void PianoRoll::splitAtSelection()
+{
+    if (clip_ && timeSpan_)
+        commit(model::splitNotesAt(notes_, selection_, beatForSeconds(timeSpan_->start),
+                                   beatForSeconds(timeSpan_->end)));
 }
 
 void PianoRoll::legato()
@@ -1421,6 +1449,32 @@ void PianoRoll::setTimeSelection(std::optional<model::TimeSpan> span)
     if (span == timeSpan_)
         return;
     timeSpan_ = span;
+    repaint();
+}
+
+std::optional<model::TimeSpan> PianoRoll::boxStretch(const juce::MouseEvent& e) const
+{
+    // The drag's span on the grid (Alt: free), as the clip view's time.
+    const auto grid = beatGrid(e.mods.isAltDown());
+    const double a = beatAtX(dragStart_.x), b = beatAtX(e.position.x);
+    const double from = std::max(0.0, grid.round(std::min(a, b))), to = grid.round(std::max(a, b));
+    if (!(to - from > 1e-9))
+        return std::nullopt;
+    return model::TimeSpan{secondsForBeat(from), secondsForBeat(to)};
+}
+
+void PianoRoll::showTimeSelection(model::TimeSpan span)
+{
+    setTimeSelection(span);
+    if (!clip_ || needsFit_ || (span.start >= timeline_.start() && span.end <= timeline_.end()))
+        return; // in view, or the clip's fit, still to come, shows it
+    // Scrolled to it at the zoom there is; zoomed out if it's wider than the view.
+    const double width = timeline_.end() - timeline_.start(), margin = span.length() * 0.03;
+    if (span.length() + 2.0 * margin > width)
+        timeline_.setView(std::max(0.0, span.start - margin),
+                          timeline_.width() / (span.length() + 2.0 * margin));
+    else
+        timeline_.setView(std::max(0.0, span.start - margin), timeline_.pixelsPerSecond());
     repaint();
 }
 
@@ -1716,6 +1770,9 @@ void PianoRoll::paintControllerLane(juce::Graphics& g)
                     .colour = t.clipColour(clip_->colour),
                     .current = model::restingValue(controller),
                     .hint = true};
+    // The time selection over it too: a drag here selects time and its points (time-selection.md §14.1).
+    if (timeSpan_)
+        time::paintTimeSelection(g, timeline_, velocityArea(), timeSpan_->start, timeSpan_->end);
     paintAutomationLane(g, laneGeometry(), paint, velocityArea());
     if (gesture_ == Gesture::Controller && laneGesture_.boxing() && moved_)
         time::paintBoxSelection(g, juce::Rectangle<float>(dragStart_, lastDrag_));
@@ -2303,8 +2360,19 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
     pointsUsed_ = false; // the notes, unless it's the controller lane
     if (velocityArea().contains(pos) && showsController())
     {
-        // A controller lane (§11): the automation lanes' gestures.
+        // A controller lane (§11): the automation lanes' gestures; from an empty spot, a drag
+        // selects time, and the lane's points in it (time-selection.md §14.1).
         pointsUsed_ = true;
+        if (const auto hover = LaneGesture::hover(gestureLane(), e.position);
+            e.getNumberOfClicks() == 1 && !hover.point && !hover.segment && !shift && !ctrl &&
+            !e.mods.isPopupMenu())
+        {
+            gesture_ = Gesture::LaneTime;
+            points_.clear();
+            setTimeSelection(std::nullopt);
+            repaint(velocityArea());
+            return;
+        }
         gesture_ = Gesture::Controller;
         const auto out = laneGesture_.press(e, gestureLane());
         if (out.steps && onMessage)
@@ -2405,6 +2473,7 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
     clickedInSelection_.reset();
     if (hit)
     {
+        setTimeSelection(std::nullopt); // a box's stretch: the notes chosen now are these
         auto selection = selection_;
         if (shift)
         {
@@ -2441,12 +2510,15 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
         previewOn(notes_[hit->index].pitch, notes_[hit->index].velocity);
         return;
     }
-    // Empty grid: box selection (Shift or Ctrl adds to the selection).
+    // Empty grid: box selection (Shift or Ctrl adds to the selection), its stretch the time
+    // selection (time-selection.md §14.1); a click clears both.
     gesture_ = Gesture::Box;
     const bool additive = shift || ctrl;
     boxBase_ = additive ? selection_ : std::set<std::size_t>{};
     if (!additive && !selection_.empty())
         setSelection({});
+    if (!additive)
+        setTimeSelection(std::nullopt);
 }
 
 void PianoRoll::mouseDrag(const juce::MouseEvent& e)
@@ -2531,8 +2603,17 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
         for (auto i : model::notesInBox(notes_, b0, geo.beatForX(local.x), p0, geo.pitchForY(local.y)))
             selection.insert(i);
         setSelection(std::move(selection));
+        setTimeSelection(boxStretch(e));
         break;
     }
+    case Gesture::LaneTime:
+        if (const auto span = boxStretch(e))
+        {
+            setTimeSelection(span);
+            points_ = model::pointsIn(lanePoints_, span->start, span->end);
+        }
+        repaint();
+        break;
     case Gesture::Velocity:
     {
         // Every note start the mouse passed over since the last event.
@@ -2605,6 +2686,12 @@ void PianoRoll::mouseUp(const juce::MouseEvent& e)
         // A loop drawn or changed (Loop on), or a click on the brace switching it (clip-loops.md §6).
         brace_.release(session_, *clip_, contentStartSeconds(), moved_);
         gesture_ = Gesture::None;
+        repaint();
+        return;
+    }
+    if (gesture_ == Gesture::LaneTime)
+    {
+        gesture_ = Gesture::None; // a click: the lane's points and the stretch cleared at the press
         repaint();
         return;
     }

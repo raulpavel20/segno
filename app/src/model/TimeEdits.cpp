@@ -157,4 +157,154 @@ StretchFades stretchFades(const std::vector<ClipInfo>& asked, TimeSpan span)
     }
     return out;
 }
+
+// ---- time inside a MIDI clip -------------------------------------------------------------------
+
+Plan clipTimePlan(ClipTimeCommand command, double a, double b)
+{
+    if (!(b > a))
+        return {};
+    switch (command)
+    {
+    case ClipTimeCommand::Insert:
+        return planInsert(a, b - a);
+    case ClipTimeCommand::Delete:
+        return planDelete(a, b);
+    case ClipTimeCommand::Duplicate:
+        return planCopy(a, b, b);
+    }
+    return {};
+}
+
+namespace
+{
+/// The notes in noteOrder, those marked selected by index.
+NoteEdit sortedNotes(std::vector<std::pair<Note, bool>> items)
+{
+    std::stable_sort(items.begin(), items.end(),
+                     [](const auto& x, const auto& y) { return noteOrder(x.first, y.first); });
+    NoteEdit out;
+    for (auto& [note, selected] : items)
+    {
+        if (selected)
+            out.selection.insert(out.notes.size());
+        out.notes.push_back(note);
+    }
+    return out;
+}
+} // namespace
+
+NoteEdit planNotes(const std::vector<Note>& notes, const Plan& plan)
+{
+    if (plan.empty())
+        return {notes, {}};
+    const auto cuts = cutPoints(plan);
+    struct Piece
+    {
+        Note note;
+        std::size_t origin = 0;
+        bool copy = false;
+    };
+    std::vector<Piece> pieces;
+    for (std::size_t i = 0; i < notes.size(); ++i)
+    {
+        // Cut at every cut point inside it, each piece going with its own stretch.
+        const auto& n = notes[i];
+        double from = n.start;
+        const double end = n.start + n.length;
+        const auto place = [&](double pieceEnd)
+        {
+            const auto to = landingsOf(plan, from);
+            const auto land = [&](double start, bool copy)
+            {
+                auto piece = n;
+                piece.start = start;
+                piece.length = pieceEnd - from;
+                pieces.push_back({piece, i, copy});
+            };
+            if (to.itself)
+                land(*to.itself, false);
+            for (const double copy : to.copies)
+                land(copy, true);
+            from = pieceEnd;
+        };
+        for (const double c : cuts)
+            if (c > from + kEpsilon && c < end - kEpsilon)
+                place(c);
+        place(end);
+    }
+    // The pieces of a note that meet again join, so a note held across deleted time is one note.
+    std::vector<std::pair<Note, bool>> out;
+    std::vector<std::size_t> originOf;
+    std::vector<bool> copyOf;
+    for (const auto& p : pieces)
+    {
+        bool joined = false;
+        for (std::size_t k = 0; k < out.size() && !joined; ++k)
+            if (!p.copy && !copyOf[k] && originOf[k] == p.origin &&
+                near(out[k].first.start + out[k].first.length, p.note.start))
+            {
+                out[k].first.length += p.note.length;
+                joined = true;
+            }
+        if (!joined)
+        {
+            out.emplace_back(p.note, p.copy);
+            originOf.push_back(p.origin);
+            copyOf.push_back(p.copy);
+        }
+    }
+    return sortedNotes(std::move(out));
+}
+
+std::vector<ControllerLane> planControllers(const std::vector<ControllerLane>& lanes, const Plan& plan)
+{
+    SongContent content;
+    for (std::size_t i = 0; i < lanes.size(); ++i)
+        content.lanes.push_back({i, lanes[i].points});
+    auto out = lanes;
+    for (const auto& changed : applyPlan(content, plan).lanes)
+        out[changed.id].points = changed.points;
+    return out;
+}
+
+double clipTimeEdge(ClipTimeCommand command, double a, double b, double t, bool isEnd)
+{
+    // An end edge just at or inside a duplicated stretch takes the copy in with it.
+    if (command == ClipTimeCommand::Duplicate && isEnd && t > a + kEpsilon)
+        return std::max(t, b) + (b - a);
+    return planEdge(clipTimePlan(command, a, b), t, isEnd);
+}
+
+NoteEdit splitNotesAt(const std::vector<Note>& notes, const std::set<std::size_t>& selection, double a,
+                      double b)
+{
+    std::vector<std::pair<Note, bool>> out;
+    for (std::size_t i = 0; i < notes.size(); ++i)
+    {
+        const auto& n = notes[i];
+        const bool target = selection.empty() || selection.contains(i);
+        if (!target)
+        {
+            out.emplace_back(n, false);
+            continue;
+        }
+        double from = n.start;
+        const double end = n.start + n.length;
+        const auto piece = [&](double to)
+        {
+            auto p = n;
+            p.start = from;
+            p.length = to - from;
+            // A selected note's piece inside the stretch stays selected.
+            out.emplace_back(p, !selection.empty() && from >= a - kEpsilon && to <= b + kEpsilon);
+            from = to;
+        };
+        for (const double edge : {a, b})
+            if (edge - from >= minNoteLength - kEpsilon && end - edge >= minNoteLength - kEpsilon)
+                piece(edge);
+        piece(end);
+    }
+    return sortedNotes(std::move(out));
+}
 } // namespace fd::model

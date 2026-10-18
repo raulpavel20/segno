@@ -157,9 +157,31 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
         params.time = {at(run.start), at(run.renderEnd)};
         params.useMasterPlugins = false;
         for (const auto& piece : run.pieces)
+        {
+            if (piece.cutAtEdges)
+            {
+                // A stretch (time-selection.md §13): in the copy, its clips are cut at its edges and
+                // only what's inside plays.
+                for (const double edge : {piece.start, piece.end})
+                {
+                    juce::Array<te::Clip*> crossing;
+                    for (auto* c : track->getClips())
+                        if (c->getPosition().getStart().inSeconds() < edge - 1e-6 &&
+                            c->getPosition().getEnd().inSeconds() > edge + 1e-6)
+                            crossing.add(c);
+                    for (auto* c : crossing)
+                        track->splitClip(*c, at(edge));
+                }
+                for (auto* c : track->getClips())
+                    if (c->getPosition().getStart().inSeconds() >= piece.start - 1e-6 &&
+                        c->getPosition().getEnd().inSeconds() <= piece.end + 1e-6)
+                        params.allowedClips.add(c);
+                continue;
+            }
             for (const auto id : piece.parts)
                 if (auto* c = te::findClipForID(copy, te::EditItemID::fromRawID(id)))
                     params.allowedClips.add(c);
+        }
         // Heard whatever the mixer's mute and solo say.
         for (auto* t : te::getAudioTracks(copy))
             t->setSolo(false);
@@ -287,8 +309,35 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
                 return finish({.error = "A module changed while " + runs[r].pieces.front().name +
                                         " was bouncing, so nothing was bounced."});
         }
-        impl.beginEdit(juce::String(undoName));
-        auto result = mode == model::BounceMode::InPlace ? landInPlace(*snap) : landOnNewTracks();
+        const Session::EditGroup group(impl.owner, undoName);
+        // A stretch's clips crossing its edges are cut there now, in the same undo step; its piece
+        // is what's inside (time-selection.md §13).
+        bool cut = false;
+        for (auto& run : runs)
+            for (auto& piece : run.pieces)
+                if (piece.cutAtEdges)
+                {
+                    cut = true;
+                    for (const double edge : {piece.start, piece.end})
+                    {
+                        impl.owner.updateSnapshotNow();
+                        std::vector<std::uint64_t> crossing;
+                        if (const auto* t = impl.owner.snapshot()->channel(run.track))
+                            for (const auto& c : t->clips)
+                                if (c.start < edge - 1e-6 && c.end() > edge + 1e-6)
+                                    crossing.push_back(c.id);
+                        if (!crossing.empty())
+                            impl.owner.splitClips(crossing, edge);
+                    }
+                    impl.owner.updateSnapshotNow();
+                    piece.parts.clear();
+                    if (const auto* t = impl.owner.snapshot()->channel(run.track))
+                        for (const auto& c : t->clips)
+                            if (c.start >= piece.start - 1e-6 && c.end() <= piece.end + 1e-6)
+                                piece.parts.push_back(c.id);
+                }
+        const auto now = cut ? impl.owner.snapshot() : snap;
+        auto result = mode == model::BounceMode::InPlace ? landInPlace(*now) : landOnNewTracks();
         landed = true;
         finish(std::move(result));
     }
@@ -518,6 +567,16 @@ std::shared_ptr<Session::RenderJob> Session::bounceStretch(const std::vector<std
     flushSnapshot();
     return startBounce(model::stretchRuns(*snapshot(), {tracks.begin(), tracks.end()}, from, to, mode), mode,
                        std::move(done), undoName);
+}
+
+std::string Session::stretchBounceRefusal(const std::vector<std::uint64_t>& tracks, double from, double to,
+                                          model::BounceMode mode)
+{
+    flushSnapshot();
+    std::string why;
+    return model::stretchRuns(*snapshot(), {tracks.begin(), tracks.end()}, from, to, mode, &why).empty()
+               ? why
+               : std::string();
 }
 
 std::shared_ptr<Session::RenderJob> Session::startBounce(std::vector<model::BounceRun> runs,

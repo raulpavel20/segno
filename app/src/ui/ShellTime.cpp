@@ -64,6 +64,9 @@ void Shell::timeMenu(juce::PopupMenu& menu)
     for (const auto* id : {"clip.crossfade", "clip.mute", "audio.reverse", "clip.newMidi"})
         actions_.addMenuItem(menu, id);
     menu.addSeparator();
+    for (const auto* id : {"clip.bounce", "clip.bounceToTrack"})
+        actions_.addMenuItem(menu, id);
+    menu.addSeparator();
     for (const auto* id : {"transport.loop", "view.zoomFit"})
         actions_.addMenuItem(menu, id);
     menu.addSeparator();
@@ -120,6 +123,18 @@ void Shell::registerTimeActions()
             session_.setLooping(true);
         },
         "Loop selection");
+    onTime(
+        "song.addSection",
+        [this]
+        {
+            // The selection's stretch, before the loop and the playhead (§13).
+            const auto span = *arrangement_.selection().time;
+            if (const auto id = session_.addSection(span.start, span.end))
+                arrangement_.selectSections({id});
+            else
+                showWarning("A section can't overlap another: select unmarked time");
+        },
+        "Add section from selection");
     onTime("notes.later", [this] { arrangement_.nudgeTime(1); });
     onTime("notes.earlier", [this] { arrangement_.nudgeTime(-1); });
 
@@ -192,6 +207,62 @@ void Shell::registerTimeActions()
                 }
             };
         });
+    // Bounce in place and to a new track (§13): each track's stretch, offline, cut at its edges as it
+    // lands; the result lands as one undo step and is selected.
+    const auto stretchTracks = [this]
+    {
+        std::vector<std::uint64_t> out;
+        const auto& rows = arrangement_.selection().rowTracks;
+        for (const auto& t : session_.snapshot()->tracks)
+            if (rows.contains(t.id))
+                out.push_back(t.id);
+        return out;
+    };
+    for (const auto& [id, mode] : {std::pair{"clip.bounce", model::BounceMode::InPlace},
+                                   std::pair{"clip.bounceToTrack", model::BounceMode::NewTrack}})
+        actions_.amend(
+            id,
+            [this, mode, stretchTracks](Action& a)
+            {
+                const auto why = [this, mode, stretchTracks]
+                {
+                    const auto span = *arrangement_.selection().time;
+                    return session_.stretchBounceRefusal(stretchTracks(), span.start, span.end, mode);
+                };
+                a.perform = [this, mode, stretchTracks, before = std::move(a.perform)]
+                {
+                    if (!timeActive())
+                    {
+                        before();
+                        return;
+                    }
+                    const auto span = *arrangement_.selection().time;
+                    session_.bounceStretch(stretchTracks(), span.start, span.end, mode,
+                                           [this](const engine::Session::BounceResult& r)
+                                           {
+                                               if (r.cancelled)
+                                                   return;
+                                               if (!r.error.empty())
+                                               {
+                                                   showWarning(juce::String::fromUTF8(r.error.c_str()));
+                                                   return;
+                                               }
+                                               session_.updateSnapshotNow();
+                                               arrangement_.setSelection(model::withClips(
+                                                   *session_.snapshot(), {r.clips.begin(), r.clips.end()},
+                                                   std::nullopt, std::nullopt));
+                                           });
+                };
+                a.isEnabled = [this, why, before = std::move(a.isEnabled)]
+                { return timeActive() ? why().empty() : !before || before(); };
+                a.whyNot = [this, why, before = std::move(a.whyNot)]
+                {
+                    return timeActive() ? juce::String::fromUTF8(why().c_str())
+                           : before     ? before()
+                                        : juce::String();
+                };
+            });
+
     // Cancel bounces' key, Escape, also clears a selection when nothing bounces (Select none).
     actions_.add(
         {.id = "edit.selectNone",
@@ -342,5 +413,157 @@ void Shell::registerTimeActions()
          },
          .isEnabled = [this] { return held_ == Held::Time && !heldTime_.empty(); },
          .whyNot = [] { return juce::String::fromUTF8("Copy time first (Song \xE2\x96\xB8 Copy time)"); }});
+    registerClipTimeActions();
+}
+
+bool Shell::clipTimeActive() const
+{
+    return notesActive() && detail_.pianoRoll().timeSelection().has_value();
+}
+
+void Shell::registerClipTimeActions()
+{
+    using T = model::ClipTimeCommand;
+    using A = engine::Session::RangeAction;
+    auto& roll = detail_.pianoRoll();
+    const auto active = [this] { return clipTimeActive(); };
+    const auto noTime = []
+    { return juce::String("Select a stretch of time in the clip first: drag across the notes"); };
+
+    // Insert, Delete and Duplicate time inside the clip: the Song menu's keys (§17).
+    for (const auto& [notesId, name, which, song] :
+         {std::tuple{"notes.insertTime", "Insert time", T::Insert, "song.insertTime"},
+          std::tuple{"notes.deleteTime", "Delete time", T::Delete, "song.deleteTime"},
+          std::tuple{"notes.duplicateTime", "Duplicate time", T::Duplicate, "song.duplicateTime"}})
+    {
+        actions_.add({.id = notesId,
+                      .name = name,
+                      .category = "Notes",
+                      .perform =
+                          [this, &roll, command = which]
+                      {
+                          const auto span = *roll.timeSelection();
+                          if (!roll.clip() ||
+                              !session_.editClipTime(roll.clip()->id, command, span.start, span.end))
+                              return;
+                          // Inserted time stays selected; deleted time is gone; a duplicate's copy is
+                          // selected.
+                          if (command == T::Delete)
+                              roll.setTimeSelection(std::nullopt);
+                          else if (command == T::Duplicate)
+                              roll.setTimeSelection(model::TimeSpan{span.end, span.end + span.length()});
+                      },
+                      .isEnabled = active,
+                      .whyNot = noTime,
+                      .keysFrom = song});
+        actions_.amend(song,
+                       [this, inClip = std::string(notesId)](Action& a)
+                       {
+                           a.perform = [this, inClip, before = std::move(a.perform)]
+                           {
+                               if (clipTimeActive())
+                                   actions_.perform(inClip);
+                               else if (before)
+                                   before();
+                           };
+                           a.isEnabled = [this, before = std::move(a.isEnabled)]
+                           { return clipTimeActive() || !before || before(); };
+                       });
+    }
+
+    // The clip's edges, or its loop, take the stretch (§14.1).
+    for (const auto& [notesId, name, which] :
+         {std::tuple{"notes.cropClip", "Crop clip to selection", A::Crop},
+          std::tuple{"notes.loopClip", "Clip loop to selection", A::Loop}})
+    {
+        const auto why = [this, &roll, action = which]
+        {
+            if (!clipTimeActive() || !roll.clip())
+                return std::string();
+            const auto span = *roll.timeSelection();
+            return session_.rangeRefusal(roll.clip()->id, span.start, span.end, action);
+        };
+        actions_.add({.id = notesId,
+                      .name = name,
+                      .category = "Notes",
+                      .perform =
+                          [this, &roll, action = which]
+                      {
+                          const auto span = *roll.timeSelection();
+                          const auto r = session_.editRange(roll.clip()->id, span.start, span.end, action);
+                          if (!r.why.empty())
+                          {
+                              showWarning(juce::String::fromUTF8(r.why.c_str()));
+                              return;
+                          }
+                          // Cropped, the clip is what's left of it: selected, so the clip view shows it.
+                          if (action == A::Crop && !r.clips.empty())
+                          {
+                              session_.updateSnapshotNow();
+                              const auto channel = arrangement_.selection().channel;
+                              arrangement_.setSelection(model::withClips(
+                                  *session_.snapshot(), {r.clips.front()}, channel, channel));
+                              roll.setTimeSelection(std::nullopt);
+                          }
+                      },
+                      .isEnabled = [active, why] { return active() && why().empty(); },
+                      .whyNot = [active, noTime, why]
+                      { return active() ? juce::String::fromUTF8(why().c_str()) : noTime(); }});
+    }
+
+    // Ctrl+D right after the stretch, Ctrl+E at its edges, Escape clearing the clip view's own (§14.1).
+    actions_.amend("edit.duplicate",
+                   [this, &roll](Action& a)
+                   {
+                       a.perform = [this, &roll, before = std::move(a.perform)]
+                       {
+                           if (clipTimeActive())
+                               roll.duplicateSelection();
+                           else if (before)
+                               before();
+                       };
+                       a.isEnabled = [this, before = std::move(a.isEnabled)]
+                       { return clipTimeActive() || !before || before(); };
+                   });
+    actions_.amend(
+        "edit.split",
+        [this, &roll](Action& a)
+        {
+            a.perform = [this, &roll, before = std::move(a.perform)]
+            {
+                if (clipTimeActive())
+                    roll.splitAtSelection();
+                else if (before)
+                    before();
+            };
+            a.label = [this, before = std::move(a.label), name = a.name]
+            {
+                return clipTimeActive() ? juce::String("Split at selection") : before ? before() : name;
+            };
+        });
+    actions_.amend("edit.selectNone",
+                   [this, &roll](Action& a)
+                   {
+                       a.perform = [this, &roll, before = std::move(a.perform)]
+                       {
+                           if (notesActive())
+                           {
+                               roll.setSelection({});
+                               roll.setTimeSelection(std::nullopt);
+                           }
+                           else if (audioActive())
+                               detail_.audioClipView().setRange(std::nullopt);
+                           else if (before)
+                               before();
+                       };
+                       a.isEnabled = [this, &roll, before = std::move(a.isEnabled)]
+                       {
+                           if (notesActive())
+                               return roll.hasSelection() || roll.timeSelection().has_value();
+                           if (audioActive())
+                               return detail_.audioClipView().range().has_value();
+                           return !before || before();
+                       };
+                   });
 }
 } // namespace fd::app
