@@ -13,6 +13,7 @@
 #include "engine/RoundTrip.h"
 #include "engine/Session.h"
 #include "engine/WarpPlayer.h"
+#include "model/MidiEffects.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
 #include "model/TrackEdits.h"
@@ -631,6 +632,14 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// An instrument, or a rack with one at the start of a chain (racks.md §3). tracktion's racks
     /// say they're synths whatever they hold.
     [[nodiscard]] static bool playsNotes(te::Plugin& plugin);
+    /// A MIDI effect, ours or a plugin (midi-effects.md §11).
+    [[nodiscard]] static bool isNoteEffect(te::Plugin& plugin);
+    /// What each module along a chain does with notes, for where a MIDI effect goes; `leaving`
+    /// left out (a module moving).
+    [[nodiscard]] static std::vector<model::ChainRole> roles(const std::vector<te::Plugin*>& chain,
+                                                             const te::Plugin* leaving = nullptr);
+    [[nodiscard]] static std::vector<model::ChainRole> roles(const std::vector<ChainItem>& items,
+                                                             const te::Plugin* leaving = nullptr);
     /// A new rack type named `name`, its eight macros made, and its first chain.
     te::RackType::Ptr makeRack(const juce::String& name);
     /// A new chain at the end of a rack: its mixer, passing what comes in.

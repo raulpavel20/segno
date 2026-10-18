@@ -74,7 +74,7 @@ The project, track, clip and module resources send change notifications when the
 | `get_project` | – | As `segno://project` |
 | `get_clip` | `clip` | As `segno://clip/{id}`, notes included |
 | `get_module` | `module` | As `segno://module/{id}` |
-| `list_module_types` | `kind?` (instrument, effect, modulator) | As `segno://modules` |
+| `list_module_types` | `kind?` (instrument, midi-effect, effect, modulator) | As `segno://modules`; MIDI effects added with step 1 of [midi-effects.md](midi-effects.md) (`add_module` puts one before the track's instrument) |
 
 **Transport:**
 

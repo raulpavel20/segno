@@ -65,7 +65,8 @@ enum class Icon
     // The audio editor's tools (audio-editor.md §11).
     Normalise, // two levels raised to a line
     Tempo,     // beats found in a sound: hits along a line, a tick over each
-    Slice      // a sound cut at its hits: three hits, each a piece of its own
+    Slice,     // a sound cut at its hits: three hits, each a piece of its own
+    MidiEffect // MIDI effects (the browser, midi-effects.md §13): a MIDI socket and its five pins
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

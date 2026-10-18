@@ -114,6 +114,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     registerSongActions();
     registerNotesActions();
     registerModulatorActions();
+    registerMidiEffectActions();
     registerMidiActions();
     registerAudioActions();
     registerTimeActions(); // last: it amends actions registered before it

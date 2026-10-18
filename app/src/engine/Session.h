@@ -57,9 +57,11 @@ struct AvailableDevice
 {
     std::string key;      // "fd:eq" or "ext:<plugin identifier>"
     std::string name;
-    std::string category; // "Instruments", "Audio effects", "Modulators", or the plugin's manufacturer
+    std::string
+        category; // "Instruments", "MIDI effects", "Audio effects", "Modulators", or the plugin's maker
     bool native = true;
     bool instrument = false;
+    bool midiEffect = false; // notes in, notes out (midi-effects.md): before the instrument
     bool modulator = false; // "fd:mod-lfo": it moves parameters on its track (modulators.md, ADR 0061)
 };
 

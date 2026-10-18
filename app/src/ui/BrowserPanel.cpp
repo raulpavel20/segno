@@ -436,6 +436,7 @@ BrowserPanel::BrowserPanel(engine::Session& session, const ActionRegistry& actio
     for (const auto& [part, icon, tip] : {std::tuple{Part::Search, ui::Icon::Search, "Search"},
                                           std::tuple{Part::Favourites, ui::Icon::StarFilled, "Favourites"},
                                           std::tuple{Part::Instruments, ui::Icon::Note, "Instruments"},
+                                          std::tuple{Part::MidiEffects, ui::Icon::MidiEffect, "MIDI effects"},
                                           std::tuple{Part::Effects, ui::Icon::Knob, "Audio effects"},
                                           std::tuple{Part::Modulators, ui::Icon::Modulator, "Modulators"},
                                           std::tuple{Part::Racks, ui::Icon::Rack, "Racks"},
@@ -545,6 +546,7 @@ void BrowserPanel::showPart(Part part)
     tags_.clear();
     const std::string id = part == Part::Favourites    ? "cat:favourites"
                            : part == Part::Instruments ? "cat:instruments"
+                           : part == Part::MidiEffects ? "cat:midi-effects"
                            : part == Part::Effects     ? "cat:effects"
                            : part == Part::Modulators  ? "cat:modulators"
                            : part == Part::Racks       ? "cat:racks"
@@ -689,9 +691,14 @@ void BrowserPanel::buildTree()
         for (const auto& d : devices)
             if (d.native && d.instrument)
                 addModuleRows(d, 1);
+    // MIDI effects before audio effects, as they come before the instrument (midi-effects.md §13).
+    if (category("cat:midi-effects", "MIDI effects", {}, ui::Icon::MidiEffect))
+        for (const auto& d : devices)
+            if (d.native && d.midiEffect)
+                addModuleRows(d, 1);
     if (category("cat:effects", "Audio effects", {}, ui::Icon::Knob))
         for (const auto& d : devices)
-            if (d.native && !d.instrument && !d.modulator)
+            if (d.native && !d.instrument && !d.modulator && !d.midiEffect)
                 addModuleRows(d, 1);
     // The modulators, each a folder of its presets (modulators.md §14).
     if (category("cat:modulators", "Modulators", {}, ui::Icon::Modulator))

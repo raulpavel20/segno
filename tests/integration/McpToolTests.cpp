@@ -3586,3 +3586,26 @@ TEST_CASE(
                     {{"clip", clip}, {"action", "stretch"}, {"from", "2.1.1"}, {"to", "2.2.1"}})
               .find("one of") != std::string::npos);
 }
+
+TEST_CASE("mcp tools: MIDI effects are listed as such, and added before the instrument", "[integration][mcp]")
+{
+    Daw daw;
+    const auto types = daw.call("list_module_types", {{"kind", "midi-effect"}})["types"];
+    std::vector<std::string> names;
+    for (const auto& t : types)
+    {
+        CHECK(t["kind"] == "midi-effect");
+        names.push_back(t["type"].get<std::string>());
+    }
+    CHECK(names == std::vector<std::string>{"arpeggiator", "chord", "pitch"});
+    for (const auto& t : daw.call("list_module_types", {{"kind", "effect"}})["types"])
+        CHECK(t["type"] != "pitch");
+
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto synth = daw.call("add_module", {{"track", t0}, {"type", "subtractive-synth"}})["id"];
+    const auto pitch = daw.call("add_module", {{"track", t0}, {"type", "pitch"}, {"position", 1}})["id"];
+    const auto modules = daw.project()["tracks"][0]["chain"];
+    REQUIRE(modules.size() == 2);
+    CHECK(modules[0]["id"] == pitch);
+    CHECK(modules[1]["id"] == synth);
+}

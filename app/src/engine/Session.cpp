@@ -892,8 +892,10 @@ te::Plugin* Session::Impl::insertDevice(te::PluginList& list, const std::string&
         return nullptr;
 
     // Chain index -> plugin list index: before the device at `index`, or before the mixer
-    // plugins at the end.
+    // plugins at the end. A MIDI effect goes before the instrument (midi-effects.md §11).
     const auto devices = chain(list);
+    if (isNoteEffect(*plugin))
+        index = model::placeInChain(roles(devices), index, model::ChainRole::MidiEffect);
     int at = list.size();
     if (index >= 0 && index < static_cast<int>(devices.size()))
         at = list.indexOf(devices[static_cast<size_t>(index)]);
@@ -1658,8 +1660,14 @@ std::vector<AvailableDevice> Session::availableDevices() const
     for (const auto* f : fd::allDevices())
     {
         const bool instrument = f->info().kind == DeviceKind::Instrument;
-        out.push_back({"fd:" + std::string(f->info().id), std::string(f->info().name),
-                       instrument ? "Instruments" : "Audio effects", true, instrument});
+        const bool midiEffect = f->info().kind == DeviceKind::MidiEffect;
+        out.push_back({.key = "fd:" + std::string(f->info().id),
+                       .name = std::string(f->info().name),
+                       .category = instrument   ? "Instruments"
+                                   : midiEffect ? "MIDI effects"
+                                                : "Audio effects",
+                       .instrument = instrument,
+                       .midiEffect = midiEffect});
     }
     // The Drum Kit, after our instruments (drum-kit.md, ADR 0064): a rack underneath, the DAW's.
     out.push_back({.key = "fd:drum-kit", .name = "Drum Kit", .category = "Instruments", .instrument = true});
@@ -1713,6 +1721,8 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
         order.erase(std::remove_if(order.begin(), order.end(),
                                    [plugin](const auto& item) { return item.plugin == plugin; }),
                     order.end());
+        if (Impl::isNoteEffect(*plugin))
+            index = model::placeInChain(Impl::roles(order), index, model::ChainRole::MidiEffect);
         const auto at = index < 0 ? order.size() : std::min(order.size(), static_cast<size_t>(index));
         order.insert(order.begin() + static_cast<std::ptrdiff_t>(at), Impl::ChainItem{plugin, nullptr});
         impl_->arrangeChain(*track, order);
@@ -1839,6 +1849,8 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
                 const auto was = static_cast<int>(from - order.begin());
                 order.erase(from);
                 index = std::clamp(index, 0, static_cast<int>(order.size()));
+                if (item.plugin != nullptr && Impl::isNoteEffect(*item.plugin)) // before the instrument
+                    index = model::placeInChain(Impl::roles(order), index, model::ChainRole::MidiEffect);
                 if (index == was)
                     return;
                 order.insert(order.begin() + index, item);
@@ -1863,6 +1875,8 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
         return;
     const auto devices = Impl::chain(*list);
     index = std::clamp(index, 0, static_cast<int>(devices.size()) - 1);
+    if (Impl::isNoteEffect(*p)) // before the instrument (midi-effects.md §11)
+        index = model::placeInChain(Impl::roles(devices, p), index, model::ChainRole::MidiEffect);
     auto* target = devices[static_cast<size_t>(index)];
     if (target == p)
         return;

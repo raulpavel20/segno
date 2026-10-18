@@ -929,12 +929,12 @@ Json moduleTypesJson(ToolEnv& env, const std::string& kind)
     for (const auto& d : env.session.availableDevices())
     {
         // The modulators come after, with what each is for.
-        if (d.modulator || (kind == "instrument" && !d.instrument) || (kind == "effect" && d.instrument) ||
-            kind == "modulator")
+        const std::string itsKind = d.instrument ? "instrument" : d.midiEffect ? "midi-effect" : "effect";
+        if (d.modulator || (!kind.empty() && kind != itsKind))
             continue;
         Json entry{{"type", d.native ? d.key.substr(3) : d.key},
                    {"name", d.name},
-                   {"kind", d.instrument ? "instrument" : "effect"},
+                   {"kind", itsKind},
                    {"native", d.native},
                    {"category", d.category}};
         if (d.native)

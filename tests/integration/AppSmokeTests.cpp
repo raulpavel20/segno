@@ -714,6 +714,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "module.morph",
         // Modulators (modulators.md §15): no new shortcuts; the chain's + and the browser add
         // them, Keep is on the panel, Remove routes in the handle's and header's right-click.
+        // MIDI effects added (midi-effects.md §13): from the menu, the browser and the chain's +.
+        "module.addMidiEffect.arpeggiator", "module.addMidiEffect.chord", "module.addMidiEffect.pitch",
         "module.addModulator.lfo", "module.addModulator.random", "module.addModulator.envelope",
         "module.addModulator.follower", "module.addModulator.steps", "module.keepRoll", "module.removeRoutes",
         "song.keepAllRolls",

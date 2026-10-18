@@ -70,6 +70,7 @@ Sources: the [Live 12 browser](https://www.ableton.com/en/live-manual/12/working
 │     ▸ Bass                     8  │   instruments' presets in folders by kind of sound
 │     ▸ Lead                     6  │
 │   ▸ Sampler                       │
+│ ▸ MIDI effects                    │
 │ ▸ Audio effects                   │
 │ ▸ Plugins                         │
 │ PLACES                            │
@@ -87,7 +88,7 @@ Sources: the [Live 12 browser](https://www.ableton.com/en/live-manual/12/working
 - **One column,** as the panel is narrow (220 px by default, 160 to 480): a tree, each level `shell.browserIndent` (16 px, an icon and its gap, so a row's disclosure is under its parent's icon or name; 12 until ADR 0059) in from its parent, rows on the shell's compact row height (`shell.rowHeight`). Long names end in an ellipsis, with the full name in a tooltip.
 - **What's at the top level,** each part with its icon before its name, the one its rail button shows (ADR 0059):
   - **Favourites** (the star): anything you've starred (§8).
-  - **Instruments** (the note) and **Audio effects** (the knob): our modules, A to Z. MIDI effects join when there are some (M4).
+  - **Instruments** (the note) and **Audio effects** (the knob): our modules, A to Z. **MIDI effects** (a MIDI socket, [midi-effects.md](midi-effects.md) §13) between them, as they come before the instrument: Arpeggiator, Chord, Pitch.
   - **Racks** (two modules stacked): every rack, instrument and effect racks together, the Library's first, then yours ([racks.md](racks.md) §7).
   - **Plugins** (the plug): the plugins found by the scan, in folders by maker.
   - **Places** (the folder, before its heading, where its rows' disclosures are): the project's folder, the Library, the Segno folder (as User library), and the folders you add (§9).
@@ -203,7 +204,7 @@ As in Live, at the product owner's suggestion:
 
 ## 15. Compact widths and assistants
 
-**Below 1440 px** the browser is its rail (ui-principles §2). The rail holds Search, Favourites, Instruments, Audio effects, Racks, Plugins and Places, each the icon the open browser shows before it, at the same size (`shell.listIconSize`, ADR 0059); a click opens the browser at that part exactly as its toggle does: docked, easing out of its rail, the arrangement making room for it. The toggle then shows it open and closes it, back to the rail; nothing else closes it. It's the one browser panel, whichever way it opened (daw-shell.md, "A side panel's state is kept once"). At first the rail opened it over the arrangement, until a click elsewhere or a drag out of it; the product owner rejected that (2026-10-14): a second way of showing the same panel, which behaved differently from its toggle.
+**Below 1440 px** the browser is its rail (ui-principles §2). The rail holds Search, Favourites, Instruments, MIDI effects, Audio effects, Modulators, Racks, Plugins and Places, each the icon the open browser shows before it, at the same size (`shell.listIconSize`, ADR 0059); a click opens the browser at that part exactly as its toggle does: docked, easing out of its rail, the arrangement making room for it. The toggle then shows it open and closes it, back to the rail; nothing else closes it. It's the one browser panel, whichever way it opened (daw-shell.md, "A side panel's state is kept once"). At first the rail opened it over the arrangement, until a click elsewhere or a drag out of it; the product owner rejected that (2026-10-14): a second way of showing the same panel, which behaved differently from its toggle.
 
 **Assistants (MCP):**
 

@@ -119,6 +119,9 @@ public:
     /// Adds a modulator after the selected module, or at the end of the chain (Module ▸ Add
     /// modulator), and selects it.
     void addModulator(model::ModulatorKind kind);
+    /// One of our modules (`fd:pitch`), after the selected module or at the end, as the menu bar's
+    /// Module ▸ Add MIDI effect does.
+    void addModule(const std::string& key);
     /// The modulator selected, as the snapshot has it (null: none, or a module is selected).
     [[nodiscard]] const model::ModulatorInfo* selectedModulator() const;
     /// Opens a modulator's route list over the chain (its handle's right-click, its header's menu).
@@ -252,7 +255,9 @@ private:
     [[nodiscard]] RackPanel* rackPanelOf(std::uint64_t id);
     [[nodiscard]] MacroPanel* macroPanelOf(std::uint64_t id); // a rack's or a kit's
     /// Where a drag at `p` (in the content) would land; never into the rack being dragged.
-    [[nodiscard]] Drop dropAt(juce::Point<int> p, std::optional<std::uint64_t> dragged) const;
+    /// Where a module dropped at `p` lands; a MIDI effect before the instrument (midi-effects.md §11).
+    [[nodiscard]] Drop dropAt(juce::Point<int> p, std::optional<std::uint64_t> dragged,
+                              bool midiEffect = false) const;
     /// The knob of a module in `rack`'s frame at `p` (in the content): its module and parameter.
     [[nodiscard]] std::optional<std::pair<std::uint64_t, std::string>> knobAt(juce::Point<int> p,
                                                                               std::uint64_t rack) const;

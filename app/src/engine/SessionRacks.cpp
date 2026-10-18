@@ -299,6 +299,41 @@ bool Session::Impl::playsNotes(te::Plugin& plugin)
     return plugin.isSynth();
 }
 
+bool Session::Impl::isNoteEffect(te::Plugin& plugin)
+{
+    if (auto* native = dynamic_cast<DevicePlugin*>(&plugin))
+        return native->isNoteEffect();
+    if (auto* external = dynamic_cast<te::ExternalPlugin*>(&plugin))
+        if (auto* instance = external->getAudioPluginInstance())
+            return instance->isMidiEffect();
+    return false;
+}
+
+std::vector<model::ChainRole> Session::Impl::roles(const std::vector<te::Plugin*>& chain,
+                                                   const te::Plugin* leaving)
+{
+    std::vector<model::ChainRole> out;
+    for (auto* p : chain)
+        if (p != leaving)
+            out.push_back(isNoteEffect(*p) ? model::ChainRole::MidiEffect
+                          : playsNotes(*p) ? model::ChainRole::Player
+                                           : model::ChainRole::Other);
+    return out;
+}
+
+std::vector<model::ChainRole> Session::Impl::roles(const std::vector<ChainItem>& items,
+                                                   const te::Plugin* leaving)
+{
+    std::vector<te::Plugin*> plugins;
+    std::vector<model::ChainRole> out;
+    for (const auto& item : items)
+        if (item.plugin == nullptr)
+            out.push_back(model::ChainRole::Other); // a modulator
+        else if (item.plugin != leaving)
+            out.push_back(roles(std::vector<te::Plugin*>{item.plugin}).front());
+    return out;
+}
+
 te::RackType::Ptr Session::Impl::makeRack(const juce::String& name)
 {
     auto rack = edit->getRackList().addNewRack();

@@ -220,6 +220,10 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           action("module.removeSnapshot"), action("module.morph"), action("module.vary"),
           action("module.varyMore"), separator(), action("module.saveRack"), action("module.saveRackAs"),
           action("module.racksFolder"), separator(),
+          // MIDI effects (midi-effects.md §13): before the instrument, wherever the selection is.
+          submenu("Add MIDI effect",
+                  {action("module.addMidiEffect.arpeggiator"), action("module.addMidiEffect.chord"),
+                   action("module.addMidiEffect.pitch")}),
           // Modulators (modulators.md §15): one added, the selected one's roll and routes.
           submenu("Add modulator",
                   {action("module.addModulator.lfo"), action("module.addModulator.random"),

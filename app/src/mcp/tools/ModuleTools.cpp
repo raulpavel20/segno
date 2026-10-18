@@ -74,7 +74,8 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"add_module", "Add a module",
-         "Adds a module (an instrument or effect) to a chain: a track's, a return track's or the master's; "
+         "Adds a module (an instrument; a MIDI effect, which goes before the track's instrument wherever "
+         "it's asked for; or an effect) to a chain: a track's, a return track's or the master's; "
          "one of "
          "ours or a scanned plugin. One of ours starts from your default for it, if you set one, or from a "
          "preset "

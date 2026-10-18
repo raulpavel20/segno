@@ -39,6 +39,7 @@ public:
         Search,
         Favourites,
         Instruments,
+        MidiEffects,
         Effects,
         Modulators,
         Racks,

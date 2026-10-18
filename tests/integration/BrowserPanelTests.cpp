@@ -717,7 +717,7 @@ TEST_CASE(
         if (auto* button = dynamic_cast<fd::ui::IconButton*>(c);
             button != nullptr && c->getName() == "browser part")
             rail.push_back(button);
-    CHECK(rail.size() == 8);
+    CHECK(rail.size() == 9);
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "browser-rail-racks@2x.png",
                 b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
@@ -729,6 +729,36 @@ TEST_CASE(
     for (auto* button : rail)
         modulatorsInRail = modulatorsInRail || button->getTooltip() == "Modulators";
     CHECK(modulatorsInRail);
+}
+
+TEST_CASE("browser: MIDI effects a part of their own, before the audio effects (midi-effects.md §13)",
+          "[integration][browser]")
+{
+    Browser b;
+    auto& p = b.panel();
+    b.open("cat:midi-effects");
+    b.open("cat:effects");
+    // A to Z, before the audio effects' heading: none of them among those.
+    const auto ids = p.rowIds();
+    const auto at = [&ids](const std::string& id)
+    { return std::find(ids.begin(), ids.end(), id) - ids.begin(); };
+    CHECK(at("cat:midi-effects") < at("module:fd:arpeggiator"));
+    CHECK(at("module:fd:arpeggiator") < at("module:fd:chord"));
+    CHECK(at("module:fd:chord") < at("module:fd:pitch"));
+    CHECK(at("module:fd:pitch") < at("cat:effects"));
+    CHECK(std::count(ids.begin(), ids.end(), "module:fd:pitch") == 1);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-midi-effects@2x.png",
+                b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    // The rail's button opens the part.
+    b.shell->setSize(1280, 900);
+    b.settle();
+    REQUIRE(p.isRail());
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-rail-midi-effects@2x.png",
+                b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    b.railClick("MIDI effects");
+    CHECK(b.isOpen("cat:midi-effects"));
 }
 
 TEST_CASE("browser: Modulators a part of its own, each a folder of its presets (modulators.md §14)",
