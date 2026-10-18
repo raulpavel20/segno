@@ -15,34 +15,14 @@ bool named(const std::vector<SectionInfo>& sections, const std::string& name)
     return std::any_of(sections.begin(), sections.end(), [&](const auto& s) { return s.name == name; });
 }
 
-/// The value the curve comes to at `t` from the left (before a jump there).
 float valueBefore(const AutomationPoints& points, double t)
 {
-    AutomationPoints upTo;
-    for (const auto& p : points)
-    {
-        if (p.time < t - kEpsilon)
-            upTo.push_back(p);
-        else
-        {
-            upTo.push_back(p); // the first point at or after it
-            break;
-        }
-    }
-    return automationValueAt(upTo, t);
+    return automationValueBefore(points, t);
 }
 
-/// The curve of the segment `t` is in (its first point's), straight before the first point.
 float curveAt(const AutomationPoints& points, double t)
 {
-    float curve = 0.0f;
-    for (const auto& p : points)
-    {
-        if (p.time > t + kEpsilon)
-            break;
-        curve = p.curve;
-    }
-    return curve;
+    return automationCurveAt(points, t);
 }
 
 /// Stretches that follow each other in the old song too become one; zero-length ones go.
@@ -434,24 +414,44 @@ PlanResult applyPlan(const SongContent& content, const Plan& asked,
             result.sections.push_back(s);
         }
     }
+    // A section's edges land each on its own (time-selection.md §9): its start with the stretch it's
+    // in, its end with the stretch just before it, so time taken out of it shortens it and time put
+    // into it lengthens it; a time that's gone lands where its gap closed. For the sections' own
+    // commands, whose cuts are at section edges, this moves each section whole.
+    const auto edge = [&](double t, bool isEnd)
+    {
+        for (size_t k = 0; k < plan.size(); ++k)
+        {
+            const auto& st = plan[k];
+            if (st.empty() || st.copy)
+                continue;
+            const bool in = isEnd ? (t > st.from + kEpsilon && t <= st.to + kEpsilon) : inside(t, st);
+            if (in)
+                return lands[k] + (t - st.from);
+        }
+        double closed = 0.0;
+        for (size_t k = 0; k < plan.size(); ++k)
+            if (!plan[k].empty() && !plan[k].copy && plan[k].to <= t + kEpsilon)
+                closed = std::max(closed, lands[k] + plan[k].length());
+        return closed;
+    };
     for (const auto& s : content.sections)
     {
-        const auto to = landings(s.start);
-        const auto placedAt = [&s](double at)
-        {
-            auto placed = s;
-            placed.start = at;
-            placed.end = at + s.length();
-            return placed;
-        };
-        if (to.itself)
-            result.sections.push_back(placedAt(*to.itself));
-        for (const double copy : to.copies)
-        {
-            auto placed = placedAt(copy);
-            placed.id = 0;
-            copies.push_back(placed);
-        }
+        auto placed = s;
+        placed.start = edge(s.start, false);
+        placed.end = edge(s.end, true);
+        if (placed.end - placed.start > kEpsilon)
+            result.sections.push_back(placed);
+        // Copies of the sections wholly inside a copied stretch.
+        for (size_t k = 0; k < plan.size(); ++k)
+            if (plan[k].copy && inside(s.start, plan[k]) && s.end <= plan[k].to + kEpsilon)
+            {
+                auto copy = s;
+                copy.id = 0;
+                copy.start = lands[k] + (s.start - plan[k].from);
+                copy.end = copy.start + s.length();
+                copies.push_back(copy);
+            }
     }
     // Copies named after everything else that's there.
     for (auto& c : copies)

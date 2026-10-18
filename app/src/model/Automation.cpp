@@ -165,6 +165,32 @@ AutomationPoints spliceRecorded(const AutomationPoints& lane, const AutomationPo
     return out;
 }
 
+float automationValueBefore(const AutomationPoints& points, double seconds)
+{
+    constexpr double kSame = 1e-6; // seconds: closer than this is the same time
+    AutomationPoints upTo;
+    for (const auto& p : points)
+    {
+        upTo.push_back(p);
+        if (p.time >= seconds - kSame)
+            break; // the first point at or after it
+    }
+    return automationValueAt(upTo, seconds);
+}
+
+float automationCurveAt(const AutomationPoints& points, double seconds)
+{
+    constexpr double kSame = 1e-6;
+    float curve = 0.0f;
+    for (const auto& p : points)
+    {
+        if (p.time > seconds + kSame)
+            break;
+        curve = p.curve;
+    }
+    return curve;
+}
+
 float automationValueAt(const AutomationPoints& points, double seconds, float fallback)
 {
     if (points.empty())

@@ -35,6 +35,11 @@ inline constexpr float kStepCurve = 1.0f;
 /// with playback patched to match): before the first point its value, after the last its value,
 /// `fallback` without points.
 [[nodiscard]] float automationValueAt(const AutomationPoints& points, double seconds, float fallback = 0.0f);
+/// The value the curve comes to at `seconds` from the left: before a jump there, the value it
+/// jumps from (cutting a lane at a time, arranger.md §9, time-selection.md §11).
+[[nodiscard]] float automationValueBefore(const AutomationPoints& points, double seconds);
+/// The curve of the segment `seconds` is in (its first point's), straight before the first point.
+[[nodiscard]] float automationCurveAt(const AutomationPoints& points, double seconds);
 
 /// The value at `seconds` within one segment from (t1, v1) to (t2, v2) with the engine's `curve`:
 /// what automationValueAt plays between two points, and what a clip's fade plays (fades.md §3).

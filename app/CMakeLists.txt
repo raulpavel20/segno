@@ -12,7 +12,7 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/mo
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp src/model/ModuleFacts.cpp src/model/RoundTrip.cpp src/model/MidiMap.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
     src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/AudioSound.cpp src/model/AudioToolkit.cpp src/model/Warp.cpp src/model/AudioAnalysis.cpp src/model/Export.cpp
-    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/SongKey.cpp src/model/Modulators.cpp src/model/DrumKit.cpp)
+    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/TimeEdits.cpp src/model/SongKey.cpp src/model/Modulators.cpp src/model/DrumKit.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile fd::music fd::device fd::dsp nlohmann_json::nlohmann_json PRIVATE fd::warnings)
 # The DAW's own modules' factory presets, from presets/<type>/: the modulators' (modulators.md §14,
@@ -21,7 +21,7 @@ fd_generate_presets_from("${CMAKE_CURRENT_SOURCE_DIR}/presets" dawFactoryPresets
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/NoteToolsTests.cpp tests/AudioMeasureTests.cpp
-        tests/SelectionTests.cpp tests/AutomationTests.cpp
+        tests/SelectionTests.cpp tests/TimeEditsTests.cpp tests/AutomationTests.cpp
         tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
         tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp tests/BrowserModelTests.cpp tests/ClipLoopsTests.cpp tests/MusicalTimeTests.cpp tests/BraceDragTests.cpp tests/SectionsTests.cpp
         tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp tests/ModulatorPresetsTests.cpp tests/DrumKitModelTests.cpp
