@@ -367,6 +367,7 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 | Copy pad / Paste pad | | *new* (`module.copyPad`, `module.pastePad`): the pad's sound and settings, pasted over the selected pad (any kit); also the pad's right-click; Ctrl+drag between pads copies too |
 | Clear pad | | *new* (`module.clearPad`): its modules and settings go; also its right-click |
 | Add MIDI effect ▸ | | *new* (`module.addMidiEffect.<id>`, [midi-effects.md](midi-effects.md) §13): Arpeggiator, Chord, Pitch, A to Z; after the selected module or at the chain's end, and a MIDI effect always lands before the track's instrument (§11). Also the browser's MIDI effects part and the chain's + |
+| Keep as notes | | *new* (`module.keepAsNotes`, [midi-effects.md](midi-effects.md) §9.1): the selected MIDI effect's track's clips (those selected, across the time selection, or all) get what its MIDI effects play up to it; the notes before kept as a take; also the MIDI effect's right-click |
 
 Load sample… also loads onto a Drum Kit's selected pad when the kit is selected (drum-kit.md §12). A Drum Kit has a rack's macros (Edit macros), and none of a rack's other items: they're dimmed for it.
 

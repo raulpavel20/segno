@@ -1,12 +1,14 @@
 // MIDI effects in the DAW (M3 P11 step 1, ADR 0074, docs/design/midi-effects.md): where they go in a
 // track's chain, the song they follow, Harmony per track, Listen, and the tools that drive them.
 
+#include "Pitch.h"
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
 #include "engine/SessionImpl.h"
 #include "model/Racks.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <tracktion_engine/tracktion_engine.h>
 
@@ -197,4 +199,98 @@ TEST_CASE("midi effects: Listen, any other track's notes, never a loop", "[integ
     REQUIRE(s.setSidechainSource(onA, std::nullopt));
     s.updateSnapshotNow();
     CHECK_FALSE(model::findDevice(s.snapshot()->channel(a)->devices, onA)->sidechainSource.has_value());
+}
+
+TEST_CASE("midi effects: Keep as notes, what they play kept in the clip, the notes before as a take",
+          "[integration]")
+{
+    Daw daw;
+    auto& s = *daw.session;
+    const auto t = daw.track(0);
+    const auto clip = s.createMidiClip(t, 0.0, 2.0); // a bar at 120 BPM
+    s.setNotes(clip,
+               {{.pitch = 60, .start = 0.0, .length = 1.0}, {.pitch = 64, .start = 2.0, .length = 1.0}});
+    const auto up = s.addDevice(t, "fd:pitch");
+    const auto chord = s.addDevice(t, "fd:chord"); // after it: not kept when keeping up to Pitch
+    s.addDevice(t, "fd:subtractive-synth");
+    auto* pitch = dynamic_cast<fd::engine::DevicePlugin*>(s.impl().plugin(up));
+    REQUIRE(pitch != nullptr);
+    const auto& spec = pitch->device().info().params[fd::devices::Pitch::Semitones];
+    pitch->setStoredValue(fd::devices::Pitch::Semitones, spec.toNormalized(12.0f));
+
+    std::string why;
+    REQUIRE(s.keepAsNotes(up, {}, &why));
+    CHECK(s.undoDescription() == "Keep as notes");
+    s.updateSnapshotNow();
+    const auto* info = s.snapshot()->channel(t);
+    REQUIRE(info != nullptr);
+    const auto* kept = [&]() -> const model::ClipInfo*
+    {
+        for (const auto& c : info->clips)
+            if (c.kind == model::ClipInfo::Kind::Midi)
+                return &c;
+        return nullptr;
+    }();
+    REQUIRE(kept != nullptr);
+    REQUIRE(kept->notes.size() == 2);
+    CHECK(kept->notes[0].pitch == 72);
+    CHECK(kept->notes[1].pitch == 76);
+    CHECK(kept->notes[1].start == Catch::Approx(2.0));
+    // Pitch off, Chord (after it) as it was.
+    CHECK_FALSE(model::findDevice(info->devices, up)->enabled);
+    CHECK(model::findDevice(info->devices, chord)->enabled);
+    // The notes before, a take of the clip's.
+    REQUIRE(kept->stack != 0);
+    const auto* stack = info->stack(kept->stack);
+    REQUIRE(stack != nullptr);
+    std::vector<std::string> takes;
+    for (const auto& take : stack->takes)
+        takes.push_back(take.name);
+    CHECK(std::find(takes.begin(), takes.end(), "Before MIDI effects") != takes.end());
+    CHECK(std::find(takes.begin(), takes.end(), "Kept notes") != takes.end());
+    // One step back: as it was.
+    s.undo();
+    s.updateSnapshotNow();
+    info = s.snapshot()->channel(t);
+    CHECK(model::findDevice(info->devices, up)->enabled);
+    bool original = false;
+    for (const auto& c : info->clips)
+        original = original ||
+                   (c.kind == model::ClipInfo::Kind::Midi && c.notes.size() == 2 && c.notes[0].pitch == 60);
+    CHECK(original);
+    // Not a MIDI effect: refused, saying why.
+    CHECK_FALSE(s.keepAsNotes(s.addDevice(t, "fd:eq"), {}, &why));
+    CHECK_FALSE(why.empty());
+}
+
+TEST_CASE("midi effects: Keep as notes keeps an arpeggio, a looped clip's laps as notes", "[integration]")
+{
+    Daw daw;
+    auto& s = *daw.session;
+    const auto t = daw.track(0);
+    // A chord held for a beat, the clip looping a beat over two seconds (four laps).
+    const auto clip = s.createMidiClip(t, 0.0, 2.0);
+    s.setNotes(clip, {{.pitch = 60, .start = 0.0, .length = 1.0},
+                      {.pitch = 64, .start = 0.0, .length = 1.0},
+                      {.pitch = 67, .start = 0.0, .length = 1.0}});
+    REQUIRE(s.setClipLoop(clip, {.start = 0.0, .length = 0.5}).empty());
+    s.updateSnapshotNow();
+    INFO("clip ends at " << s.snapshot()->channel(t)->clips.front().end());
+    const auto arp = s.addDevice(t, "fd:arpeggiator");
+    std::string why;
+    // A loop's laps: keep them, the loop off.
+    REQUIRE(s.keepAsNotes(arp, {}, &why));
+    s.updateSnapshotNow();
+    for (const auto& c : s.snapshot()->channel(t)->clips)
+        if (c.kind == model::ClipInfo::Kind::Midi)
+        {
+            CHECK_FALSE(c.loop.on());
+            // Up at 1/16 over each lap's beat: C E G C, a step each, every lap.
+            CHECK(c.end() == Catch::Approx(2.0));
+            REQUIRE(c.notes.size() == 16);
+            CHECK(c.notes[0].pitch == 60);
+            CHECK(c.notes[1].pitch == 64);
+            CHECK(c.notes[1].start == Catch::Approx(0.25));
+            CHECK(c.notes[2].pitch == 67);
+        }
 }

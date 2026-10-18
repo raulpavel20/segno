@@ -3,6 +3,7 @@
 #include "model/Snapshot.h"
 
 #include <fd/device/SongView.h>
+#include <optional>
 #include <vector>
 
 namespace fd::model
@@ -14,6 +15,12 @@ namespace fd::model
 /// with their pitch classes and bass. A chord changes at most as often as the song allows (Song ▸
 /// Chords change): a shorter one joins the chord before it.
 [[nodiscard]] std::vector<SongChordInfo> songHarmony(const Snapshot& snapshot);
+
+/// What a MIDI clip plays, in song beats: every lap of a loop, within its span, muted notes left
+/// out; with a pass's seed (passSeed), its notes' chance decided as playback decides it. Sorted.
+/// None for a muted clip.
+[[nodiscard]] std::vector<Note> playedNotes(const ClipInfo& clip, const TempoMap& tempo,
+                                            std::optional<std::uint32_t> seed = std::nullopt);
 
 /// The tracks whose notes make the song's harmony now, in track order.
 [[nodiscard]] std::vector<std::uint64_t> harmonyTracks(const Snapshot& snapshot);

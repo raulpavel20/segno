@@ -3676,3 +3676,22 @@ TEST_CASE("mcp tools: a MIDI effect's Listen, set and read", "[integration][mcp]
     CHECK(daw.fails("set_module_listen", {{"module", eq}, {"track", t1}}).find("MIDI effects") !=
           std::string::npos);
 }
+
+TEST_CASE("mcp tools: keep what MIDI effects play as notes", "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto clip = daw.call("create_midi_clip",
+                               {{"track", t0},
+                                {"start", 0},
+                                {"length", 4},
+                                {"notes", {{{"pitch", 60}, {"start", 0}, {"length", 1}}}}})["clip"]["id"];
+    const auto pitch = daw.call("add_module", {{"track", t0}, {"type", "pitch"}})["id"].get<std::string>();
+    daw.call("set_parameters", {{"module", pitch}, {"values", {{"semitones", 7}}}});
+    CHECK(daw.call("keep_as_notes", {{"track", t0}})["clips"].size() == 1);
+    CHECK(daw.call("get_clip", {{"clip", clip}})["notes"][0]["pitch"] == 67);
+    CHECK(daw.call("get_module", {{"module", pitch}})["on"] == false);
+    // Nothing of the kind on another track.
+    const auto t1 = daw.project()["tracks"][1]["id"].get<std::string>();
+    CHECK(daw.fails("keep_as_notes", {{"track", t1}}).find("MIDI effect") != std::string::npos);
+}

@@ -11,6 +11,36 @@ namespace fd::app
 void Shell::registerMidiEffectActions()
 {
     auto& chain = detail_.chain();
+    // Keep as notes (§9.1): the selected MIDI effect's track's clips get what they play.
+    const auto selectedEffect = [this]() -> std::optional<std::pair<std::uint64_t, std::uint64_t>>
+    {
+        const auto id = detail_.chain().selectedDevice();
+        if (!id)
+            return std::nullopt;
+        const auto snapshot = session_.snapshot();
+        for (const auto& t : snapshot->tracks)
+            for (const auto& d : t.devices)
+                if (d.id == *id && d.midiEffect && d.kind == model::DeviceSlot::Kind::Native)
+                    return std::pair{*id, t.id};
+        return std::nullopt;
+    };
+    actions_.add({.id = "module.keepAsNotes",
+                  .name = "Keep as notes",
+                  .category = "Module",
+                  .perform =
+                      [this, selectedEffect]
+                  {
+                      const auto effect = selectedEffect();
+                      const auto snapshot = session_.snapshot();
+                      const auto* track = effect ? snapshot->channel(effect->second) : nullptr;
+                      if (track == nullptr)
+                          return;
+                      std::string why;
+                      if (!session_.keepAsNotes(effect->first,
+                                                model::clipsToKeep(*track, arrangement_.selection()), &why))
+                          showWarning(juce::String::fromUTF8(why.c_str()));
+                  },
+                  .isEnabled = [selectedEffect] { return selectedEffect().has_value(); }});
     // Add MIDI effect ▸ each of ours: "pitch" → module.addMidiEffect.pitch.
     for (const auto* factory : fd::allDevices())
     {

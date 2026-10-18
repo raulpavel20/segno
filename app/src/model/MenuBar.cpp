@@ -227,6 +227,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           submenu("Add MIDI effect",
                   {action("module.addMidiEffect.arpeggiator"), action("module.addMidiEffect.chord"),
                    action("module.addMidiEffect.pitch")}),
+          action("module.keepAsNotes"),
           // Modulators (modulators.md §15): one added, the selected one's roll and routes.
           submenu("Add modulator",
                   {action("module.addModulator.lfo"), action("module.addModulator.random"),

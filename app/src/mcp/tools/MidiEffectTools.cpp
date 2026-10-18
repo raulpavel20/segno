@@ -131,6 +131,68 @@ void addMidiEffectTools(Registry& registry, ToolEnv& env)
                 {{"track", formatId(IdKind::Track, t.id)}, {"harmony", std::string(model::idOf(*use))}});
         }));
 
+    ToolAnnotations keeps;
+    registry.tools.push_back(make(
+        env,
+        {"keep_as_notes", "Keep what MIDI effects play as notes",
+         "Keep as notes (midi-effects.md §9.1): a track's MIDI clips get the notes its MIDI effects play, "
+         "up to and including `upTo` (default: its last), with the rolls heard; the MIDI effects kept are "
+         "turned off. Each clip's notes before are kept as a take, \"Before MIDI effects\" (switch back with "
+         "the take tools). The clips: `clips`, or those across `start` for `length`, or every MIDI clip "
+         "of the track. Only Segno's MIDI effects. One undo step.",
+         object({{"track", id(IdKind::Track, "The track")},
+                 {"upTo", id(IdKind::Module, "Its MIDI effects up to this one (default: all of them)")},
+                 {"clips", ids(IdKind::Clip, "Only these of its clips")},
+                 {"start", position("Or its clips across this stretch: from here")},
+                 {"length", length("For this long")}},
+                {"track"}),
+         result({{"clips", arrayOf(string("A clip kept"), "", 0)}}, {"clips"}), keeps},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto t = track(env, args["track"]);
+            std::optional<std::uint64_t> upTo;
+            if (args.contains("upTo"))
+            {
+                const auto [slot, owner] = module(env, args["upTo"]);
+                if (owner.id != t.id || !slot.midiEffect)
+                    throw Problem{"upTo is one of the track's MIDI effects."};
+                upTo = slot.id;
+            }
+            else
+                for (const auto& d : t.devices)
+                    if (d.midiEffect && d.kind == model::DeviceSlot::Kind::Native)
+                        upTo = d.id;
+            if (!upTo)
+                throw Problem{"The track has no MIDI effect of Segno's to keep."};
+            std::vector<std::uint64_t> clips;
+            if (args.contains("clips"))
+                for (const auto& v : args["clips"])
+                    clips.push_back(clip(env, v).id);
+            else if (args.contains("start"))
+            {
+                if (!args.contains("length"))
+                    throw Problem{"Give a length with start."};
+                const double from = seconds(env, positionArg(env, args["start"]));
+                const double to = from + seconds(env, lengthArg(env, args["length"]));
+                for (const auto& c : t.clips)
+                    if (c.kind == model::ClipInfo::Kind::Midi && c.end() > from && c.start < to)
+                        clips.push_back(c.id);
+                if (clips.empty())
+                    throw Problem{"There's no MIDI clip of the track there."};
+            }
+            else
+                for (const auto& c : t.clips)
+                    if (c.kind == model::ClipInfo::Kind::Midi)
+                        clips.push_back(c.id);
+            std::string why;
+            if (!env.session.keepAsNotes(*upTo, clips, &why))
+                throw Problem{why.empty() ? std::string("Nothing to keep.") : why};
+            Json kept = Json::array();
+            for (const auto id : clips)
+                kept.push_back(formatId(IdKind::Clip, id));
+            return ToolResult::ok({{"clips", std::move(kept)}});
+        }));
+
     registry.tools.push_back(
         make(env,
              {"set_chords_change", "Set how often the song's chords change",

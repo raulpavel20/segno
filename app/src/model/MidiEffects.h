@@ -4,6 +4,7 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <vector>
 
 namespace fd::model
 {
@@ -39,6 +40,16 @@ enum class ChordChange : std::uint8_t
     Beat,
     Any
 };
+
+/// The takes Keep as notes adds (midi-effects.md §9.1): the clip's notes before, and what was kept.
+inline constexpr const char* kBeforeMidiEffectsName = "Before MIDI effects";
+inline constexpr const char* kKeptNotesName = "Kept notes";
+
+struct TrackInfo;
+struct Selection;
+/// The clips Keep as notes acts on, on `track` (§9.1): its MIDI clips selected; else those across
+/// the time selection, if it's on the track; else every one.
+[[nodiscard]] std::vector<std::uint64_t> clipsToKeep(const TrackInfo& track, const Selection& selection);
 
 /// Their IDs, as projects and assistants write them ("auto", "half-bar"); nullopt for none.
 [[nodiscard]] std::string_view idOf(HarmonyUse use) noexcept;

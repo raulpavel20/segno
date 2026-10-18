@@ -553,3 +553,21 @@ Pitch, Chord and Arpeggiator are built and registered: in the DAW's device list,
   - **Drawing a lane's step** writes the lane to the module's state through the host binding.
 - **The plugins:** MIDI effects with no audio bus (AU's MIDI processor, CLAP's note effect, VST3, LV2), and no standalone. A host has no song: they follow their own key and chord, or the chord played below the split.
 - **Tests:** each module's unit tests (the pure functions, every note ended under random streams and settings, timing to the sample); the conformance suite's MIDI checks for every MIDI effect (the same notes for any block size, every note ended through stops and jumps, state and reset reproducing the notes, no allocation); the plugin adapter's notes out.
+
+## 23. Step 1b and Keep as notes (2026-10-18)
+
+The DAW's side of step 1, and Keep as notes.
+
+- **Before the instrument** (§11): one rule for the Session and the chain view's drop line (`model::placeInChain`): a MIDI effect added, dropped or moved after the first module that plays notes (an instrument, a Drum Kit, a rack starting with one) lands just before it; modulators count among the places. Module ▸ Add MIDI effect ▸, the chain's + (a MIDI effects section), the browser's MIDI effects part (a MIDI socket, between Instruments and Audio effects).
+- **The song handed to each module** (§5): the Session builds a track's song view with every snapshot (the song's chords and sections in beats, a section's name without its copy's number and which time it plays, the track's clips and notes) and hands it to the track's MIDI effects only when it changed (`SongView` compares).
+- **Harmony per track** (Track ▸ Harmony ▸, the header's right-click, the inspector's TRACK; `set_track_harmony`): Auto, On, Off. **On** counts a one-note part too: a bass part gives the chords their bass. **Song ▸ Chords change ▸** Every bar, Every half bar, Every beat (the default), Any time (`set_chords_change`); the design's "Song ▸ Harmony…" became this submenu: four choices, no dialog. `get_song_context` reads it all.
+- **Listen** (§5.3) is the header's picker: None, then any track but its own and none that hears it already, through others too (no loop). Deleting the track heard sets it back to none, in the same step (`set_module_listen`).
+- **The note display, live** (§12): a `NoteTap` on a MIDI effect's analysis bus, written lock-free by the module (the notes in and out, the chord it follows as it changes, the key, the playhead); `ui::TapFeed` turns it into the view in every host. It keeps 32 bars and clears on a jump back. The text: what it follows ("Song", the track heard, "Played", "Own"), and why there's no chord: "Own chord: C", "No chords here: the key's Am", in a plugin host "No song here: C major". In the DAW, while it follows the song, the chords shown are the song's, so the next one is in sight.
+- **Keep as notes** (§9.1; Module ▸ Keep as notes, a MIDI effect's right-click, `keep_as_notes`):
+  - the clips selected on the effect's track, else those across the time selection, else every one;
+  - the track's MIDI effects up to the chosen one run offline over each clip (`devices::runNotes`: fresh copies with the project's settings, block by block as a host plays them, the song view, the notes each hears), **with the rolls heard**, so what's kept is what played: a test runs a module live and offline and gets the same notes to the sample;
+  - the clip's notes as they play: muted ones left out, its chance decided as playback did (its kept roll, or the pass's);
+  - a looped clip's laps become notes, the loop off;
+  - the takes: "Before MIDI effects" (unless the clip was playing one of its takes) and "Kept notes", as bounce in place keeps its source;
+  - the effects kept turned off; one undo step.
+  - **Not yet:** a plugin's MIDI effect (refused, saying so); parameters under automation (their stored values are used); a listened track's notes are its clips' as written, before its own MIDI effects.

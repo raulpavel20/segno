@@ -1,5 +1,8 @@
 #include "model/MidiEffects.h"
 
+#include "model/Selection.h"
+#include "model/Snapshot.h"
+
 #include <algorithm>
 #include <array>
 
@@ -14,6 +17,23 @@ int placeInChain(std::span<const ChainRole> chain, int index, ChainRole role) no
         return index;
     const auto before = static_cast<int>(player - chain.begin());
     return index < 0 || index > before ? before : index;
+}
+
+std::vector<std::uint64_t> clipsToKeep(const TrackInfo& track, const Selection& selection)
+{
+    std::vector<std::uint64_t> selected, across, all;
+    const bool timeHere = selection.hasTime() && selection.rowTracks.contains(track.id);
+    for (const auto& c : track.clips)
+    {
+        if (c.kind != ClipInfo::Kind::Midi)
+            continue;
+        all.push_back(c.id);
+        if (selection.clips.contains(c.id))
+            selected.push_back(c.id);
+        if (timeHere && c.end() > selection.time->start && c.start < selection.time->end)
+            across.push_back(c.id);
+    }
+    return !selected.empty() ? selected : timeHere ? across : all;
 }
 
 namespace

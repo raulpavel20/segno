@@ -97,6 +97,12 @@ public:
     void process(ProcessContext& context) noexcept final;
     /// A new pass: fresh dice (the host calls it before the pass's first block).
     void startPass(std::uint64_t roll) noexcept override;
+    /// The roll the pass playing (or the last one) drew from: what Keep as notes plays again
+    /// (midi-effects.md §9.1). Any thread.
+    [[nodiscard]] std::uint64_t rollHeard() const noexcept
+    {
+        return rollHeard_.load(std::memory_order_relaxed);
+    }
 
 protected:
     /// The module's block: its notes in `c.events`, written to `c.outEvents`.
@@ -143,7 +149,7 @@ private:
     BlockBeats beats_; // this block's, for the marks the display reads
     double ownBeat_ = 0.0;
     bool wasPlaying_ = false;
-    std::atomic<std::uint64_t> hostRoll_{0};
+    std::atomic<std::uint64_t> hostRoll_{0}, rollHeard_{1};
     std::atomic<bool> hostRolled_{false};
     std::uint64_t roll_ = 1, selfRolls_ = 0;
 };

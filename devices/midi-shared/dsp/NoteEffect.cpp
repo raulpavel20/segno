@@ -191,6 +191,7 @@ void NoteEffect::process(ProcessContext& c) noexcept
             roll_ = hostRoll_.load(std::memory_order_relaxed);
         else
             roll_ = music::mix(1, ++selfRolls_);
+        rollHeard_.store(roll_, std::memory_order_relaxed);
     }
     wasPlaying_ = t.playing;
 

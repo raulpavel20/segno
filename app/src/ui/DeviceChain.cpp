@@ -930,6 +930,16 @@ void DeviceChain::mouseDown(const juce::MouseEvent& e)
             content_->repaint();
             showModulatorMenu(slot.info.id);
         }
+        else if (slot.info.midiEffect && slot.info.kind == model::DeviceSlot::Kind::Native && slot.rack == 0)
+        {
+            // A MIDI effect's own (midi-effects.md §13): what the menu bar's Module ▸ has for it.
+            selected_ = slot.info.id;
+            content_->repaint();
+            juce::PopupMenu menu;
+            actions_.addMenuItem(menu, "module.keepAsNotes");
+            menu.showMenuAsync(
+                juce::PopupMenu::Options().withTargetComponent(slot.view.get()).withMousePosition());
+        }
         return;
     }
     // Shift: the selection runs along the track's chain to here (Group into rack takes them).

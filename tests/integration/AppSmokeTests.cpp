@@ -716,9 +716,9 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // them, Keep is on the panel, Remove routes in the handle's and header's right-click.
         // MIDI effects added (midi-effects.md §13): from the menu, the browser and the chain's +.
         "module.addMidiEffect.arpeggiator", "module.addMidiEffect.chord", "module.addMidiEffect.pitch",
-        "module.addModulator.lfo", "module.addModulator.random", "module.addModulator.envelope",
-        "module.addModulator.follower", "module.addModulator.steps", "module.keepRoll", "module.removeRoutes",
-        "song.keepAllRolls",
+        "module.keepAsNotes", "module.addModulator.lfo", "module.addModulator.random",
+        "module.addModulator.envelope", "module.addModulator.follower", "module.addModulator.steps",
+        "module.keepRoll", "module.removeRoutes", "song.keepAllRolls",
         // The piano roll's tools (piano-roll.md §13): in the Notes menu, which the clip view's
         // Notes button opens where you work, and the most used on the notes' right-click menu.
         "notes.fitToKey", "notes.makeChords", "notes.changeChord", "notes.voiceSmooth", "notes.voiceClose",

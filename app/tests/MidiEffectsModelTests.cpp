@@ -1,4 +1,5 @@
 #include "model/MidiEffects.h"
+#include "model/Selection.h"
 #include "model/SongHarmony.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -117,4 +118,19 @@ TEST_CASE("MIDI effects: their settings' IDs", "[fast]")
     CHECK(shortestChord(ChordChange::Bar, 3, 4) == 3.0);
     CHECK(shortestChord(ChordChange::HalfBar, 6, 8) == 1.5);
     CHECK(shortestChord(ChordChange::Any, 4, 4) == 0.0);
+}
+
+TEST_CASE("MIDI effects: Keep as notes keeps the clips selected, those across the time, or all", "[fast]")
+{
+    TrackInfo t{.id = 1};
+    for (std::uint64_t id = 10; id < 13; ++id)
+        t.clips.push_back({.id = id, .kind = ClipInfo::Kind::Midi, .start = (id - 10) * 4.0, .length = 4.0});
+    t.clips.push_back({.id = 20, .kind = ClipInfo::Kind::Audio, .start = 0.0, .length = 4.0});
+    Selection s;
+    CHECK(clipsToKeep(t, s) == std::vector<std::uint64_t>{10, 11, 12});
+    s.time = TimeSpan{5.0, 6.0};
+    s.rowTracks = {1};
+    CHECK(clipsToKeep(t, s) == std::vector<std::uint64_t>{11});
+    s.clips = {12};
+    CHECK(clipsToKeep(t, s) == std::vector<std::uint64_t>{12});
 }

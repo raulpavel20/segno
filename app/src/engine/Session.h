@@ -1563,6 +1563,14 @@ public:
     /// How often the song's chords may change (Song ▸ Chords change). One undo step; false when
     /// it's already so.
     bool setChordChange(model::ChordChange change);
+    /// Keep as notes (midi-effects.md §9.1): the MIDI clips `clips` of the track holding the MIDI
+    /// effect `upTo` (none given: all its MIDI clips) get the notes its MIDI effects play, up to and
+    /// including `upTo`, with the rolls heard. Each clip's notes before are kept as a take, "Before
+    /// MIDI effects", and what was kept as another; a looped clip's laps become notes. The MIDI
+    /// effects kept are turned off. One undo step, "Keep as notes". False, changing nothing, when
+    /// there's nothing to keep, or a plugin's MIDI effect is among them (`why` says so).
+    bool keepAsNotes(std::uint64_t upTo, const std::vector<std::uint64_t>& clips = {},
+                     std::string* why = nullptr);
 
     // ---- tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md) --------------------
 
