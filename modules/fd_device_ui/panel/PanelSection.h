@@ -41,6 +41,10 @@ public:
     [[nodiscard]] bool isCollapsed() const noexcept { return collapsed_; }
     /// Collapses or expands the section. `byUser` tells the panel's host (view state changed).
     void setCollapsed(bool collapsed, bool byUser = false);
+    /// Starts collapsed, until the user expands it (a MIDI effect's HARMONY, which holds the
+    /// fallbacks, midi-effects.md §12): the view state keeps only what differs from it.
+    void setCollapsedByDefault();
+    [[nodiscard]] bool isCollapsedByDefault() const noexcept { return collapsedByDefault_; }
     /// The section's width on the grid: its columns with padding, or the collapsed strip.
     [[nodiscard]] int preferredWidth() const noexcept;
 
@@ -110,7 +114,7 @@ private:
     std::optional<size_t> powerParam_;
     std::function<bool()> powerOn_;    // a power switch's state, when it isn't a parameter
     juce::Component* power_ = nullptr; // owned by the panel
-    bool collapsed_ = false;
+    bool collapsed_ = false, collapsedByDefault_ = false;
 
     juce::Component content_;
     std::vector<Placement> placements_;

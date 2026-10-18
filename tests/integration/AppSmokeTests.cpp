@@ -672,8 +672,10 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     CHECK(actions.conflicts().empty());
     // ui-principles §1: a shortcut for every action but the rare ones the menus hold alone.
     const std::set<std::string> menuOnly{
-        "take.useWhole", "take.rename", "take.copyToTrack", "take.moveToTrack", "take.keepOnly",
-        "app.systemTitleBar", "app.about", "track.duplicate", "track.delete",
+        // What MIDI effects follow and play, shown (midi-effects.md §13): view options, seldom changed.
+        "view.songChords", "view.clipPlayed", "take.useWhole", "take.rename", "take.copyToTrack",
+        "take.moveToTrack", "take.keepOnly", "app.systemTitleBar", "app.about", "track.duplicate",
+        "track.delete",
         // Reduced latency when monitoring (recording.md §22.1): a setting, also in Settings.
         "project.reducedLatency",
         // MIDI map mode (midi-learn.md §3): Ctrl+M is the metronome's; Settings > Keys can give it one.

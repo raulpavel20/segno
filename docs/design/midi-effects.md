@@ -399,7 +399,7 @@ Eight shape what you play; three write a part of their own.
   - Notes ▸ Transform ▸ **With a MIDI effect ▸**;
   - Song ▸ **Harmony…** (how fast chords may change);
   - Track ▸ **Harmony ▸** Auto, On, Off;
-  - View ▸ **Song chords** (the song row), **Played notes** (clips).
+  - View ▸ **Show song chords** (the song row), **Show played notes** (the clip view), as Show automation lanes and Show other tracks' notes are named.
   - Each also where it's used: the module's right-click and surface, the track's right-click, the inspector.
 
 ## 14. Assistants (MCP, [ADR 0021](../decisions/0021-mcp-server.md))
@@ -504,3 +504,29 @@ The spike's checks are kept as tests (`tests/integration/MidiEffectSpikeTests.cp
   - tracktion's MIDI buffers can grow, and allocate, the first block a module writes more notes than it was given: checked under the RealtimeSanitizer, and reserved when the graph is prepared if it shows;
   - the chance decision shared by the clip's filter and the song view;
   - the patch series: main has added `tracktion_engine-submix-sidechain.patch` since this branch began. Both lines patch `tracktion_EditNodeBuilder.cpp`, so the series is checked on a fresh source at the merge.
+
+## 21. Step 0b, drawn (2026-10-18)
+
+Every state drawn with the real panel kit and the real arrangement, for review (`tests/integration/MidiEffectUiTests.cpp`, `FD_DUMP_DIR`; the latest set in `build/dev/drawn/midi-effects/`). The modules' panels are drawn from their SPECs' parameters with a stand-in for the engine (what they'd hear and play), and each passes the module panel lint. The arrangement is drawn from a snapshot: the song's chords read by the real function, the notes MIDI effects play from a stand-in.
+
+- **Pitch:** idle, the song's chords along the top; fitting a riff to the chords (the notes as written faint, as fitted bright); following a track's chords (Listen in the header); HARMONY open (its own key); in a plugin host (no song: its own key, said); folded.
+- **Chord:** Add, Song and Keys, VOICES coming in ADD's place with the mode.
+- **Arpeggiator:** the velocity lane (accents, the step playing), the gate lane (five steps against sixteen), the octave lane (both ways), Song chords (no notes held, the song's chords played).
+- **Melody,** the generators' example: the pitch lane (a motif and its varied repeat), Write, Change and Play.
+- **The arrangement,** at 1800 and 1280 px: the song's chords under the song row's overview; an empty Bass clip a generator plays in, its notes faint; a Lead riff with what Pitch makes of it behind it.
+
+What drawing settled:
+- **The note display** (`ui::NoteDisplay`, the panel kit): two bars back and half a bar ahead of the playhead, rows fitted to the notes in sight (an octave at least), what came in in a ghost of the text colour, what goes out in the value colour by velocity, bar and beat lines, the section's end, the playhead. Its label line: the chord now → the next, or why there's none; what it follows at the right. With nothing in sight, only "Nothing played yet": nothing is drawn through it.
+- **The step display** (`ui::StepDisplay`): the note display with a lane over its upper part and the notes going out under it. Bars from the floor (from the middle for a lane both ways; notes on rows for a pitch lane); a step at its neutral value grey, since it changes nothing; the step playing the brightest; the steps past the lane's length shaded, its length a line after the last, dragged.
+- **One base for MIDI effects' panels** (`ui::MidiEffectPanel`): NOTES or STEPS, HARMONY, and Listen.
+  - **HARMONY** is the same section in every module, collapsed by default: the song is what it follows, and the display says so. The kit gained sections collapsed by default (`PanelSection::setCollapsedByDefault`; the view state lists such a section under `"expanded"` when it's open; device-panels.md).
+  - **Listen** is the header's sidechain picker, captioned Listen (ADR 0025's place), in the same place in every MIDI effect. It shows while what it hears is used: Follow on Track, or a module's own use (Melody's Answer). Otherwise it takes no room and the presets have it: a fixed picker saying "None" doesn't earn its place.
+- **Combos carry their names inside** ("Change  Move", "Style  Up"), short where cells are few ("Out  Fold"). HARMONY's scale shows its name alone: the longest names don't fit beside "Scale".
+- **The Chord's strum** under a STRUM sub-label, its direction just above its knobs (Time, Curve, Swell): above Mode's row, it read as part of Mode.
+- **The song's chords on the song row** (View ▸ Show song chords): a band of 14 px (`shell.songChordHeight`) above the row's divider, the row as much taller while it shows. Each chord's name at its start after a tick, left out where it doesn't fit; the tick stays.
+- **The song's harmony read for real** (`model::songHarmony`, in the snapshot): the tracks that play chords somewhere (three notes together; never a Drum Kit's), every lap of a looped clip, named in the key; a chord shorter than a beat joins the chord before it.
+- **Played notes** (what a track's MIDI effects play in a clip, `ClipInfo::played`): in the arrangement, a ghost of the clip's colour behind its own notes, so an empty clip a generator plays in never looks empty; in the clip view (View ▸ Show played notes), outlines in the clip's colour, so they read apart from Others' filled notes.
+- **For tests and snapshots:** `DevicePanel::refreshNow` does what the panel's refresh tick does, on screen or not.
+- **Not drawn:** Keep as notes is a menu item and a right-click item, built with step 1.
+
+For approval: the drawings, and the SPECs of step 1's three ([Pitch](../../devices/pitch/SPEC.md), [Chord](../../devices/chord/SPEC.md), [Arpeggiator](../../devices/arpeggiator/SPEC.md)), whose IDs become permanent then. Melody's SPEC is an early draft, drawn to show a generator, and is reviewed with step 2.

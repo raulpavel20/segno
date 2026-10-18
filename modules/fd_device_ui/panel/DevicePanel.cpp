@@ -104,8 +104,10 @@ DevicePanel::DevicePanel(DeviceUiContext& context) : context_(context)
     fold_.setWantsKeyboardFocus(false);
     fold_.onClick = [this] { setFolded(!folded_, true); };
     addChildComponent(fold_);
-    // A device with a sidechain bus offers the host's sources in the header (ADR 0025).
-    if (context_.sidechain != nullptr && context_.info.buses.sidechainChannels > 0)
+    // A device with a sidechain bus offers the host's sources in the header (ADR 0025); a MIDI
+    // effect, the tracks whose notes it can hear (Listen, ADR 0074).
+    if (context_.sidechain != nullptr &&
+        (context_.info.buses.sidechainChannels > 0 || context_.info.kind == DeviceKind::MidiEffect))
     {
         headerControls_.push_back(&adopt(std::make_unique<SidechainPicker>(*context_.sidechain), *this));
         headerCaptions_.push_back("Sidechain");
@@ -145,8 +147,12 @@ void DevicePanel::setEnabledState(bool enabled)
 
 void DevicePanel::timerCallback()
 {
-    if (!isShowing())
-        return;
+    if (isShowing())
+        refreshNow();
+}
+
+void DevicePanel::refreshNow()
+{
     for (auto& c : controls_)
         if (auto* pc = dynamic_cast<ParamControl*>(c.get()))
             pc->refresh();
@@ -508,14 +514,20 @@ std::vector<juce::Component*> DevicePanel::meters() const
 
 std::string DevicePanel::viewState() const
 {
-    std::vector<std::string> collapsed;
+    // Each section as it differs from its default: collapsed, or expanded where it starts collapsed.
+    std::vector<std::string> collapsed, expanded;
     for (const auto& s : sections_)
-        if (s->isCollapsed())
+        if (s->isCollapsed() && !s->isCollapsedByDefault())
             collapsed.push_back(s->id());
+        else if (!s->isCollapsed() && s->isCollapsedByDefault())
+            expanded.push_back(s->id());
     std::sort(collapsed.begin(), collapsed.end());
+    std::sort(expanded.begin(), expanded.end());
     auto json = nlohmann::json::object();
     if (!collapsed.empty())
         json["collapsed"] = collapsed;
+    if (!expanded.empty())
+        json["expanded"] = expanded;
     if (folded_)
         json["folded"] = true;
     if (page_ > 0)
@@ -526,7 +538,7 @@ std::string DevicePanel::viewState() const
 void DevicePanel::setViewState(std::string_view text)
 {
     const auto json = nlohmann::json::parse(text, nullptr, false);
-    std::set<std::string> collapsed;
+    std::set<std::string> collapsed, expanded;
     bool folded = false;
     int page = 0;
     if (json.is_object())
@@ -535,15 +547,17 @@ void DevicePanel::setViewState(std::string_view text)
             for (int i = 0; i < pageCount(); ++i)
                 if (pageId(i) == it->get<std::string>())
                     page = i;
-        if (const auto it = json.find("collapsed"); it != json.end() && it->is_array())
-            for (const auto& id : *it)
-                if (id.is_string())
-                    collapsed.insert(id.get<std::string>());
+        for (auto [key, ids] : {std::pair{"collapsed", &collapsed}, std::pair{"expanded", &expanded}})
+            if (const auto it = json.find(key); it != json.end() && it->is_array())
+                for (const auto& id : *it)
+                    if (id.is_string())
+                        ids->insert(id.get<std::string>());
         if (const auto it = json.find("folded"); it != json.end() && it->is_boolean())
             folded = it->get<bool>();
     }
     for (auto& s : sections_)
-        s->collapsed_ = collapsed.contains(s->id());
+        s->collapsed_ =
+            collapsed.contains(s->id()) || (s->collapsedByDefault_ && !expanded.contains(s->id()));
     folded_ = foldable_ && folded;
     page_ = page;
     pageTabs_.setSelected(page);

@@ -179,6 +179,8 @@ struct ShellMetrics
     int takeStripHeight = 24;     // a take's strip under its clip (recording.md §6)
     int songRowHeight = 40;       // the song row (ADR 0049, arranger.md §5): its height by default...
     int songRowMinHeight = 32;    // ...and its least
+    int songChordHeight =
+        14; // the song's chords under its overview, while View ▸ Song chords is on (midi-effects.md §5.1)
     int songTitleHeight = 16;     // its title band, where the sections' names are
     int songOverviewInset = 3;    // its miniature of the tracks, clear of the title band and the divider
     int songBracket = 2;          // a section's bracket: its bar along the top and the tick down each end...

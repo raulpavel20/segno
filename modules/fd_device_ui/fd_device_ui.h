@@ -41,6 +41,8 @@ namespace fd::ui { class ModulationModel; class ModuleEditor; }
 #include "panel/ModuleEditor.h"
 #include "panel/Modulation.h"
 #include "panel/Displays.h"
+#include "panel/NoteDisplay.h"
+#include "panel/MidiParts.h"
 #include "panel/CurveEditor.h"
 #include "panel/SynthParts.h"
 #include "panel/PanelRegistry.h"

@@ -284,6 +284,13 @@ void Shell::registerNotesActions()
                   .isEnabled = clipView,
                   .isToggled = [&roll] { return roll.options().others; },
                   .whyNot = whyNoClip});
+    actions_.add({.id = "view.clipPlayed",
+                  .name = "Show played notes",
+                  .category = "View",
+                  .perform = [&roll] { roll.setPlayedShown(!roll.options().played); },
+                  .isEnabled = clipView,
+                  .isToggled = [&roll] { return roll.options().played; },
+                  .whyNot = whyNoClip});
     for (const auto& [id, mode] : {std::pair{"view.drawNote", model::DrawMode::Note},
                                    std::pair{"view.drawChord", model::DrawMode::Chord},
                                    std::pair{"view.drawChordUnder", model::DrawMode::ChordUnder}})

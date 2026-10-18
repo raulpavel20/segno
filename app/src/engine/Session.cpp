@@ -9,6 +9,7 @@
 #include "model/ModuleFacts.h"
 #include "model/NoteEditing.h"
 #include "model/Racks.h"
+#include "model/SongHarmony.h"
 #include "model/TrackEdits.h"
 
 #include <atomic>
@@ -729,6 +730,8 @@ void Session::Impl::rebuildSnapshot()
         std::sort(s->sections.begin(), s->sections.end(),
                   [](const auto& a, const auto& b) { return a.start < b.start; });
     }
+    // The song's harmony, read from its notes, as the MIDI effects follow it (midi-effects.md §5.1).
+    s->songChords = model::songHarmony(*s);
     auto& master = s->master;
     master.id = masterId();
     master.role = model::TrackInfo::Role::Master;

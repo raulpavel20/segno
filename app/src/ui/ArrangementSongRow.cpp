@@ -26,8 +26,10 @@ int ArrangementView::songRowHeight() const
     const auto& sh = ui::Theme::current().shell;
     const auto it = heights_.find(kSongKey);
     const double height = it != heights_.end() ? it->second : static_cast<double>(sh.songRowHeight);
+    // The song's chords take a band of their own under the overview while they show.
     return juce::roundToInt(
-        std::clamp(height, static_cast<double>(sh.songRowMinHeight), model::TrackLayout::maxHeight));
+               std::clamp(height, static_cast<double>(sh.songRowMinHeight), model::TrackLayout::maxHeight)) +
+           (showSongChords_ ? sh.songChordHeight : 0);
 }
 
 juce::Rectangle<int> ArrangementView::songArea() const
@@ -194,7 +196,14 @@ void ArrangementView::paintSongRow(juce::Graphics& g)
         juce::Graphics::ScopedSaveState saved(g);
         g.reduceClipRegion(lane);
         time::paintGrid(g, grid_, timeline_, lane);
-        paintOverview(g, lane.withTrimmedTop(sh.songTitleHeight));
+        // The song's chords, while shown: a band of their own above the divider, under the overview.
+        auto overview = lane.withTrimmedTop(sh.songTitleHeight);
+        if (showSongChords_)
+        {
+            paintSongChords(g, overview.withTrimmedBottom(sh.dropLine).removeFromBottom(sh.songChordHeight));
+            overview.removeFromBottom(sh.songChordHeight);
+        }
+        paintOverview(g, overview);
         // A time selection on every track and lane tints its span here too (time-selection.md §7).
         if (selection_.hasTime() &&
             std::all_of(snapshot_->tracks.begin(), snapshot_->tracks.end(), [&](const auto& track)
@@ -263,6 +272,35 @@ void ArrangementView::paintSongRow(juce::Graphics& g)
     // The divider below it: the rows scroll under it.
     g.setColour(t.line);
     g.fillRect(songArea().removeFromBottom(sh.dropLine));
+}
+
+void ArrangementView::paintSongChords(juce::Graphics& g, juce::Rectangle<int> band)
+{
+    // Each chord's name at its start, after a tick, cut where the next one starts; a chord with too
+    // little room keeps its tick (midi-effects.md §5.1).
+    const auto& t = ui::Theme::current();
+    const auto& sh = t.shell;
+    const auto font = ui::font(ui::TextStyle::ValueSmall);
+    g.setFont(font);
+    const auto& chords = snapshot_->songChords;
+    for (std::size_t i = 0; i < chords.size(); ++i)
+    {
+        const float x0 = std::round(laneX(chords[i].start)), x1 = std::round(laneX(chords[i].end));
+        if (x1 < static_cast<float>(band.getX()) || x0 > static_cast<float>(band.getRight()))
+            continue;
+        g.setColour(t.textTertiary);
+        g.fillRect(juce::Rectangle<float>(x0, static_cast<float>(band.getY()), 1.0f,
+                                          static_cast<float>(band.getHeight())));
+        const auto name = juce::String::fromUTF8(chords[i].name.c_str());
+        const auto text = juce::Rectangle<float>(x0, static_cast<float>(band.getY()), x1 - x0,
+                                                 static_cast<float>(band.getHeight()))
+                              .withTrimmedLeft(static_cast<float>(sh.clipTextInset));
+        if (juce::GlyphArrangement::getStringWidth(font, name) >
+            text.getWidth() - static_cast<float>(sh.clipTextInset))
+            continue;
+        g.setColour(t.textSecondary);
+        g.drawText(name, text, juce::Justification::centredLeft, false);
+    }
 }
 
 void ArrangementView::paintOverview(juce::Graphics& g, juce::Rectangle<int> area)

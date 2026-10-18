@@ -1709,6 +1709,12 @@ void Shell::registerActions()
     actions_.add({.id = "view.lanes", .name = "Show automation lanes", .category = "View", .keys = {key('l', kCmd | kAlt)},
                   .perform = [this] { arrangement_.setLanesVisible(!arrangement_.lanesVisible()); },
                   .isEnabled = arrangeShown, .isToggled = [this] { return arrangement_.lanesVisible(); }});
+    actions_.add({.id = "view.songChords",
+                  .name = "Show song chords",
+                  .category = "View",
+                  .perform = [this] { arrangement_.setSongChordsShown(!arrangement_.songChordsShown()); },
+                  .isEnabled = arrangeShown,
+                  .isToggled = [this] { return arrangement_.songChordsShown(); }});
     actions_.add({.id = "view.returns",
                   .name = "Show returns",
                   .category = "View",
@@ -2239,7 +2245,8 @@ std::string Shell::viewState() const
         {"mixerSends", mixer_.options().sends},
         {"mixerNarrow", mixer_.options().narrow},
         {"mixerScroll", mixer_.scrollX()},
-        {"rowHeights", arrangement_.rowHeights()}}
+        {"rowHeights", arrangement_.rowHeights()},
+        {"songChords", arrangement_.songChordsShown()}}
         .dump();
 }
 
@@ -2271,6 +2278,7 @@ void Shell::applyViewState(const std::string& json)
     mixer_.setOptions(get("mixerModules", true), get("mixerSends", true), get("mixerNarrow", false));
     mixer_.setScrollX(get("mixerScroll", 0));
     arrangement_.setRowHeights(get("rowHeights", std::map<std::string, double>{}));
+    arrangement_.setSongChordsShown(get("songChords", false));
     resized();
 }
 

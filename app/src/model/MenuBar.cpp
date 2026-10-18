@@ -241,12 +241,12 @@ std::vector<Menu> menuBar(MenuPlatform platform)
          {action("view.mixer"), separator(), action("view.browser"), action("browser.search"),
           action("browser.preview"), action("view.inspector"), action("view.detail"),
           action("view.detailMode"), separator(), action("view.lanes"), action("view.returns"),
-          action("module.fold"), action("module.expand"), action("module.nextPage"),
-          action("module.previousPage"), separator(),
+          action("view.songChords"), action("module.fold"), action("module.expand"),
+          action("module.nextPage"), action("module.previousPage"), separator(),
           // The clip view's options (piano-roll.md §13).
           action("view.clipInKey"),
           submenu("Other tracks' notes", {action("view.clipOthers"), separator(), list("otherTracks")}),
-          submenu("Clip view lane", {list("clipLane")}),
+          action("view.clipPlayed"), submenu("Clip view lane", {list("clipLane")}),
           // The audio editor's rows (audio-editor.md §4): its level column, by menu.
           submenu("Waveform height", {action("view.waveformTaller"), action("view.waveformShorter"),
                                       action("view.waveformReset")}),

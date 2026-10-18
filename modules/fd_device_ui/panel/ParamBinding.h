@@ -128,6 +128,38 @@ public:
     virtual void select(int index) = 0;
 };
 
+/// What a MIDI effect's note display shows (docs/design/midi-effects.md §12): the notes it heard
+/// and played around the playhead, and the song it followed. Times are in beats of the song.
+class NoteFeed
+{
+public:
+    struct Note
+    {
+        double start = 0.0, end = 0.0;
+        int key = 60;
+        float velocity = 0.8f;
+        bool played = true; // went out; false: came in
+    };
+    struct Chord
+    {
+        double start = 0.0, end = 0.0;
+        juce::String name; // spelled in the key ("Am7", "D9/F♯")
+    };
+    struct View
+    {
+        std::vector<Note> notes;
+        std::vector<Chord> chords; // the harmony it followed, in time order
+        double now = 0.0;          // the playhead
+        double beatsPerBar = 4.0;
+        std::optional<double> sectionEnd; // where the section playing ends, if it's in sight
+        juce::String following;           // what it follows: "Song", "Bass", "Played", "Own"
+        juce::String fallback;            // why there's no chord here ("The key's I"), else empty
+    };
+    virtual ~NoteFeed() = default;
+    /// Everything from `before` beats before the playhead to `after` beats after it.
+    [[nodiscard]] virtual View view(double before, double after) const = 0;
+};
+
 /// Everything a device panel needs from its host.
 struct DeviceUiContext
 {
@@ -160,5 +192,8 @@ struct DeviceUiContext
     /// The user's Segno folder (Documents/Segno, or where the DAW's Settings put it), where a
     /// module writes files of the user's (Export Wavetable…). Empty: Documents/Segno.
     std::function<juce::File()> segnoFolder;
+    /// A MIDI effect's notes and the song it follows, for its note display; null where the host
+    /// has none (snapshots, the gallery).
+    NoteFeed* notes = nullptr;
 };
 } // namespace fd::ui
