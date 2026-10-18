@@ -2,7 +2,7 @@
 
 A **time selection** is a stretch of time on chosen rows. Drag across bars 9 to 17 over the drums and the bass, and those eight bars are selected on those rows, whatever clips lie there. Commands then act on exactly that stretch. Delete clears it. Ctrl+D repeats it right after itself. Ctrl+E splits the clips at its edges. Ctrl+L loops it. Export renders it. Song-wide versions insert or remove time across the whole song. The same idea works inside a clip: the audio editor already selects time this way, and the piano roll gains it.
 
-**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 drawn and checked (2026-10-18, §24), for the product owner's approval. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
+**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 drawn and checked (2026-10-18, §24), and approved by the product owner the same day ("Looks good!"). Step 1, the arrangement, is next. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
 
 What the product owner asked (2026-10-17), on reviewing the groups design:
 - "I think we need to implement selecting a stretch of time."
@@ -490,7 +490,7 @@ Then groups ([groups.md](groups.md), P9).
 | T23 | **Rows shared with selected tracks** | One set of rows, with or without a stretch, also used for groups' several selected tracks (§4, [groups.md](groups.md) §8) |
 | T24 | **Building it** | Drawn and checked first (step 0), then the arrangement (1), then what waited and the clip view (2), each signed off; groups after (§21) |
 
-## 24. Step 0, drawn and checked (2026-10-18; for the product owner's approval)
+## 24. Step 0, drawn and checked (2026-10-18; approved by the product owner the same day)
 
 **The check passed** (`TimeSelectionSpikeTests`). `Session::bounceStretch` bounces a stretch on each track as one piece (`model::stretchRuns`), using the bounce's own machinery.
 - Two MIDI clips with a gap between them, bounced in place over a stretch that starts and ends in empty time, become one audio clip spanning it.
