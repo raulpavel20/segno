@@ -567,7 +567,7 @@ Then groups ([groups.md](groups.md), P9).
 
 **Found:** Fade to selection across a join two halves of one split clip make does nothing there. Such a join plays on seamlessly and takes no crossfade ([fades.md](fades.md) §4), but `stretchRefusal` doesn't know that yet, so the command isn't dimmed. To fix with step 2.
 
-## 26. Step 2, what waited and the clip view, built (2026-10-18; for the product owner's tasks)
+## 26. Step 2, what waited and the clip view, built (2026-10-18; signed off by the product owner the same day)
 
 **Built:**
 - **Export** (§13): the Range's **Selection** ("Selection  Bars 9-17"), offered while there's a selection and chosen when the panel opens with one; with none, a remembered Selection is Song. Exactly the stretch, no tail, named for its bars; with stems, the selection's tracks. `export_audio` takes a `range` of `{from, to}`; an assistant's export never uses a remembered Selection, which is the user's.
