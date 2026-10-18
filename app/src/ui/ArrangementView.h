@@ -720,6 +720,7 @@ private:
     time::RulerGesture rulerGesture_;
     model::Drag clipDrag_;
     juce::MouseCursor loopCursor_; // looping a clip by its edge (ui::cursorFor)
+    ui::HandCursor hand_;          // over what moves where it's dragged: a title strip, a point
     juce::Point<float> hover_;     // where the pointer last moved over the view (tooltips)
     int dragStartTrack_ = 0;
     bool dragMoved_ = false;

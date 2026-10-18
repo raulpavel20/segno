@@ -1923,7 +1923,7 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
             if (const auto p = model::hitPoint(points, map, e.position.x, e.position.y, ui::Theme::current().input.edgeGrab))
             {
                 hovered = std::pair{row->track, *p};
-                cursor = juce::MouseCursor::DraggingHandCursor;
+                cursor = hand_.get();
             }
             else if (model::hitSegment(points, map, e.position.x, e.position.y, 4.0))
                 cursor = juce::MouseCursor::UpDownResizeCursor;
@@ -1950,7 +1950,7 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
             if (const auto title =
                     hit && hit->zone == model::ClipHit::Zone::Body ? clipTitleArea(hit->clip) : std::nullopt;
                 title && title->contains(e.getPosition()))
-                cursor = juce::MouseCursor::DraggingHandCursor;
+                cursor = hand_.get();
             if (const auto loop = hit ? loopGestureAt(e.position, *hit) : std::nullopt) // a notch; looping by the edge
                 cursor = loop->kind == model::DragKind::LoopLength ? juce::MouseCursor(juce::MouseCursor::LeftRightResizeCursor)
                                                                    : loopCursor_;

@@ -292,6 +292,7 @@ public:
     void mouseMagnify(const juce::MouseEvent& e, float scaleFactor) override;
 
 private:
+    ui::HandCursor hand_; // over a controller's point, which moves where it's dragged
     enum class Gesture
     {
         None,

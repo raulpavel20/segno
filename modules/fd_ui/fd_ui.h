@@ -21,12 +21,14 @@ END_JUCE_MODULE_DECLARATION
 #include <bitset>
 #include <optional>
 
+// In this order: what each header uses comes before it (clang-format leaves it alone).
+// clang-format off
 #include "theme/Theme.h"
 #include "theme/Fonts.h"
 #include "theme/LookAndFeel.h"
+#include "controls/Icons.h" // before the controls: some keep its cursors
 #include "controls/Automation.h"
 #include "controls/Knob.h"
-#include "controls/Icons.h"
 #include "controls/Toggle.h"
 #include "controls/ViewOption.h"
 #include "controls/ViewChoice.h"
@@ -48,3 +50,4 @@ END_JUCE_MODULE_DECLARATION
 #include "shell/NameEditor.h"
 #include "shell/ColourGrid.h"
 #include "shell/Focus.h"
+// clang-format on

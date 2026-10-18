@@ -339,7 +339,7 @@ void ArrangementView::songMouseMove(const juce::MouseEvent& e)
         cursor = juce::MouseCursor::LeftRightResizeCursor;
     else if (hit && e.position.y < static_cast<float>(songLaneArea().getY() +
                                                       ui::Theme::current().shell.songTitleHeight))
-        cursor = juce::MouseCursor::DraggingHandCursor; // its title band moves it, as a clip's title strip
+        cursor = hand_.get(); // its title band moves it, as a clip's title strip
     setMouseCursor(cursor);
 }
 

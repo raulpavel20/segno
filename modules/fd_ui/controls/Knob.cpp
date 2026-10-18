@@ -360,7 +360,7 @@ void Knob::mouseMove(const juce::MouseEvent& e)
 {
     const bool onHandle = handleArea().contains(e.position);
     setHandleHovered(onHandle);
-    setMouseCursor(onHandle                              ? juce::MouseCursor::DraggingHandCursor
+    setMouseCursor(onHandle                              ? hand_.get()
                    : !following_ && isOnRing(e.position) ? juce::MouseCursor::UpDownLeftRightResizeCursor
                                                          : juce::MouseCursor::NormalCursor);
 }

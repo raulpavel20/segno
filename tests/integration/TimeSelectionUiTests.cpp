@@ -296,8 +296,15 @@ TEST_CASE(
         view.mouseMove(mouseEvent(view, p, p, false, {}));
         return view.getMouseCursor();
     };
-    CHECK(hover(at(view, 0.5, 0, 5.0f)) == juce::MouseCursor::DraggingHandCursor);
+    const fd::ui::HandCursor hand;
+    CHECK(hover(at(view, 0.5, 0, 5.0f)) == hand.get());
     CHECK(hover(at(view, 0.5, 0, 40.0f)) == juce::MouseCursor::NormalCursor);
+    // The hand is a system cursor's size, as the loop cursor is (JUCE's own is a 16 px picture a
+    // 2x screen leaves tiny).
+    const auto picture = fd::ui::cursorImage(fd::ui::Icon::Hand);
+    CHECK(picture.getImage().getWidth() / picture.getScale() >= 32.0);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "hand-cursor@2x.png", picture.getImage());
     const auto drum = view.selection();
     drag(view, at(view, 0.5, 0, 5.0f), at(view, 1.5, 0, 5.0f));
     f.session->updateSnapshotNow();
@@ -443,7 +450,7 @@ TEST_CASE("time selection: a title strip inside it drags the stretch, later and 
         view.mouseMove(mouseEvent(view, p, p, false, {}));
         return view.getMouseCursor();
     };
-    CHECK(hover({x(8.0), lane.getY() + 4.0f}) == juce::MouseCursor::DraggingHandCursor);
+    CHECK(hover({x(8.0), lane.getY() + 4.0f}) == fd::ui::HandCursor{}.get());
     CHECK(hover({x(8.0), overview}) == juce::MouseCursor::NormalCursor);
     drag(view, {x(1.0), overview}, {x(3.0), overview});
     REQUIRE(view.selection().hasTime());

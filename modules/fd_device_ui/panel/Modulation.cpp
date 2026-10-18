@@ -67,7 +67,7 @@ juce::String ModulationModel::handleTooltip(int source) const
 
 ModulationHandle::ModulationHandle(ModulationModel& model, int source) : model_(model), source_(source)
 {
-    setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    setMouseCursor(hand_.get());
     setWantsKeyboardFocus(true);
 }
 

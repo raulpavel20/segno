@@ -847,7 +847,7 @@ void AudioClipView::paint(juce::Graphics& g)
 
 void AudioClipView::mouseMove(const juce::MouseEvent& e)
 {
-    auto cursor = juce::MouseCursor::NormalCursor;
+    juce::MouseCursor cursor = juce::MouseCursor::NormalCursor;
     std::optional<size_t> hovered, transient;
     if (clip_)
     {
@@ -881,7 +881,7 @@ void AudioClipView::mouseMove(const juce::MouseEvent& e)
             const auto hover = LaneGesture::hover(gestureLane(), e.position);
             hovered = hover.point;
             if (hover.point)
-                cursor = juce::MouseCursor::DraggingHandCursor;
+                cursor = hand_.get();
             else if (hover.segment)
                 cursor = juce::MouseCursor::UpDownResizeCursor;
         }

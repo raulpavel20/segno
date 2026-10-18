@@ -118,5 +118,6 @@ private:
     int count_ = 0;
     juce::String tooltip_;
     bool lit_ = false, cancelled_ = false, locked_ = false, compact_ = false;
+    HandCursor hand_;
 };
 } // namespace fd::ui

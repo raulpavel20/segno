@@ -285,6 +285,30 @@ Glyph glyph(Icon icon)
         p.cubicTo(9.5f, 14.5f, 13.0f, 14.5f, 14.5f, 8.0f);
         g.solid.addEllipse(3.3f, 1.9f, 3.0f, 3.0f);
         break;
+    case Icon::Hand:
+        // An open hand, palm on: three fingers as arches, the little finger, the palm and the thumb
+        // as one line round them.
+        p.startNewSubPath(4.2f, 9.5f);
+        p.lineTo(4.2f, 4.9f);
+        p.cubicTo(4.2f, 3.2f, 6.8f, 3.2f, 6.8f, 4.9f);
+        p.lineTo(6.8f, 8.5f);
+        p.startNewSubPath(6.8f, 7.5f);
+        p.lineTo(6.8f, 3.7f);
+        p.cubicTo(6.8f, 2.0f, 9.4f, 2.0f, 9.4f, 3.7f);
+        p.lineTo(9.4f, 8.5f);
+        p.startNewSubPath(9.4f, 4.6f);
+        p.cubicTo(9.4f, 2.9f, 12.0f, 2.9f, 12.0f, 4.6f);
+        p.lineTo(12.0f, 8.5f);
+        p.startNewSubPath(12.0f, 6.6f);
+        p.cubicTo(12.0f, 4.9f, 14.6f, 4.9f, 14.6f, 6.6f);
+        p.lineTo(14.6f, 10.0f);
+        p.cubicTo(14.6f, 13.0f, 12.5f, 15.0f, 9.5f, 15.0f);
+        p.lineTo(8.5f, 15.0f);
+        p.cubicTo(6.8f, 15.0f, 5.8f, 14.4f, 4.8f, 13.4f);
+        p.lineTo(2.0f, 10.6f);
+        p.cubicTo(1.3f, 9.9f, 2.2f, 8.4f, 3.2f, 9.0f);
+        p.lineTo(4.2f, 10.0f);
+        break;
     case Icon::Move:
         // A cross with an arrowhead at each end.
         p.startNewSubPath(8.0f, 2.0f);

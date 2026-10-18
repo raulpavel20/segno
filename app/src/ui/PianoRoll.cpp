@@ -2172,7 +2172,7 @@ std::optional<std::size_t> PianoRoll::spanAtX(float x) const
 
 void PianoRoll::mouseMove(const juce::MouseEvent& e)
 {
-    auto cursor = juce::MouseCursor::NormalCursor;
+    juce::MouseCursor cursor = juce::MouseCursor::NormalCursor;
     const auto pos = e.getPosition();
     std::optional<std::size_t> hovered;
     const auto [left, right] = timeHandles();
@@ -2211,7 +2211,7 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
         const auto hover = LaneGesture::hover(gestureLane(), e.position);
         hoveredPoint = hover.point;
         if (hover.point)
-            cursor = juce::MouseCursor::DraggingHandCursor;
+            cursor = hand_.get();
         else if (hover.segment)
             cursor = juce::MouseCursor::UpDownResizeCursor;
     }

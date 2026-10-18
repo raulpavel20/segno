@@ -67,8 +67,11 @@ enum class Icon
     Tempo,     // beats found in a sound: hits along a line, a tick over each
     Slice,     // a sound cut at its hits: three hits, each a piece of its own
     // A group's fold triangle (groups.md §6.2): not the chevrons that fold modules or open menus.
-    FoldOpen,  // a solid triangle pointing down: the group's rows show
-    FoldClosed // pointing right: they're folded away
+    FoldOpen,   // a solid triangle pointing down: the group's rows show
+    FoldClosed, // pointing right: they're folded away
+    // Something that moves where it's dragged (a clip by its title strip, a section by its title
+    // band, a point, a marker, a modulation handle): its cursor (HandCursor).
+    Hand // an open hand
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.
@@ -78,6 +81,23 @@ void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::C
 /// at `input.cursorIconSize` in textPrimary, outlined in surface0 so it reads on any background,
 /// its hotspot at the centre. Make it once and keep it.
 [[nodiscard]] juce::MouseCursor cursorFor(Icon icon);
+
+/// The cursor over something that moves where it's dragged: the open hand (Icon::Hand) as
+/// cursorFor makes it, a system cursor's size and sharp on a 2x screen, where JUCE's own dragging
+/// hand is a 16 px picture that a scaled screen leaves tiny. Made once, shared while any view holds
+/// one.
+class HandCursor
+{
+public:
+    [[nodiscard]] const juce::MouseCursor& get() const noexcept { return shared_->cursor; }
+
+private:
+    struct Shared
+    {
+        juce::MouseCursor cursor = cursorFor(Icon::Hand);
+    };
+    juce::SharedResourcePointer<Shared> shared_;
+};
 /// The image `cursorFor` shows, drawn at twice its size (sharp on a 2x screen).
 [[nodiscard]] juce::ScaledImage cursorImage(Icon icon);
 

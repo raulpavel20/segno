@@ -114,6 +114,7 @@ public:
     void focusGained(FocusChangeType) override { repaint(); }
 
 private:
+    HandCursor hand_; // over its modulation handle
     /// The rotary knob's layout in its bounds: a fixed block, centred (device-panels.md).
     struct Geometry
     {
