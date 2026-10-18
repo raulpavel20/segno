@@ -2,7 +2,7 @@
 
 A **time selection** is a stretch of time on chosen rows. Drag across bars 9 to 17 over the drums and the bass, and those eight bars are selected on those rows, whatever clips lie there. Commands then act on exactly that stretch. Delete clears it. Ctrl+D repeats it right after itself. Ctrl+E splits the clips at its edges. Ctrl+L loops it. Export renders it. Song-wide versions insert or remove time across the whole song. The same idea works inside a clip: the audio editor already selects time this way, and the piano roll gains it.
 
-**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 drawn and checked (2026-10-18, §24), and approved by the product owner the same day ("Looks good!"). Step 1, the arrangement, built (2026-10-18, §25), for the product owner's hands-on check. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
+**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 drawn and checked (2026-10-18, §24), and approved by the product owner the same day ("Looks good!"). Step 1, the arrangement, built (2026-10-18, §25) and signed off by the product owner the same day ("Great! We can sign it off"), a section moving by its title band with it. Step 2, what waited and the clip view, is next. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
 
 What the product owner asked (2026-10-17), on reviewing the groups design:
 - "I think we need to implement selecting a stretch of time."
@@ -523,7 +523,7 @@ Then groups ([groups.md](groups.md), P9).
 
 **Found for step 2:** a stretch holding both MIDI and audio clips on one track, bounced in place, would render the audio through the modules before the instrument. It's refused there, as a bounce in place already refuses modules before the instrument ([bounce.md](bounce.md) §3), with "Bounce to new track" offered instead.
 
-## 25. Step 1, the arrangement, built (2026-10-18; for the product owner's hands-on check)
+## 25. Step 1, the arrangement, built (2026-10-18; signed off by the product owner the same day)
 
 **Built:**
 - **The model** (`model/TimeEdits`, `[fast]` tests): a lane's points cleared, copied and laid over a stretch with the curve outside kept; the points in a stretch; Fade to selection's plan. Section marks follow time on any stretch: `applyPlan` maps each section's start and end on its own, so time taken out of a section shortens it and time put in lengthens it. The sections' own commands are unchanged.
