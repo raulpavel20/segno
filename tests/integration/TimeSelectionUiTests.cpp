@@ -289,7 +289,15 @@ TEST_CASE(
     CHECK(view.selection().rowLanes == std::set<std::uint64_t>{f.lane});
     CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.bass, f.keys});
 
-    // A clip's title strip still moves the clip.
+    // A clip's title strip still moves the clip; hovering it shows the hand that moves things, its
+    // body the plain pointer (a drag there selects time).
+    const auto hover = [&](juce::Point<float> p)
+    {
+        view.mouseMove(mouseEvent(view, p, p, false, {}));
+        return view.getMouseCursor();
+    };
+    CHECK(hover(at(view, 0.5, 0, 5.0f)) == juce::MouseCursor::DraggingHandCursor);
+    CHECK(hover(at(view, 0.5, 0, 40.0f)) == juce::MouseCursor::NormalCursor);
     const auto drum = view.selection();
     drag(view, at(view, 0.5, 0, 5.0f), at(view, 1.5, 0, 5.0f));
     f.session->updateSnapshotNow();
@@ -427,6 +435,16 @@ TEST_CASE("time selection: a title strip inside it drags the stretch, later and 
     const auto lane = view.songLaneArea().toFloat();
     const float overview = lane.getBottom() - 6.0f;
     const auto x = [&](double s) { return lane.getX() + static_cast<float>(view.timeline().xForTime(s)); };
+    // A section's title band shows the hand that moves it; the overview under it, the plain pointer.
+    REQUIRE(f.session->addSection(6.0, 10.0, "Verse") != 0);
+    f.settle();
+    const auto hover = [&](juce::Point<float> p)
+    {
+        view.mouseMove(mouseEvent(view, p, p, false, {}));
+        return view.getMouseCursor();
+    };
+    CHECK(hover({x(8.0), lane.getY() + 4.0f}) == juce::MouseCursor::DraggingHandCursor);
+    CHECK(hover({x(8.0), overview}) == juce::MouseCursor::NormalCursor);
     drag(view, {x(1.0), overview}, {x(3.0), overview});
     REQUIRE(view.selection().hasTime());
     CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.drums, f.bass, f.keys});

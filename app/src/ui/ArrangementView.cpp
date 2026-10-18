@@ -1945,6 +1945,12 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
             if (hit)
                 cursor = hit->zone == model::ClipHit::Zone::Body ? juce::MouseCursor::NormalCursor
                                                                   : juce::MouseCursor::LeftRightResizeCursor;
+            // Its title strip moves it (a drag on its body selects time): the hand that moves things
+            // shows it before the press (time-selection.md §5).
+            if (const auto title =
+                    hit && hit->zone == model::ClipHit::Zone::Body ? clipTitleArea(hit->clip) : std::nullopt;
+                title && title->contains(e.getPosition()))
+                cursor = juce::MouseCursor::DraggingHandCursor;
             if (const auto loop = hit ? loopGestureAt(e.position, *hit) : std::nullopt) // a notch; looping by the edge
                 cursor = loop->kind == model::DragKind::LoopLength ? juce::MouseCursor(juce::MouseCursor::LeftRightResizeCursor)
                                                                    : loopCursor_;

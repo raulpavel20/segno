@@ -152,6 +152,7 @@ Sources:
 
 - **A drag covers the rows it crosses:** every track and lane between where it was pressed and the pointer. Return tracks hold no clips and aren't rows of a time selection.
 - **Moving clips needs the title strip.** It's the clip's 15 px band, or 35 % of a short clip, as Live's clip bar is. Today a drag on the body moves the clip too. This is the main change to the gestures you know (§16).
+- **The pointer says which before the press** (the product owner, 2026-10-18): over a clip's title strip, and a section's title band, it's the hand that moves things, as over an automation point or a marker; over a body, where a drag selects time, the plain pointer. No guessing which a drag will do.
 - **A drag shorter than the drag threshold is a click.**
 
 ### 5.2 In the clip view
