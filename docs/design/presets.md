@@ -394,5 +394,5 @@ The commands act on the **selected module**, or the one whose header was used la
   - EQ, dynamics and Utility presets change the level by what they do, mostly within 3 dB (limiters and compressors with makeup are louder on purpose; a de-esser and a ducker turn steady noise down);
   - the synth's single-note peaks sit between −7 and −12 dBFS (the Riser swells over seconds).
 - **Names** keep to what a file can hold, so the SPECs' "Mid/side check", "Flip: room only" and "M/S master" became "Mid and side check", "Flip, room only" and "Mid-side master".
-- **Tags:** the vocabulary grew with the sets: Lead, Pad, Pluck, Brass and FX for instruments and effects; Check, Fix, Stereo, Level, Mix and Ducking for utilities and dynamics.
+- **Tags:** the vocabulary grew with the sets: Lead, Pad, Pluck, Brass and FX for instruments and effects; Check, Fix, Stereo, Level, Mix and Ducking for utilities and dynamics. MIDI effects added Chords, Melody, Arpeggio and Random: what they make of the notes ([midi-effects.md](midi-effects.md) §13).
 - **The list** scrolls so it never cuts a row at its top: its view starts on a row, and a part-row only shows at the bottom.

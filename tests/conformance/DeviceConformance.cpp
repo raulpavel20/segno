@@ -734,7 +734,9 @@ const std::set<std::string> kTags{"Drums", "Bass", "Vocals", "Keys", "Guitar", "
                                   "Heavy", "Warm", "Bright", "Wide", "Clean", "Dirty", "Lead", "Pad", "Pluck",
                                   "Brass", "FX", "Check", "Fix", "Stereo", "Level", "Mix", "Ducking",
                                   // The Sampler's instruments (factory-library.md §7).
-                                  "Strings", "Woodwinds", "Orchestral"};
+                                  "Strings", "Woodwinds", "Orchestral",
+                                  // MIDI effects (midi-effects.md §13): what they make of the notes.
+                                  "Chords", "Melody", "Arpeggio", "Random"};
 
 /// Whether a state's sound is in the Library and the Library isn't here (ADR 0055).
 bool soundNotHere(const DeviceState& state)
@@ -850,6 +852,28 @@ TEST_CASE("conformance: every factory preset loads, plays cleanly within level a
             if (soundNotHere(p.state))
             {
                 ++withoutLibrary;
+                continue;
+            }
+            // A MIDI effect's (ADR 0069 applied to notes): right in any key, over a phrase and a song of
+            // chords, it plays, and ends every note it starts.
+            if (isNoteEffect(info))
+            {
+                const auto phrase = noteStimulusFor(4 * 24000, 17);
+                // C major, F♯ minor, E♭ Dorian.
+                for (const KeyInfo key : {KeyInfo{0, 0x0AB5}, KeyInfo{6, 0x0B56}, KeyInfo{3, 0x056B}})
+                {
+                    INFO("key on " << key.root);
+                    auto d = create(*factory);
+                    REQUIRE(applyState(*d, p.state) == ApplyResult::Ok);
+                    std::vector<TimedEvent> out;
+                    auto o = noteOptionsFor(phrase, out);
+                    o.transport.key = key;
+                    o.events.push_back({4 * 24000 - 1, {.type = EventType::AllNotesOff}});
+                    render(*d, AudioBuffer(1, 4 * 24000), o);
+                    CHECK(unbalanced(out).empty());
+                    CHECK(std::any_of(out.begin(), out.end(),
+                                      [](const TimedEvent& e) { return e.event.type == EventType::NoteOn; }));
+                }
                 continue;
             }
             auto d = create(*factory);
