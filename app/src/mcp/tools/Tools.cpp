@@ -849,6 +849,15 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
             {"source", slot.sidechainSource ? Json(formatId(IdKind::Track, *slot.sidechainSource)) : Json(nullptr)},
             {"possibleSources", std::move(choices)}};
     }
+    if (slot.midiEffect && slot.kind == model::DeviceSlot::Kind::Native) // midi-effects.md §5.3: Listen
+    {
+        Json choices = Json::array();
+        for (auto source : env.session.sidechainSources(slot.id))
+            choices.push_back(formatId(IdKind::Track, source));
+        j["listen"] = {{"track", slot.sidechainSource ? Json(formatId(IdKind::Track, *slot.sidechainSource))
+                                                      : Json(nullptr)},
+                       {"possibleTracks", std::move(choices)}};
+    }
     Json parameters = Json::array();
     // In a rack: the macro that sets a parameter (racks.md §4).
     const auto* holder = model::rackHolding(t.devices, slot.id);

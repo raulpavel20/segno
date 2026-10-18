@@ -5,6 +5,8 @@
 #include "engine/SessionImpl.h"
 #include "model/SongHarmony.h"
 
+#include <functional>
+
 namespace fd::engine
 {
 model::HarmonyUse Session::Impl::harmonyOf(const te::Track& track)
@@ -45,6 +47,50 @@ bool Session::setChordChange(model::ChordChange change)
     else
         impl_->edit->state.setProperty(Impl::chordChangePropertyId,
                                        juce::String(std::string(model::idOf(change))), um);
+    return true;
+}
+
+std::vector<std::uint64_t> Session::Impl::listenSources(DevicePlugin& effect) const
+{
+    auto* home = effect.getOwnerTrack();
+    if (home == nullptr || effect.isInRack())
+        return {}; // in a rack, step 2
+    const auto all = tracks();
+    // Whether a track's notes come, through what it listens to, from the module's own track.
+    std::function<bool(te::Track&, int)> hearsOwner = [&](te::Track& t, int depth)
+    {
+        if (&t == home)
+            return true;
+        if (depth > static_cast<int>(all.size()))
+            return false;
+        for (auto* p : t.getAllPlugins())
+            if (const auto id = p->getNoteSourceID(); id.isValid())
+                if (auto* source = te::findTrackForID(*edit, id))
+                    if (hearsOwner(*source, depth + 1))
+                        return true;
+        return false;
+    };
+    std::vector<std::uint64_t> out;
+    for (auto* t : all)
+        if (!isReturn(*t) && !hearsOwner(*t, 0))
+            out.push_back(t->itemID.getRawID());
+    return out;
+}
+
+bool Session::Impl::setListen(DevicePlugin& effect, std::optional<std::uint64_t> trackId)
+{
+    te::EditItemID source;
+    if (trackId)
+    {
+        const auto allowed = listenSources(effect);
+        if (std::find(allowed.begin(), allowed.end(), *trackId) == allowed.end())
+            return false;
+        source = track(*trackId)->itemID;
+    }
+    if (effect.getNoteSourceID() == source)
+        return true;
+    beginEdit("Set Listen");
+    effect.setListenTo(source, &edit->getUndoManager()); // playback rebuilt: the notes reach it
     return true;
 }
 

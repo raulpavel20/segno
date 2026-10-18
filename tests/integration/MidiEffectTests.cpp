@@ -5,6 +5,7 @@
 #include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
 #include "engine/SessionImpl.h"
+#include "model/Racks.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <tracktion_engine/tracktion_engine.h>
@@ -153,4 +154,47 @@ TEST_CASE("midi effects: each is handed its track's song, again only when it cha
     CHECK(s.snapshot()->chordChange == model::ChordChange::Bar);
     CHECK(nativeOf(s, pitch).songView()->chords.size() == 1);
     CHECK_FALSE(s.setChordChange(model::ChordChange::Bar)); // already so
+}
+
+TEST_CASE("midi effects: Listen, any other track's notes, never a loop", "[integration]")
+{
+    Daw daw;
+    auto& s = *daw.session;
+    const auto a = daw.track(0);
+    const auto b = s.addTrack();
+    const auto c = s.addTrack();
+    const auto onA = s.addDevice(a, "fd:pitch");
+    const auto onB = s.addDevice(b, "fd:chord");
+    const auto has = [](const std::vector<std::uint64_t>& v, std::uint64_t id)
+    { return std::find(v.begin(), v.end(), id) != v.end(); };
+    auto sources = s.sidechainSources(onA);
+    CHECK_FALSE(has(sources, a)); // never its own
+    CHECK(has(sources, b));
+    CHECK(has(sources, c));
+    REQUIRE(s.setSidechainSource(onA, b));
+    CHECK(s.undoDescription() == "Set Listen");
+    s.updateSnapshotNow();
+    CHECK(model::findDevice(s.snapshot()->channel(a)->devices, onA)->sidechainSource == b);
+    // B can't hear A now: A hears B.
+    CHECK_FALSE(has(s.sidechainSources(onB), a));
+    CHECK_FALSE(s.setSidechainSource(onB, a));
+    // The panel's picker: None, then the tracks it can hear.
+    auto handle = s.openDevice(onA);
+    REQUIRE(handle != nullptr);
+    REQUIRE(handle->context().sidechain != nullptr);
+    const auto names = handle->context().sidechain->sources();
+    CHECK(names.front() == "None");
+    CHECK(handle->context().sidechain->selected() >= 1);
+    handle.reset();
+    // Deleting B: A hears nothing, in the same step; undo brings both back.
+    REQUIRE(s.deleteTrack(b));
+    s.updateSnapshotNow();
+    CHECK_FALSE(model::findDevice(s.snapshot()->channel(a)->devices, onA)->sidechainSource.has_value());
+    s.undo();
+    s.updateSnapshotNow();
+    CHECK(model::findDevice(s.snapshot()->channel(a)->devices, onA)->sidechainSource == b);
+    // None again.
+    REQUIRE(s.setSidechainSource(onA, std::nullopt));
+    s.updateSnapshotNow();
+    CHECK_FALSE(model::findDevice(s.snapshot()->channel(a)->devices, onA)->sidechainSource.has_value());
 }

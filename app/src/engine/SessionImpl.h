@@ -3,6 +3,7 @@
 #include "engine/ClipChance.h"
 #include "engine/ClipFades.h"
 #include "engine/ClipNotes.h"
+#include "engine/DevicePlugin.h"
 #include "engine/FileAnalyser.h"
 #include "engine/FileIndexer.h"
 #include "engine/MidiMapper.h"
@@ -185,6 +186,11 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// Hands each MIDI effect its track's song view (§5), when it changed: built from `song`.
     void publishSongViews(const model::Snapshot& song);
     std::map<std::uint64_t, std::shared_ptr<const SongView>> songViews; // by track, as last handed over
+    /// The tracks a MIDI effect can listen to (§5.3): any but its own, and none whose notes already
+    /// depend on its track (one that listens to it, or to one that does, and so on).
+    [[nodiscard]] std::vector<std::uint64_t> listenSources(DevicePlugin& effect) const;
+    /// Its Listen: a track of listenSources, or none. One undo step, "Set Listen".
+    bool setListen(DevicePlugin& effect, std::optional<std::uint64_t> track);
     static constexpr int paletteSize = model::kPaletteSize;
     static constexpr int maxReturns = 32; // tracktion's aux buses
     /// The lowest aux bus no return listens to yet (maxReturns: none free).
@@ -903,9 +909,12 @@ private:
             return;
         }
         // Device parameters and state change constantly; only a device's power state, its
-        // sidechain source (ADR 0025) and the mixer's own plugins (volume, pan, sends) show.
+        // sidechain source (ADR 0025), a MIDI effect's Listen (midi-effects.md §5.3) and the mixer's
+        // own plugins (volume, pan, sends) show.
         for (auto p = t; p.isValid(); p = p.getParent())
-            if (p.hasType(te::IDs::PLUGIN) && !(p == t && (id == te::IDs::enabled || id == te::IDs::sidechainSourceID)))
+            if (p.hasType(te::IDs::PLUGIN) &&
+                !(p == t && (id == te::IDs::enabled || id == te::IDs::sidechainSourceID ||
+                             id == DevicePlugin::listenId)))
             {
                 const auto type = p[te::IDs::type].toString();
                 if (type == te::VolumeAndPanPlugin::xmlTypeName || type == te::AuxSendPlugin::xmlTypeName)

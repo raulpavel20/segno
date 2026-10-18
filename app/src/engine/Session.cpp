@@ -586,6 +586,9 @@ void Session::Impl::rebuildSnapshot()
             slot.takesSidechain = takesSidechain(*p);
             if (slot.takesSidechain && p->getSidechainSourceID().isValid())
                 slot.sidechainSource = p->getSidechainSourceID().getRawID();
+            // A MIDI effect's Listen (midi-effects.md §5.3): the track whose notes it hears.
+            if (slot.midiEffect && native->getNoteSourceID().isValid())
+                slot.sidechainSource = native->getNoteSourceID().getRawID();
             if (const auto* granular = dynamic_cast<const devices::Granular*>(&native->device()))
                 slot.rollKept = granular->rollKept();
         }
@@ -1891,6 +1894,9 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
 
 std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) const
 {
+    if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId));
+        native != nullptr && native->isMidiEffect())
+        return impl_->listenSources(*native);
     auto* p = impl_->plugin(deviceId);
     auto* m = p == nullptr ? impl_->modulator(deviceId) : nullptr;
     te::Track* owner = p != nullptr ? p->getOwnerTrack() : m != nullptr ? impl_->trackOf(*m) : nullptr;
@@ -1951,6 +1957,9 @@ bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint
             m->state.removeProperty(Modulator::listenId, &impl_->edit->getUndoManager());
         return true;
     }
+    if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId));
+        native != nullptr && native->isMidiEffect())
+        return impl_->setListen(*native, trackId);
     auto* p = impl_->plugin(deviceId);
     if (p == nullptr || !takesSidechain(*p))
         return false;

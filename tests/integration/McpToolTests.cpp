@@ -3653,3 +3653,26 @@ TEST_CASE("mcp tools: what MIDI effects follow, read and set (midi-effects.md §
     CHECK(daw.call("get_song_context")["chordsChange"] == "bar");
     CHECK(daw.fails("set_chords_change", {{"every", "fortnight"}}).find("every") != std::string::npos);
 }
+
+TEST_CASE("mcp tools: a MIDI effect's Listen, set and read", "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto t1 = daw.project()["tracks"][1]["id"].get<std::string>();
+    const auto pitch = daw.call("add_module", {{"track", t0}, {"type", "pitch"}})["id"].get<std::string>();
+    auto module = daw.call("get_module", {{"module", pitch}});
+    CHECK(module["listen"]["track"].is_null());
+    bool canHear = false;
+    for (const auto& t : module["listen"]["possibleTracks"])
+        canHear = canHear || t == t1;
+    CHECK(canHear);
+    daw.call("set_module_listen", {{"module", pitch}, {"track", t1}});
+    CHECK(daw.call("get_module", {{"module", pitch}})["listen"]["track"] == t1);
+    CHECK(daw.fails("set_module_listen", {{"module", pitch}, {"track", t0}}).find("own track") !=
+          std::string::npos);
+    daw.call("set_module_listen", {{"module", pitch}, {"track", nullptr}});
+    CHECK(daw.call("get_module", {{"module", pitch}})["listen"]["track"].is_null());
+    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"].get<std::string>();
+    CHECK(daw.fails("set_module_listen", {{"module", eq}, {"track", t1}}).find("MIDI effects") !=
+          std::string::npos);
+}

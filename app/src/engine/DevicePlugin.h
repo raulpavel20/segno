@@ -90,6 +90,8 @@ public:
     }
     /// The song as a MIDI effect reads it (midi-effects.md §5): handed over whole whenever it
     /// changes (message thread); the module takes it at its next block.
+    /// Where a MIDI effect keeps the track it listens to (midi-effects.md §5.3).
+    static inline const juce::Identifier listenId{"fdListen"};
     /// The song view last handed over (message thread): what its display names along the top.
     [[nodiscard]] std::shared_ptr<const SongView> songView() const noexcept { return sentSong_; }
     void setSongView(std::shared_ptr<const SongView> view)

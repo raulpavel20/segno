@@ -648,6 +648,42 @@ void addModuleTools(Registry& registry, ToolEnv& env)
 
     registry.tools.push_back(make(
         env,
+        {"set_module_listen", "Set what a MIDI effect listens to",
+         "Sets the track a MIDI effect of ours hears (midi-effects.md §5.3): its notes after its own MIDI "
+         "effects, even when it's muted; a module that follows harmony with Follow on Track follows its "
+         "chords. Or null for none. get_module lists the tracks it can hear (never its own, nor one that "
+         "hears it: a loop). One undo step.",
+         object({{"module", id(IdKind::Module, "The MIDI effect")},
+                 {"track", {{"type", {"string", "null"}}, {"description", "A track, or null for none"}}}},
+                {"module", "track"}),
+         result({{"track", {{"type", {"string", "null"}}, {"description", "The track it hears, or null"}}}},
+                {"track"}),
+         changes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto [slot, owner] = module(env, args["module"]);
+            if (!slot.midiEffect || slot.kind != model::DeviceSlot::Kind::Native)
+                throw Problem{
+                    "This module isn't one of our MIDI effects (list_module_types, kind midi-effect)."};
+            std::optional<std::uint64_t> source;
+            std::string name = "nothing";
+            if (!args["track"].is_null())
+            {
+                const auto t = track(env, args["track"]);
+                source = t.id;
+                name = t.name;
+            }
+            if (!env.session.setSidechainSource(slot.id, source))
+                throw Problem{"It can't hear that track: it's the module's own track, or that track already "
+                              "hears this one (a loop)."};
+            return ToolResult::ok(
+                {{"module", formatId(IdKind::Module, slot.id)},
+                 {"track", source ? Json(formatId(IdKind::Track, *source)) : Json(nullptr)}},
+                slot.name + " now hears " + name + ".");
+        }));
+
+    registry.tools.push_back(make(
+        env,
         {"set_module_view", "Collapse sections, fold a module or turn its page",
          "Sets how a module's panel shows: which sections are collapsed (the rest are expanded), whether the "
          "module is folded to a strip, and, for a module with pages, the page shown. Section and page ids "

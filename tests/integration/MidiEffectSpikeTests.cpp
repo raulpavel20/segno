@@ -8,6 +8,7 @@
 // note-sources patch); running a module over a clip's notes off the audio thread gives what
 // playback gave; and no note is left hanging when the song stops, jumps or loops, or the module
 // is turned off or removed.
+#include "Pitch.h"
 #include "RecordingFixture.h"
 #include "SubtractiveSynth.h"
 #include "engine/DevicePlugin.h"
@@ -723,4 +724,45 @@ TEST_CASE("midi effects (spike): a loop's lap ends the notes of the lap before",
     r.session->setLooping(true);
     r.pump(3.5); // three laps and more: each lap plays the note again
     CHECK(voices(r, h.synth) == 1);
+}
+
+// ---- step 1: the modules in tracktion's chain ----------------------------------------------
+
+namespace
+{
+void setPlain(fd::engine::DevicePlugin& p, std::size_t index, float plain)
+{
+    const auto& spec = p.device().info().params[index];
+    p.parameter(index).setNormalisedParameter(spec.toNormalized(plain), juce::sendNotification);
+}
+} // namespace
+
+TEST_CASE("midi effects: Pitch fits a line to the chords of the track it hears, to the sample",
+          "[integration]")
+{
+    using P = fd::devices::Pitch;
+    Fixture f;
+    auto& keys = f.track(0); // no instrument: heard, never sounding
+    auto& lead = f.track(1);
+    auto& pitch = f.add(lead, "pitch");
+    f.add(lead, "note-probe");
+    setPlain(pitch, std::size_t{P::HarmonyFirst} + fd::devices::harmony::Follow, 1.0f); // Track
+    setPlain(pitch, P::Fit, 2.0f);                                                      // Chord
+    setPlain(pitch, P::Passing, 0.0f);
+    pitch.setListenTo(keys.itemID, nullptr);
+    // C for two beats, then F.
+    auto& k = f.clip(keys);
+    for (const int key : {60, 64, 67})
+        k.getSequence().addNote(key, te::BeatPosition(), te::BeatDuration::fromBeats(2.0), 100, 0, nullptr);
+    for (const int key : {65, 69, 72})
+        k.getSequence().addNote(key, te::BeatPosition::fromBeats(2.0), te::BeatDuration::fromBeats(2.0), 100,
+                                0, nullptr);
+    // The lead plays E twice: in C it's a chord tone; in F it moves to F.
+    auto& l = f.clip(lead);
+    Fixture::note(l, 64, kBeat);
+    Fixture::note(l, 64, 3 * kBeat);
+    auto all = te::toBitSet(te::getAllTracks(*f.edit));
+    const auto heard = noteOns(f.render(2.0, &all));
+    INFO(text(heard));
+    CHECK(heard == std::vector<std::pair<int, int>>{{kBeat, 64}, {3 * kBeat, 65}});
 }

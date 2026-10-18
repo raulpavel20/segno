@@ -19,7 +19,7 @@ const juce::Identifier kExtraStateId{"fdExtra"};
 // hold plain values, converted when the module is loaded.
 const juce::Identifier kNormalisedId{"fdNormalised"};
 // The track a MIDI effect listens to (midi-effects.md §5.3), as its item id.
-const juce::Identifier kListenId{"fdListen"};
+const juce::Identifier& kListenId = DevicePlugin::listenId;
 
 class DeviceBuiltInType final : public te::PluginManager::BuiltInType
 {
