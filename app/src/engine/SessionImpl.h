@@ -171,6 +171,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     void updateBrowserPlaces();
 
     std::optional<std::uint64_t> midiTarget; // the track live MIDI plays (C7): softly armed (C5)
+    std::vector<std::uint64_t>
+        selectedChannels; // chosen together: their controls move together (groups.md §8)
     void midiDevicesChanged();
 
     /// A track's or clip's colour (an index into the clip palette, `paletteSize` long) and a

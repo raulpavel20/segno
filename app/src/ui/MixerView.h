@@ -36,6 +36,9 @@ public:
                 const model::ChannelStripOptions& options, bool selected, const Groups& groups = {});
 
     std::function<void()> onSelect;
+    /// A press with its keys (groups.md §8): true when it kept several chosen together, and its
+    /// release without a drag then selects it alone (onSelect).
+    std::function<bool(juce::ModifierKeys)> onChoose;
     std::function<void(std::uint64_t module)> onSelectModule;
     /// A right-click on the strip's background (its controls have their own menus).
     std::function<void()> onMenu;
@@ -52,7 +55,7 @@ public:
     void mouseUp(const juce::MouseEvent& e) override;
 
 private:
-    bool nameDrag_ = false, nameMoving_ = false;
+    bool nameDrag_ = false, nameMoving_ = false, pendingAlone_ = false;
     struct Send
     {
         std::unique_ptr<SendBar> level;
@@ -89,12 +92,19 @@ public:
     explicit MixerView(engine::Session& session);
 
     void setSnapshot(std::shared_ptr<const model::Snapshot> snapshot);
-    void setSelection(std::optional<std::uint64_t> channel);
+    /// The selected channel, and the tracks and groups chosen together with it (groups.md §8):
+    /// their strips lit, and dragged together.
+    void setSelection(std::optional<std::uint64_t> channel, std::vector<std::uint64_t> together = {});
+    /// The tracks' and groups' strips shown, in order: what Shift+click takes a run of.
+    [[nodiscard]] std::vector<std::uint64_t> shownStrips() const;
     /// Drops every strip (before the project is replaced: they hold the engine's meters).
     void clear();
 
     /// A strip was clicked: select that channel (and, for a module name, that module).
     std::function<void(std::uint64_t channel)> onSelect;
+    /// A strip pressed with its keys (groups.md §8): Ctrl adds or takes out, Shift the run. True
+    /// when it kept several chosen together (its release alone then selects it alone, onSelect).
+    std::function<bool(std::uint64_t channel, juce::ModifierKeys mods)> onChoose;
     std::function<void(std::uint64_t channel, std::uint64_t module)> onSelectModule;
     /// The view's options changed (the shell saves them with its view state).
     std::function<void()> onViewChanged;
@@ -152,6 +162,7 @@ private:
     engine::Session& session_;
     std::shared_ptr<const model::Snapshot> snapshot_;
     std::optional<std::uint64_t> selected_;
+    std::vector<std::uint64_t> together_; // chosen with it (groups.md §8)
     std::set<std::uint64_t> folded_;
     model::ChannelStripOptions options_;
     ui::PanelHeader header_;

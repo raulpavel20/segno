@@ -197,9 +197,12 @@ private:
     [[nodiscard]] std::optional<std::uint64_t> commandChannel() const;
     /// Its header was clicked last: Delete and Duplicate act on it (§5, §7).
     [[nodiscard]] bool trackHeaderActive() const;
-    /// Deletes a channel, selecting the one above it; the toast says what went, with Undo.
+    /// Deletes a channel, selecting the one above it; the toast says what went, with Undo. Delete
+    /// and Duplicate act on every track and group chosen together with it (groups.md §8).
     void deleteChannel(std::uint64_t channel);
     void duplicateChannel(std::uint64_t channel);
+    /// The tracks and groups chosen together with `channel` (groups.md §8), in order; else it alone.
+    [[nodiscard]] std::vector<std::uint64_t> chosenWith(std::uint64_t channel) const;
     /// Track > Colour and Clip > Colour (and the right-click menus): the palette for the selection.
     [[nodiscard]] juce::PopupMenu trackColourMenu();
     [[nodiscard]] juce::PopupMenu clipColourMenu();

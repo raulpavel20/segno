@@ -68,6 +68,19 @@ struct Selection
                                  const std::set<std::uint64_t>& tracks, const std::set<std::uint64_t>& lanes,
                                  std::optional<std::uint64_t> channel = std::nullopt);
 
+/// Several tracks and groups (groups.md §8). Ctrl+click: `id` in or out of them, the channel the
+/// one clicked last (if `id` goes, the last of those left, as listed in the snapshot); one left is
+/// that channel alone. A return or the master is selected alone.
+[[nodiscard]] Selection withTrackToggled(const Snapshot& snapshot, const Selection& selection,
+                                         std::uint64_t id);
+/// Shift+click: the run of `shown` (the tracks and groups as their rows show, in order; lanes
+/// aren't in it) from the channel selected last to `id`, the channel `id`.
+[[nodiscard]] Selection withTrackRun(const Snapshot& snapshot, const Selection& selection, std::uint64_t id,
+                                     const std::vector<std::uint64_t>& shown);
+/// The tracks and groups a command on several acts on (groups.md §8), in the snapshot's order:
+/// those chosen together, else the channel when it's a track or group; none for a time selection.
+[[nodiscard]] std::vector<std::uint64_t> selectedTracks(const Snapshot& snapshot, const Selection& selection);
+
 /// A lane and points on it, with its first assignment's channel (none if it has none).
 [[nodiscard]] Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t> points = {});
 

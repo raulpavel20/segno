@@ -127,6 +127,13 @@ public:
     void setSelection(model::Selection selection);
     /// Selects a channel alone (clearing the clips), as a click on its header does.
     void selectTrack(std::optional<std::uint64_t> channel) { setSelection({.channel = channel}); }
+    /// A press on a channel's header or strip (groups.md §8): alone; Ctrl, in or out of those
+    /// chosen together; Shift, the run of `shown` (tracks and groups in their order there) from the
+    /// one selected last. A plain press on one of several keeps them, for a drag: true then, and its
+    /// release without a drag selects it alone (selectTrack).
+    bool chooseTrack(std::uint64_t channel, juce::ModifierKeys mods, const std::vector<std::uint64_t>& shown);
+    /// The tracks and groups as their rows show them, in order (lanes aren't among them).
+    [[nodiscard]] std::vector<std::uint64_t> shownTracks() const;
     [[nodiscard]] std::optional<std::uint64_t> selectedTrack() const noexcept { return selection_.channel; }
     [[nodiscard]] const std::set<std::uint64_t>& selectedClips() const noexcept { return selection_.clips; }
     /// The selection changed: once per action (a drag tells when it ends). A new snapshot prunes
@@ -628,14 +635,18 @@ private:
         Time,   // a time selection being made or changed (time-selection.md §5)
         Stretch // a selected stretch being moved or copied (§10)
     };
-    /// A header dragged to reorder its row (§6): moving once past the drag threshold.
+    /// A header dragged to reorder its row (§6): moving once past the drag threshold. Pressed on
+    /// one of several chosen together (groups.md §8), they move together, and a release without a
+    /// drag selects it alone (`alone`).
     struct RowDrag
     {
         int row = 0;
         bool moving = false;
         model::RowDrop drop;
+        std::optional<std::uint64_t> alone;
     };
     std::optional<RowDrag> rowDrag_;
+    std::optional<std::uint64_t> pendingAlone_; // a press on one of several, until its drag starts
 
     // Groups (ADR 0072, docs/design/groups.md; ArrangementGroups.cpp).
     std::set<std::uint64_t> folded_; // the groups folded here (§6.4)

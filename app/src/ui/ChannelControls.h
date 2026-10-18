@@ -3,8 +3,9 @@
 #include "engine/Session.h"
 
 #include <fd_ui/fd_ui.h>
-
+#include <memory>
 #include <optional>
+#include <vector>
 
 namespace fd::app
 {
@@ -33,6 +34,16 @@ private:
     bool plays_ = false;
 };
 
+/// Several channels chosen together, moved by one of their controls (groups.md §8, mixer.md §8):
+/// where the one moved and the others were when its gesture began, and a touch on each of the others
+/// while automation records. A typed value or a reset moves them from where they are.
+struct GangMove
+{
+    float own = 0.0f;
+    std::vector<std::pair<std::uint64_t, float>> others;
+    std::vector<std::unique_ptr<engine::Session::ParamGesture>> touches;
+};
+
 /// Volume as a bar (headers, inspector) or a fader (the mixer view), on the volume taper (0 dB at
 /// 80 %). Any channel.
 class VolumeBar final : public ui::Knob
@@ -51,6 +62,7 @@ private:
     std::uint64_t channel_;
     LaneFollower lane_;
     std::optional<engine::Session::ParamGesture> gesture_;
+    std::optional<GangMove> gang_;
     juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
@@ -70,6 +82,7 @@ private:
     std::uint64_t channel_;
     LaneFollower lane_;
     std::optional<engine::Session::ParamGesture> gesture_;
+    std::optional<GangMove> gang_;
     juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
@@ -91,6 +104,7 @@ private:
     std::uint64_t track_, return_;
     LaneFollower lane_;
     std::optional<engine::Session::ParamGesture> gesture_;
+    std::optional<GangMove> gang_;
     juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 

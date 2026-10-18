@@ -2,7 +2,7 @@
 
 A **group** holds tracks and sums them. Put the drums in a group and they share one fader, one chain of modules (a bus compressor, a saturator), one mute and solo, and the group's own sends. A group folds to a single row in the arrangement, or a single strip in the mixer, with its tracks drawn in miniature in its lane. Groups nest: a Drums group can sit inside a Rhythm group.
 
-**Status:** approved by the product owner (2026-10-17), every recommendation of G1–G23 but one, with [ADR 0072](../decisions/0072-a-group-is-a-channel-that-sums-tracks.md) accepted. The exception is editing on a group's row (G16, §6.5): a drag there selecting the members' clips was a stand-in for a time selection, which Segno lacks. The product owner chose the real thing: **selecting a stretch of time** is designed and built first, everywhere it makes sense ([time-selection.md](time-selection.md)), and a group's row uses it. Groups are built after it. Time selection was built and signed off (2026-10-18). Step 0 here, the engine spike and the UI drawn in every state, is done for the product owner's approval (§20).
+**Status:** approved by the product owner (2026-10-17), every recommendation of G1–G23 but one, with [ADR 0072](../decisions/0072-a-group-is-a-channel-that-sums-tracks.md) accepted. The exception is editing on a group's row (G16, §6.5): a drag there selecting the members' clips was a stand-in for a time selection, which Segno lacks. The product owner chose the real thing: **selecting a stretch of time** is designed and built first, everywhere it makes sense ([time-selection.md](time-selection.md)), and a group's row uses it. Groups are built after it. Time selection was built and signed off (2026-10-18). Step 0 here, the engine spike and the UI drawn in every state, is done and approved (§20).
 
 What the product owner asked (2026-10-17):
 - "We need to implement a new feature. For a buss/group. I think calling it a group is fine."
@@ -501,7 +501,7 @@ Grouping needs several tracks selected. [mixer.md](mixer.md) §8 and [tracks-and
 | G22 | **Add track with a group selected** | Adds the track at the group's end (§11) |
 | G23 | **Building it** | The spike and the UI drawn first (step 0), then selecting several tracks (1), then groups (2), each signed off |
 
-## 20. Step 0, the spike and the drawing (2026-10-18; for the product owner's approval)
+## 20. Step 0, the spike and the drawing (2026-10-18; approved by the product owner the same day)
 
 **The spike** (§15), kept as tests (`tests/integration/GroupSpikeTests.cpp`): a group is a submix folder track holding the channel plugins every Segno channel has (`Edit::insertNewFolderTrack` as a submix gives exactly them), its members moved into it.
 - A neutral group nulls against no group, three deep too (< −120 dBFS).
@@ -543,4 +543,22 @@ Grouping needs several tracks selected. [mixer.md](mixer.md) §8 and [tracks-and
 Model behind the drawing, under `[fast]` tests (`app/tests/GroupsTests.cpp`): `model/Groups` (what a group holds, depth, folding, half-lit states), the rows with groups, depth and folding, the header and strip slots at each depth, a time selection on a group's row, and the inspector's sections. Built on, not yet wired: nothing reaches the engine until step 2.
 
 **Next, once approved:** step 1, selecting several tracks (§8).
+
+## 21. Step 1, selecting several tracks, built (2026-10-18; for the product owner's hands-on check)
+
+**Built** (§8):
+- **Choosing:** in the headers and the mixer's strips, a click selects one; Ctrl+click adds or takes out; Shift+click takes the run of tracks and groups from the one selected last, lanes skipped. The one clicked last is the channel, so the chain below shows its modules. A return or the master is selected alone. With a time selection, Ctrl+click on a header still takes its row in or out of it (time-selection.md §6).
+- **A press on one of several keeps them,** so a drag or a right-click acts on them all; released without a drag, it selects that one alone.
+- **One's controls move them all** (mixer.md §8), wherever they are (header, strip, inspector): volume and sends by as many dB, pan by as much, mute, solo, arm and Pre to the same state. One undo step each, and while automation records, a touch on each one's parameter.
+- **TRACKS** in the inspector (Selected: 3), then MIX and SENDS, since every track and group sends to the same returns.
+- **Commands on them all**, their labels saying so: Delete ("Deleted 3 tracks", with Undo; then the track above the first is selected), Duplicate (each copy after its original, the copies then chosen together), Colour, Alt+M, Alt+S, Alt+R ("Mute selected tracks"). One undo step each: "Delete tracks", "Duplicate tracks", "Track colour", "Mute".
+- **Dragging** one of their headers or strips moves them together, in their order, to where it's dropped; dropped among themselves, before the first row after the drop that isn't one of them. One step, "Move tracks".
+- Export's selected tracks are them. Assistants are unchanged: their tools already take lists.
+
+**Tests:** through the real shell (`tests/integration/TrackSelectionTests.cpp`): Ctrl+click and Shift+click in the headers and through the strips' callback, a click on one of several, the gang on volume, pan, a send, mute, solo and arm, Alt+M, Delete, Duplicate and a dragged header; under `[fast]` (`app/tests/GroupsTests.cpp`): Ctrl+click, Shift+click and the list chosen. Colour, Alt+S and Alt+R on several, and dragging several strips, are left to the hands-on check.
+
+**Settled while building:**
+- The several selected are the selection's rows without a stretch (`Selection::rowTracks`), as time-selection.md left room for: one selection, never two.
+- The Session keeps which channels are chosen together (`setSelectedChannels`, `gangedWith`), set by the shell, so every channel control asks it, wherever it's drawn. Its own commands stay one channel each; assistants name their channels.
+- A send's or a fader's gang moves in dB from where each one stood when the gesture began, clamped at −inf and +6; a track at −inf moves up from there.
 

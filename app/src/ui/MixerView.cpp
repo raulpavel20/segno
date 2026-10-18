@@ -206,10 +206,16 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
             onSelectModule(info_.devices[i].id);
             return;
         }
-    if (onSelect)
+    // Alone, or with others (groups.md §8): a press on one of several keeps them, for a drag.
+    pendingAlone_ = false;
+    if (onChoose)
+        pendingAlone_ = onChoose(e.mods);
+    else if (onSelect)
         onSelect();
     if (e.mods.isPopupMenu() && onMenu)
         onMenu();
+    if ((e.mods.isCommandDown() || e.mods.isShiftDown()) && !e.mods.isPopupMenu())
+        return; // a choice, not a drag or a rename
     // Its name: a double-click renames it, a drag moves it (not the master's).
     nameDrag_ = nameMoving_ = false;
     if (info_.role == model::TrackInfo::Role::Master || !at(slots_.name).contains(pos) || !e.mods.isLeftButtonDown())
@@ -236,6 +242,8 @@ void ChannelStrip::mouseUp(const juce::MouseEvent& e)
 {
     if (nameMoving_ && onNameDrop)
         onNameDrop(e);
+    else if (std::exchange(pendingAlone_, false) && onSelect)
+        onSelect(); // a click on one of several: it alone
     nameDrag_ = nameMoving_ = false;
 }
 
@@ -334,12 +342,23 @@ void MixerView::setFoldedGroups(std::set<std::uint64_t> folded)
     rebuild();
 }
 
-void MixerView::setSelection(std::optional<std::uint64_t> channel)
+void MixerView::setSelection(std::optional<std::uint64_t> channel, std::vector<std::uint64_t> together)
 {
-    if (channel == selected_)
+    if (channel == selected_ && together == together_)
         return;
     selected_ = channel;
+    together_ = std::move(together);
     rebuild();
+}
+
+std::vector<std::uint64_t> MixerView::shownStrips() const
+{
+    std::vector<std::uint64_t> out;
+    if (snapshot_ != nullptr)
+        for (const auto& t : snapshot_->tracks)
+            if (const auto it = strips_.find(t.id); it != strips_.end() && it->second->isVisible())
+                out.push_back(t.id);
+    return out;
 }
 
 // ---- drops from the browser (browser.md §10) -----------------------------------------------
@@ -455,6 +474,25 @@ void MixerView::dragStrip(std::uint64_t channel, const juce::MouseEvent& e, bool
     // after it in the arrangement would then sit above it (ADR 0042).
     const auto own = std::find_if(kind.begin(), kind.end(), [channel](const auto& k) { return k.id == channel; });
     const auto next = own == kind.end() || std::next(own) == kind.end() ? std::uint64_t{0} : std::next(own)->id;
+    // Several chosen together move together, in their order (groups.md §8), one step; dropped
+    // among them, before the first strip after the drop that isn't one of them.
+    const auto among = [this](std::uint64_t id)
+    { return std::find(together_.begin(), together_.end(), id) != together_.end(); };
+    if (drop && together_.size() > 1 && among(channel))
+    {
+        if (before != 0 && among(before))
+        {
+            auto it =
+                std::find_if(kind.begin(), kind.end(), [before](const auto& k) { return k.id == before; });
+            while (it != kind.end() && among(it->id))
+                ++it;
+            before = it == kind.end() ? 0 : it->id;
+        }
+        const engine::Session::EditGroup step(session_, "Move tracks");
+        for (const auto id : together_)
+            session_.moveTrack(id, before);
+        return;
+    }
     if (drop && before != channel && before != next)
         session_.moveTrack(channel, before);
 }
@@ -497,6 +535,16 @@ void MixerView::rebuild()
                 if (onSelect)
                     onSelect(id);
             };
+            strip->onChoose = [this, id](juce::ModifierKeys mods)
+            {
+                if (isShowing())
+                    grabKeyboardFocus();
+                if (onChoose)
+                    return onChoose(id, mods);
+                if (onSelect)
+                    onSelect(id);
+                return false;
+            };
             strip->onMenu = [this] { showAddMenu(); };
             if (t.role != model::TrackInfo::Role::Master)
             {
@@ -522,7 +570,9 @@ void MixerView::rebuild()
             groups.folded = folded_.contains(t.id);
         groups.mutedByGroup = model::inMutedGroup(*snapshot_, t);
         groups.holdsSolo = model::holdsSolo(*snapshot_, t);
-        strip->update(t, snapshot_->returns, options_, selected_ == t.id, groups);
+        const bool lit =
+            selected_ == t.id || std::find(together_.begin(), together_.end(), t.id) != together_.end();
+        strip->update(t, snapshot_->returns, options_, lit, groups);
         return *strip;
     };
     // The bars' rows: as many as the deepest strip shown has.

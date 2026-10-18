@@ -21,6 +21,54 @@ juce::String panText(float pan)
 
 namespace
 {
+using Value = std::function<float(const model::TrackInfo&)>;
+using Apply = std::function<void(std::uint64_t channel, float value)>;
+
+/// A gesture on one of several channels chosen together (groups.md §8): where each stood, and a
+/// touch on each of the others' `key`. None for a channel alone.
+std::optional<GangMove> startGang(engine::Session& session, std::uint64_t channel, const std::string& key,
+                                  const std::string& name, const Value& value)
+{
+    const auto others = session.gangedWith(channel);
+    const auto snapshot = session.snapshot();
+    const auto* own = snapshot->channel(channel);
+    if (others.empty() || own == nullptr)
+        return std::nullopt;
+    GangMove gang{.own = value(*own)};
+    for (const auto id : others)
+        if (const auto* t = snapshot->channel(id))
+        {
+            gang.others.emplace_back(id, value(*t));
+            gang.touches.push_back(std::make_unique<engine::Session::ParamGesture>(
+                session, engine::Session::ParamTarget{id, key}, name));
+        }
+    return gang;
+}
+
+/// Sets `channel` to `now` and moves the others chosen with it by as much (the Session clamps),
+/// in the gesture's step, or in one of its own when there's no gesture (a typed value, a reset).
+void moveGang(engine::Session& session, std::uint64_t channel, const std::optional<GangMove>& during,
+              float now, const std::string& key, const std::string& name, const Value& value,
+              const Apply& apply)
+{
+    if (during)
+    {
+        apply(channel, now);
+        for (const auto& [id, from] : during->others)
+            apply(id, from + (now - during->own));
+        return;
+    }
+    if (session.gangedWith(channel).empty())
+    {
+        apply(channel, now);
+        return;
+    }
+    const engine::Session::EditGroup step(session, name);
+    auto once = startGang(session, channel, key, name, value);
+    once->touches.clear(); // no gesture: nothing to touch
+    moveGang(session, channel, once, now, key, name, value, apply);
+}
+
 /// A level typed by hand: "-6", "-6 dB", "-inf".
 std::optional<float> parseLevel(const juce::String& text)
 {
@@ -84,10 +132,29 @@ VolumeBar::VolumeBar(engine::Session& session, std::uint64_t channel, Style styl
             return static_cast<float>(model::volumePosition(*db));
         return std::nullopt;
     };
-    onGestureStart = [this] { gesture_.emplace(session_, lane_.target(), "Volume"); };
-    onGestureEnd = [this] { gesture_.reset(); };
-    onValueChange = [this](float v) { session_.setVolume(channel_, static_cast<float>(model::volumeDbAt(v))); };
-    onPopupMenu = [this] { lane_.showMenu(*this, [this] { session_.setVolume(channel_, 0.0f); }); };
+    // With others chosen together, they move by as many dB (groups.md §8).
+    static const Value db = [](const model::TrackInfo& t) { return t.mix.volumeDb; };
+    const auto apply = [this](std::uint64_t c, float v) { session_.setVolume(c, v); };
+    onGestureStart = [this]
+    {
+        gesture_.emplace(session_, lane_.target(), "Volume");
+        gang_ = startGang(session_, channel_, "volume", "Volume", db);
+    };
+    onGestureEnd = [this]
+    {
+        gang_.reset();
+        gesture_.reset();
+    };
+    onValueChange = [this, apply](float v)
+    {
+        moveGang(session_, channel_, gang_, static_cast<float>(model::volumeDbAt(v)), "volume", "Volume", db,
+                 apply);
+    };
+    onPopupMenu = [this, apply]
+    {
+        lane_.showMenu(*this, [this, apply]
+                       { moveGang(session_, channel_, gang_, 0.0f, "volume", "Volume", db, apply); });
+    };
 }
 
 void VolumeBar::update(const model::TrackInfo& channel)
@@ -127,10 +194,26 @@ PanBar::PanBar(engine::Session& session, std::uint64_t channel)
         }
         return std::nullopt;
     };
-    onGestureStart = [this] { gesture_.emplace(session_, lane_.target(), "Pan"); };
-    onGestureEnd = [this] { gesture_.reset(); };
-    onValueChange = [this](float v) { session_.setPan(channel_, v * 2.0f - 1.0f); };
-    onPopupMenu = [this] { lane_.showMenu(*this, [this] { session_.setPan(channel_, 0.0f); }); };
+    // With others chosen together, they move by as much (groups.md §8).
+    static const Value pan = [](const model::TrackInfo& t) { return t.mix.pan; };
+    const auto apply = [this](std::uint64_t c, float v) { session_.setPan(c, v); };
+    onGestureStart = [this]
+    {
+        gesture_.emplace(session_, lane_.target(), "Pan");
+        gang_ = startGang(session_, channel_, "pan", "Pan", pan);
+    };
+    onGestureEnd = [this]
+    {
+        gang_.reset();
+        gesture_.reset();
+    };
+    onValueChange = [this, apply](float v)
+    { moveGang(session_, channel_, gang_, v * 2.0f - 1.0f, "pan", "Pan", pan, apply); };
+    onPopupMenu = [this, apply]
+    {
+        lane_.showMenu(*this, [this, apply]
+                       { moveGang(session_, channel_, gang_, 0.0f, "pan", "Pan", pan, apply); });
+    };
 }
 
 void PanBar::update(const model::TrackInfo& channel)
@@ -160,13 +243,33 @@ SendBar::SendBar(engine::Session& session, std::uint64_t track, std::uint64_t re
             return static_cast<float>(model::sendPosition(*db));
         return std::nullopt;
     };
-    onGestureStart = [this] { gesture_.emplace(session_, lane_.target(), "Send"); }; // one undo step per drag
-    onGestureEnd = [this] { gesture_.reset(); };
-    onValueChange = [this](float v) {
-        session_.setSend(track_, return_, static_cast<float>(model::sendDbAt(v)), std::nullopt);
+    // With others chosen together, their sends to the same return move by as many dB (groups.md §8).
+    const auto key = "send/" + std::to_string(returnTrack);
+    const Value level = [returnTrack](const model::TrackInfo& t)
+    {
+        for (const auto& s : t.mix.sends)
+            if (s.returnId == returnTrack)
+                return s.levelDb;
+        return model::minusInfinityDb;
     };
-    onPopupMenu = [this] {
-        lane_.showMenu(*this, [this] { session_.setSend(track_, return_, model::minusInfinityDb, std::nullopt); });
+    const auto apply = [this](std::uint64_t c, float v) { session_.setSend(c, return_, v, std::nullopt); };
+    onGestureStart = [this, key, level] // one undo step per drag
+    {
+        gesture_.emplace(session_, lane_.target(), "Send");
+        gang_ = startGang(session_, track_, key, "Send", level);
+    };
+    onGestureEnd = [this]
+    {
+        gang_.reset();
+        gesture_.reset();
+    };
+    onValueChange = [this, key, level, apply](float v)
+    { moveGang(session_, track_, gang_, static_cast<float>(model::sendDbAt(v)), key, "Send", level, apply); };
+    onPopupMenu = [this, key, level, apply]
+    {
+        lane_.showMenu(
+            *this, [this, key, level, apply]
+            { moveGang(session_, track_, gang_, model::minusInfinityDb, key, "Send", level, apply); });
     };
 }
 
@@ -231,19 +334,33 @@ void ChannelToggle::update(bool on)
 void ChannelToggle::clicked()
 {
     const bool on = !getToggleState();
+    // With others chosen together, they take the same state, in one step (groups.md §8).
+    const auto others = session_.gangedWith(channel_);
+    std::optional<engine::Session::EditGroup> step;
+    if (!others.empty())
+        step.emplace(session_, kind_ == Kind::Mute ? "Mute" : kind_ == Kind::Arm ? "Arm" : "Send");
+    const bool alone = !juce::ModifierKeys::currentModifiers.isCommandDown();
     switch (kind_)
     {
     case Kind::Mute:
         session_.setMute(channel_, on);
+        for (const auto id : others)
+            session_.setMute(id, on);
         break;
     case Kind::Solo:
-        session_.setSolo(channel_, on, !juce::ModifierKeys::currentModifiers.isCommandDown());
+        session_.setSolo(channel_, on, alone);
+        for (const auto id : others)
+            session_.setSolo(id, on, false);
         break;
     case Kind::PreFader:
         session_.setSend(channel_, return_, std::nullopt, on);
+        for (const auto id : others)
+            session_.setSend(id, return_, std::nullopt, on);
         break;
     case Kind::Arm: // a click arms this one alone; Ctrl+click one more (recording.md §4)
-        session_.setArmed(channel_, on, !juce::ModifierKeys::currentModifiers.isCommandDown());
+        session_.setArmed(channel_, on, alone);
+        for (const auto id : others)
+            session_.setArmed(id, on, false);
         break;
     }
     setToggleState(on, juce::dontSendNotification); // at once; the snapshot confirms

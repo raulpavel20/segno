@@ -673,6 +673,38 @@ void ArrangementView::notifySelection()
         onSelectionChanged();
 }
 
+bool ArrangementView::chooseTrack(std::uint64_t channel, juce::ModifierKeys mods,
+                                  const std::vector<std::uint64_t>& shown)
+{
+    if (mods.isCommandDown() && !mods.isPopupMenu())
+    {
+        setSelection(model::withTrackToggled(*snapshot_, selection_, channel));
+        return false;
+    }
+    if (mods.isShiftDown() && !mods.isPopupMenu())
+    {
+        setSelection(model::withTrackRun(*snapshot_, selection_, channel, shown));
+        return false;
+    }
+    // One of several: kept, so a drag or a right-click acts on them all.
+    if (!selection_.hasTime() && selection_.rowTracks.contains(channel))
+    {
+        setSelection({.channel = channel, .rowTracks = selection_.rowTracks});
+        return true;
+    }
+    selectTrack(channel);
+    return false;
+}
+
+std::vector<std::uint64_t> ArrangementView::shownTracks() const
+{
+    std::vector<std::uint64_t> out;
+    for (const auto& r : rows_)
+        if (r.holdsClips() || r.isGroup())
+            out.push_back(r.channel);
+    return out;
+}
+
 void ArrangementView::selectLane(std::uint64_t lane)
 {
     setSelection(model::withLane(*snapshot_, lane));
@@ -2003,6 +2035,7 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         // Ctrl+click with a time selection: the row in or out of it (time-selection.md §6).
         if (e.mods.isCommandDown() && !e.mods.isPopupMenu() && toggleTimeRow(row->track))
             return;
+        pendingAlone_.reset();
         const auto* channel = rowChannel(row->track);
         // A header selects its channel alone, or its lane or take (selection.md §2, automation.md
         // §9, recording.md §10).
@@ -2015,8 +2048,16 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         }
         else
         {
-            selectTrack(channel != nullptr ? std::optional(channel->id) : std::nullopt);
+            // Alone, or with others: Ctrl adds or takes out, Shift the run (groups.md §8).
+            std::optional<std::uint64_t> alone;
+            if (channel == nullptr)
+                selectTrack(std::nullopt);
+            else if (chooseTrack(channel->id, e.mods, shownTracks()))
+                alone = channel->id;
             headerActive_ = channel != nullptr; // Delete and Duplicate act on the track (tracks-and-clips.md §5)
+            if ((e.mods.isCommandDown() || e.mods.isShiftDown()) && !e.mods.isPopupMenu())
+                return; // a choice, not a drag
+            pendingAlone_ = alone;
         }
         if (e.mods.isPopupMenu())
         {
@@ -2034,7 +2075,7 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         if (e.mods.isLeftButtonDown() && movable)
         {
             drag_ = Drag::Row;
-            rowDrag_ = RowDrag{.row = row->track};
+            rowDrag_ = RowDrag{.row = row->track, .alone = std::exchange(pendingAlone_, std::nullopt)};
         }
         return;
     }
@@ -2413,11 +2454,37 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         drag_ = Drag::None;
         const auto dragged = std::exchange(rowDrag_, std::nullopt);
         repaint();
+        if (dragged && !dragged->moving && dragged->alone) // a click on one of several: it alone
+            selectTrack(dragged->alone);
         if (!dragged || !dragged->moving || !dragged->drop.moves || dragged->row >= static_cast<int>(rows_.size()))
             return;
         const auto& r = rows_[static_cast<std::size_t>(dragged->row)];
         if (r.kind == model::ArrangementRow::Kind::Lane)
             session_.moveLane(r.lane, dragged->drop.before);
+        else if (const auto several = model::selectedTracks(*snapshot_, selection_);
+                 several.size() > 1 && std::find(several.begin(), several.end(), r.channel) != several.end())
+        {
+            // Several chosen together move together, in their order, landing where it's dropped
+            // (groups.md §8): one step.
+            const auto among = [&](std::uint64_t id)
+            { return std::find(several.begin(), several.end(), id) != several.end(); };
+            auto before = dragged->drop.before;
+            if (before != 0 && among(before))
+            {
+                // Dropped among them: before the first row after the drop that isn't one of them.
+                before = 0;
+                for (auto b = dragged->drop.boundary;
+                     b < rows_.size() && rows_[b].kind != model::ArrangementRow::Kind::Return; ++b)
+                    if (const auto id = rows_[b].isLane() ? rows_[b].lane : rows_[b].channel; !among(id))
+                    {
+                        before = id;
+                        break;
+                    }
+            }
+            const engine::Session::EditGroup step(session_, "Move tracks");
+            for (const auto id : several)
+                session_.moveTrack(id, before);
+        }
         else
             session_.moveTrack(r.channel, dragged->drop.before);
         return;

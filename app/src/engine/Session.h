@@ -435,6 +435,11 @@ public:
     /// Adds a return track after the others ("A Return", "B Return"..., or `name`); every track
     /// can then send to it. Returns its id.
     std::uint64_t addReturnTrack(const std::string& name = {});
+    /// The channels selected together (groups.md §8): a mixer control of one of them moved by hand
+    /// moves them all (mixer.md §8). The window's selection, set by the shell; not an edit.
+    void setSelectedChannels(std::vector<std::uint64_t> channels);
+    /// The others moving with `channel`: the rest of those selected together, if it's one of them.
+    [[nodiscard]] std::vector<std::uint64_t> gangedWith(std::uint64_t channel) const;
     /// Volume, -inf (minusInfinityDb or less) .. +6 dB, clamped. Any channel. "Volume".
     void setVolume(std::uint64_t channelId, float db);
     /// Pan, -1 (left) .. 1 (right): a balance, 0 dB at centre. Any channel. "Pan".

@@ -197,7 +197,54 @@ TEST_CASE("groups: a time selection on a group's row covers every row in it; the
     CHECK(ctx.group->id == 102);
     ctx = panelContext({.channel = 4, .rowTracks = {1, 3, 4}}, s, CentreView::Arrange);
     CHECK(ctx.trackCount == 3);
-    CHECK(ctx.inspector == std::vector<InspectorSection>{InspectorSection::Tracks, InspectorSection::Mix});
+    CHECK(ctx.inspector == std::vector<InspectorSection>{InspectorSection::Tracks, InspectorSection::Mix,
+                                                         InspectorSection::Sends});
     // Several selected tracks stay through a new snapshot while they exist.
     CHECK(pruned({.channel = 4, .rowTracks = {1, 3, 4}}, s).rowTracks == std::set<std::uint64_t>{1, 3, 4});
+}
+
+TEST_CASE("groups: several tracks chosen together: Ctrl+click in and out, Shift+click a run, the one clicked "
+          "last the channel",
+          "[fast]")
+{
+    Snapshot s;
+    s.tracks = {track(1), track(2), group(10), track(3, 10), track(4)};
+    s.returns = {{.id = 20, .role = TrackInfo::Role::Return}};
+    const std::vector<std::uint64_t> shown{1, 2, 10, 3, 4};
+
+    // Track 1 alone, then Ctrl+click 3: both, 3 the channel.
+    Selection sel{.channel = 1};
+    sel = withTrackToggled(s, sel, 3);
+    CHECK(sel.rowTracks == std::set<std::uint64_t>{1, 3});
+    CHECK(sel.channel == 3);
+    CHECK(selectedTracks(s, sel) == std::vector<std::uint64_t>{1, 3});
+    // Ctrl+click 4, then 3 again: 3 goes, the last left (4) stands for them.
+    sel = withTrackToggled(s, withTrackToggled(s, sel, 4), 3);
+    CHECK(sel.rowTracks == std::set<std::uint64_t>{1, 4});
+    CHECK(sel.channel == 4);
+    // Down to one: that one alone.
+    sel = withTrackToggled(s, sel, 4);
+    CHECK(sel.rowTracks.empty());
+    CHECK(sel.channel == 1);
+    CHECK(selectedTracks(s, sel) == std::vector<std::uint64_t>{1});
+    // A return isn't chosen with tracks: it's selected alone.
+    sel = withTrackToggled(s, sel, 20);
+    CHECK(sel.rowTracks.empty());
+    CHECK(sel.channel == 20);
+    CHECK(selectedTracks(s, sel).empty());
+
+    // Shift+click: the run from the one selected last, groups too, in either direction.
+    sel = withTrackRun(s, {.channel = 2}, 4, shown);
+    CHECK(sel.rowTracks == std::set<std::uint64_t>{2, 10, 3, 4});
+    CHECK(sel.channel == 4);
+    sel = withTrackRun(s, {.channel = 3}, 1, shown);
+    CHECK(sel.rowTracks == std::set<std::uint64_t>{1, 2, 10, 3});
+    // From nothing selected: it alone.
+    sel = withTrackRun(s, {}, 2, shown);
+    CHECK(sel.rowTracks.empty());
+    CHECK(sel.channel == 2);
+
+    // A clip or a time selection isn't several tracks.
+    CHECK(selectedTracks(s, {.channel = 1, .clips = {99}}).empty());
+    CHECK(selectedTracks(s, {.channel = 1, .rowTracks = {1, 2}, .time = TimeSpan{0.0, 1.0}}).empty());
 }

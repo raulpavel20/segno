@@ -1298,6 +1298,23 @@ std::optional<std::uint64_t> Session::midiInputTarget() const
     return impl_->midiTarget;
 }
 
+void Session::setSelectedChannels(std::vector<std::uint64_t> channels)
+{
+    impl_->selectedChannels = std::move(channels);
+}
+
+std::vector<std::uint64_t> Session::gangedWith(std::uint64_t channel) const
+{
+    const auto& all = impl_->selectedChannels;
+    if (all.size() < 2 || std::find(all.begin(), all.end(), channel) == all.end())
+        return {};
+    std::vector<std::uint64_t> out;
+    for (const auto id : all)
+        if (id != channel && snapshot()->channel(id) != nullptr)
+            out.push_back(id);
+    return out;
+}
+
 bool Session::midiNotesHeld() const
 {
     for (auto& in : impl_->engine.getDeviceManager().getMidiInDevices())

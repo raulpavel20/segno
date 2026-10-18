@@ -275,6 +275,12 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         lastArea_ = Area::Arrangement;
         arrangement_.selectTrack(channel);
     };
+    // Ctrl and Shift choose several, as in the arrangement's headers (groups.md §8).
+    mixer_.onChoose = [this](std::uint64_t channel, juce::ModifierKeys mods)
+    {
+        lastArea_ = Area::Arrangement;
+        return arrangement_.chooseTrack(channel, mods, mixer_.shownStrips());
+    };
     mixer_.onSelectModule = [this](std::uint64_t channel, std::uint64_t module) {
         lastArea_ = Area::Detail;
         arrangement_.selectTrack(channel); // the chain now shows this channel
@@ -504,10 +510,20 @@ void Shell::registerActions()
     actions_.add({.id = "transport.record", .name = "Record", .category = "Transport",
                   .keys = {key('r', kCmd), juce::KeyPress(juce::KeyPress::F9Key)},
                   .perform = [&s] { s.record(); }, .isToggled = [&s] { return s.isRecording(); }});
-    actions_.add({.id = "track.arm", .name = "Arm selected track", .category = "Track", .keys = {key('r', kAlt)},
-                  .perform = [this, &s] {
+    actions_.add({.id = "track.arm",
+                  .name = "Arm selected track",
+                  .category = "Track",
+                  .keys = {key('r', kAlt)},
+                  .perform =
+                      [this, &s]
+                  {
                       if (const auto t = selectedTrackInfo(); t && t->holdsClips())
-                          s.setArmed(t->id, !t->input.armed, true);
+                      {
+                          const auto ids = chosenWith(t->id);
+                          for (size_t i = 0; i < ids.size(); ++i)
+                              s.setArmed(ids[i], !t->input.armed,
+                                         i == 0); // the first alone, the rest with it
+                      }
                   },
                   .isEnabled = [this] { return selectedTrackInfo() && selectedTrackInfo()->holdsClips(); }});
     actions_.add({.id = "transport.countIn", .name = "Count-in", .category = "Transport", .keys = {key('c', kCmd | kAlt)},
@@ -801,24 +817,47 @@ void Shell::registerActions()
                           return !mixerShown_;
                       return commandChannel().has_value();
                   }});
-    // The selected track's or return's own commands (Delete and Ctrl+D do these from its header).
+    // The selected track's or return's own commands (Delete and Ctrl+D do these from its header),
+    // on every track chosen with it (groups.md §8): their labels say so.
     auto channelCommand = [this] { return commandChannel().has_value() && !session_.isRecording(); };
-    actions_.add({.id = "track.duplicate", .name = "Duplicate track", .category = "Track",
-                  .perform = [this] {
+    auto plural = [this](const char* one, const char* several)
+    {
+        return [this, one, several]
+        {
+            const auto c = commandChannel();
+            return juce::String(c && chosenWith(*c).size() > 1 ? several : one);
+        };
+    };
+    actions_.amend("track.arm",
+                   [plural](Action& a) { a.label = plural("Arm selected track", "Arm selected tracks"); });
+    actions_.add({.id = "track.duplicate",
+                  .name = "Duplicate track",
+                  .category = "Track",
+                  .perform =
+                      [this]
+                  {
                       if (const auto c = commandChannel())
                           duplicateChannel(*c);
                   },
-                  .isEnabled = channelCommand});
-    actions_.add({.id = "track.delete", .name = "Delete track", .category = "Track",
-                  .perform = [this] {
+                  .isEnabled = channelCommand,
+                  .label = plural("Duplicate track", "Duplicate tracks")});
+    actions_.add({.id = "track.delete",
+                  .name = "Delete track",
+                  .category = "Track",
+                  .perform =
+                      [this]
+                  {
                       if (const auto c = commandChannel())
                           deleteChannel(*c);
                   },
                   .isEnabled = channelCommand,
-                  .whyNot = [this] {
+                  .whyNot =
+                      [this]
+                  {
                       return session_.isRecording() ? juce::String("Stop recording first: tracks can't be deleted while a pass records")
                                                     : juce::String();
-                  }});
+                  },
+                  .label = plural("Delete track", "Delete tracks")});
     // Split at playhead: the notes crossing it when the clip view was used last (piano-roll.md §9.1).
     actions_.add(
         {.id = "edit.split",
@@ -1632,24 +1671,49 @@ void Shell::registerActions()
                   .perform = [&s] { s.addTrack(); }});
     // The mixer (C3, docs/design/mixer.md §9): the selected channel.
     auto selectedChannel = [this]() -> std::optional<model::TrackInfo> { return selectedTrackInfo(); };
-    actions_.add({.id = "track.mute", .name = "Mute selected track", .category = "Track", .keys = {key('m', kAlt)},
-                  .perform = [&s, selectedChannel] {
+    actions_.add({.id = "track.mute",
+                  .name = "Mute selected track",
+                  .category = "Track",
+                  .keys = {key('m', kAlt)},
+                  .perform =
+                      [this, &s, selectedChannel]
+                  {
+                      // Several chosen together all take the selected one's new state (groups.md §8).
                       if (const auto c = selectedChannel(); c && c->role != model::TrackInfo::Role::Master)
-                          s.setMute(c->id, !c->mix.mute);
+                      {
+                          const engine::Session::EditGroup together(s, "Mute");
+                          for (const auto id : chosenWith(c->id))
+                              s.setMute(id, !c->mix.mute);
+                      }
                   },
-                  .isEnabled = [selectedChannel] {
+                  .isEnabled =
+                      [selectedChannel]
+                  {
                       const auto c = selectedChannel();
                       return c && c->role != model::TrackInfo::Role::Master;
-                  }});
-    actions_.add({.id = "track.solo", .name = "Solo selected track", .category = "Track", .keys = {key('s', kAlt)},
-                  .perform = [&s, selectedChannel] {
-                      if (const auto c = selectedChannel(); c && c->role != model::TrackInfo::Role::Master)
-                          s.setSolo(c->id, !c->mix.solo, true);
                   },
-                  .isEnabled = [selectedChannel] {
+                  .label = plural("Mute selected track", "Mute selected tracks")});
+    actions_.add({.id = "track.solo",
+                  .name = "Solo selected track",
+                  .category = "Track",
+                  .keys = {key('s', kAlt)},
+                  .perform =
+                      [this, &s, selectedChannel]
+                  {
+                      if (const auto c = selectedChannel(); c && c->role != model::TrackInfo::Role::Master)
+                      {
+                          const auto ids = chosenWith(c->id);
+                          for (size_t i = 0; i < ids.size(); ++i)
+                              s.setSolo(ids[i], !c->mix.solo, i == 0); // the first alone, the rest with it
+                      }
+                  },
+                  .isEnabled =
+                      [selectedChannel]
+                  {
                       const auto c = selectedChannel();
                       return c && c->role != model::TrackInfo::Role::Master;
-                  }});
+                  },
+                  .label = plural("Solo selected track", "Solo selected tracks")});
     actions_.add({.id = "track.addReturn", .name = "Add return track", .category = "Track",
                   .keys = {key('t', kCmd | kAlt)},
                   .perform = [this, &s] {
@@ -2393,12 +2457,53 @@ bool Shell::trackHeaderActive() const
     return lastArea_ == Area::Arrangement && !mixerShown_ && arrangement_.headerActive() && commandChannel().has_value();
 }
 
+std::vector<std::uint64_t> Shell::chosenWith(std::uint64_t channel) const
+{
+    const auto several = model::selectedTracks(*session_.snapshot(), arrangement_.selection());
+    return several.size() > 1 && std::find(several.begin(), several.end(), channel) != several.end()
+               ? several
+               : std::vector<std::uint64_t>{channel};
+}
+
 void Shell::deleteChannel(std::uint64_t channel)
 {
     const auto snapshot = session_.snapshot();
     const auto* c = snapshot->channel(channel);
     if (c == nullptr)
         return;
+    // Several chosen together go together, in one step (groups.md §8); then the track above the
+    // first of them (below the last, for the first).
+    if (const auto several = chosenWith(channel); several.size() > 1)
+    {
+        const auto among = [&](std::uint64_t id)
+        { return std::find(several.begin(), several.end(), id) != several.end(); };
+        std::optional<std::uint64_t> next;
+        for (const auto& t : snapshot->tracks)
+        {
+            if (among(t.id) && next)
+                break;
+            if (!among(t.id))
+                next = t.id;
+        }
+        {
+            const engine::Session::EditGroup step(session_, "Delete tracks");
+            for (const auto id : several)
+            {
+                std::string why;
+                if (!session_.deleteTrack(id, &why))
+                {
+                    if (!why.empty())
+                        showWarning(juce::String::fromUTF8(why.c_str()));
+                    return;
+                }
+            }
+        }
+        session_.updateSnapshotNow();
+        arrangement_.selectTrack(next);
+        showToast("Deleted " + juce::String(static_cast<int>(several.size())) + " tracks", "Undo",
+                  [this] { session_.undo(); });
+        return;
+    }
     const auto name = juce::String::fromUTF8(c->name.c_str());
     // Then the one above it is selected (the one below, for the first).
     const auto& kind = c->role == model::TrackInfo::Role::Return ? snapshot->returns : snapshot->tracks;
@@ -2421,6 +2526,28 @@ void Shell::deleteChannel(std::uint64_t channel)
 
 void Shell::duplicateChannel(std::uint64_t channel)
 {
+    // Several chosen together: each copy right after its original, in one step, the copies then
+    // chosen together (groups.md §8).
+    if (const auto several = chosenWith(channel); several.size() > 1)
+    {
+        std::set<std::uint64_t> copies;
+        std::uint64_t last = 0;
+        {
+            const engine::Session::EditGroup step(session_, "Duplicate tracks");
+            for (const auto id : several)
+                if (const auto copy = session_.duplicateTrack(id); copy != 0)
+                    copies.insert(last = copy);
+        }
+        if (copies.empty())
+        {
+            showWarning(session_.isRecording() ? "Stop recording first" : "These tracks can't be duplicated");
+            return;
+        }
+        session_.updateSnapshotNow();
+        arrangement_.setSelection(copies.size() > 1 ? model::Selection{.channel = last, .rowTracks = copies}
+                                                    : model::Selection{.channel = last});
+        return;
+    }
     const auto copy = session_.duplicateTrack(channel);
     if (copy == 0)
     {
@@ -2445,7 +2572,13 @@ juce::PopupMenu Shell::trackColourMenu()
     }
     if (const auto c = commandChannel())
         ui::addColourGrid(menu, snapshot->channel(*c)->colour,
-                          [this, id = *c](int colour) { session_.setTrackColour(id, colour); });
+                          [this, ids = chosenWith(*c)](int colour)
+                          {
+                              // Several chosen together take it together, in one step (groups.md §8).
+                              const engine::Session::EditGroup step(session_, "Track colour");
+                              for (const auto id : ids)
+                                  session_.setTrackColour(id, colour);
+                          });
     else
         menu.addItem(juce::PopupMenu::Item("Select a track first").setEnabled(false));
     return menu;
@@ -2770,7 +2903,12 @@ void Shell::selectionChanged()
     const auto snapshot = session_.snapshot();
     const auto context = model::panelContext(arrangement_.selection(), *snapshot,
                                              mixerShown_ ? model::CentreView::Mix : model::CentreView::Arrange);
-    mixer_.setSelection(context.channel ? std::optional(context.channel->id) : std::nullopt);
+    // Several chosen together: their strips lit, and one's controls move them all (groups.md §8,
+    // mixer.md §8).
+    const auto together = model::selectedTracks(*snapshot, arrangement_.selection());
+    mixer_.setSelection(context.channel ? std::optional(context.channel->id) : std::nullopt,
+                        together.size() > 1 ? together : std::vector<std::uint64_t>{});
+    session_.setSelectedChannels(together);
     if (context.channel)
         recentChannel_ = context.channel->id;
 

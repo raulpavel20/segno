@@ -4,6 +4,7 @@
 #include "model/Groups.h"
 #include "model/Takes.h"
 
+#include <algorithm>
 #include <set>
 
 namespace fd::model
@@ -104,6 +105,74 @@ Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t
                                                        snapshot.channel(l->assignments.front().channel) != nullptr)
         s.channel = l->assignments.front().channel;
     return s;
+}
+
+namespace
+{
+bool chosenTogether(const TrackInfo* t)
+{
+    return t != nullptr && (t->holdsClips() || t->isGroup());
+}
+
+/// Several, or one alone (its channel, no set).
+Selection severalOrOne(std::set<std::uint64_t> tracks, std::optional<std::uint64_t> channel)
+{
+    if (tracks.size() < 2)
+        return {.channel = tracks.empty() ? channel : std::optional(*tracks.begin())};
+    return {.channel = channel, .rowTracks = std::move(tracks)};
+}
+} // namespace
+
+Selection withTrackToggled(const Snapshot& snapshot, const Selection& selection, std::uint64_t id)
+{
+    if (!chosenTogether(snapshot.channel(id)))
+        return {.channel = id};
+    auto tracks = selection.hasTime() ? std::set<std::uint64_t>{} : selection.rowTracks;
+    // The one selected alone joins them.
+    if (tracks.empty() && selection.clips.empty() && !selection.lane && selection.channel &&
+        chosenTogether(snapshot.channel(*selection.channel)))
+        tracks.insert(*selection.channel);
+    if (tracks.erase(id) == 0)
+    {
+        tracks.insert(id);
+        return severalOrOne(std::move(tracks), id);
+    }
+    // The one clicked last went: the last of those left stands for them.
+    std::optional<std::uint64_t> channel;
+    for (const auto& t : snapshot.tracks)
+        if (tracks.contains(t.id))
+            channel = t.id;
+    return severalOrOne(std::move(tracks), channel);
+}
+
+Selection withTrackRun(const Snapshot& snapshot, const Selection& selection, std::uint64_t id,
+                       const std::vector<std::uint64_t>& shown)
+{
+    if (!chosenTogether(snapshot.channel(id)))
+        return {.channel = id};
+    const auto at = [&](std::uint64_t c) { return std::find(shown.begin(), shown.end(), c); };
+    const auto to = at(id);
+    const auto from = selection.channel ? at(*selection.channel) : shown.end();
+    if (to == shown.end() || from == shown.end())
+        return {.channel = id};
+    std::set<std::uint64_t> tracks;
+    for (auto it = std::min(from, to); it <= std::max(from, to); ++it)
+        if (chosenTogether(snapshot.channel(*it)))
+            tracks.insert(*it);
+    return severalOrOne(std::move(tracks), id);
+}
+
+std::vector<std::uint64_t> selectedTracks(const Snapshot& snapshot, const Selection& selection)
+{
+    std::vector<std::uint64_t> out;
+    if (selection.hasTime())
+        return out;
+    for (const auto& t : snapshot.tracks)
+        if (selection.rowTracks.empty()
+                ? selection.channel == t.id && selection.clips.empty() && !selection.lane
+                : selection.rowTracks.contains(t.id))
+            out.push_back(t.id);
+    return out;
 }
 
 Selection pruned(const Selection& selection, const Snapshot& snapshot)
@@ -311,7 +380,9 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         return ctx;
     if (ctx.trackCount > 1)
     {
-        ctx.inspector.insert(ctx.inspector.end(), {InspectorSection::Tracks, InspectorSection::Mix});
+        // Every track and group sends to the same returns: their sends show too (groups.md §8).
+        ctx.inspector.insert(ctx.inspector.end(),
+                             {InspectorSection::Tracks, InspectorSection::Mix, InspectorSection::Sends});
         return ctx;
     }
     switch (channel->role)
