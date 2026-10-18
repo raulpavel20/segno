@@ -216,6 +216,27 @@ public:
                     {});
         };
         context_.segnoFolder = [&session] { return session.segnoFolder(); };
+        // A MIDI effect's note display (midi-effects.md §12): what it played, and the song it was
+        // handed; the name of the track it hears.
+        if (plugin.device().analysis().notes() != nullptr)
+        {
+            const auto id = plugin.itemID.getRawID();
+            notes_ = std::make_unique<ui::TapFeed>(
+                plugin.device(),
+                ui::TapFeed::Song{.view = [&plugin] { return plugin.songView(); },
+                                  .listened =
+                                      [&session, id]
+                                  {
+                                      const auto snapshot = session.snapshot();
+                                      for (const auto& t : snapshot->tracks)
+                                          if (const auto* d = model::findDevice(t.devices, id);
+                                              d != nullptr && d->sidechainSource)
+                                              if (const auto* heard = snapshot->channel(*d->sidechainSource))
+                                                  return juce::String::fromUTF8(heard->name.c_str());
+                                      return juce::String("Track");
+                                  }});
+            context_.notes = notes_.get();
+        }
     }
     ui::DeviceUiContext& context() override { return context_; }
     std::string_view deviceId() const override { return native_.device().info().id; }
@@ -226,6 +247,7 @@ private:
     SessionDeviceBinding binding_;
     SessionSidechain sidechain_;
     std::unique_ptr<PresetHost> presets_;
+    std::unique_ptr<ui::TapFeed> notes_;
     ui::DeviceUiContext context_;
 };
 

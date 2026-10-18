@@ -69,10 +69,16 @@ bool Schedule::dropStart(std::int32_t source, std::uint8_t key) noexcept
 
 // --- Moments -------------------------------------------------------------------------------------
 
-Moments::Moments(const ProcessContext& c, const BlockBeats& beats, Follower& follower) noexcept
-    : events_(c.events), listen_(c.listen), follower_(follower)
+Moments::Moments(const ProcessContext& c, const BlockBeats& beats, Follower& follower, NoteTap* tap) noexcept
+    : events_(c.events), listen_(c.listen), follower_(follower), beats_(beats), tap_(tap)
 {
     changeCount_ = follower.songChanges(beats, changes_);
+    if (tap_ != nullptr)
+    {
+        tap_->setKey(follower.keyRoot(), follower.key(), c.song != nullptr);
+        const auto chord = follower.chordAt(beats.first);
+        tap_->chord(beats.first, chord.root, chord.notes, chord.fallback);
+    }
 }
 
 bool Moments::played(const Event& e) const noexcept
@@ -118,15 +124,29 @@ Moments::Moment Moments::take() noexcept
             changed = true;
         }
         if (changed)
+        {
+            if (tap_ != nullptr)
+            {
+                const auto chord = follower_.chordAt(beats_.at(at));
+                tap_->chord(beats_.at(at), chord.root, chord.notes, chord.fallback);
+            }
             return {.kind = Kind::Change, .offset = at};
+        }
     }
     while (events_ != nullptr && event_ < events_->size() && (*events_)[event_].sampleOffset <= at)
     {
         const auto& e = (*events_)[event_++];
         if (e.type == EventType::AllNotesOff)
             follower_.endPlayed();
-        if (!played(e))
-            return {.kind = Kind::Input, .offset = at, .event = e};
+        if (played(e))
+            continue;
+        if (tap_ != nullptr && (e.type == EventType::NoteOn || e.type == EventType::NoteOff))
+            tap_->push({.beat = beats_.at(at),
+                        .type = e.type == EventType::NoteOn ? NoteTap::Mark::Type::NoteOn
+                                                            : NoteTap::Mark::Type::NoteOff,
+                        .key = e.key,
+                        .velocity = e.value});
+        return {.kind = Kind::Input, .offset = at, .event = e};
     }
     return {.kind = Kind::Nothing, .offset = at};
 }
@@ -183,8 +203,11 @@ void NoteEffect::process(ProcessContext& c) noexcept
     ownBeat_ = b.end();
 
     blockClock_ = clock_;
+    beats_ = b;
     processNotes(c, b);
     clock_ += c.numSamples;
+    if (auto* notes = tap())
+        notes->setNow(b.end(), t.timeSigNumerator, t.timeSigDenominator);
 }
 
 void NoteEffect::startNote(ProcessContext& c, const Event& on) noexcept
@@ -195,7 +218,9 @@ void NoteEffect::startNote(ProcessContext& c, const Event& on) noexcept
     Event e = on;
     e.type = EventType::NoteOn;
     e.value = std::clamp(e.value, 1.0f / 127.0f, 1.0f);
-    ledger_.write(*c.outEvents, e);
+    if (ledger_.write(*c.outEvents, e))
+        if (auto* t = tap())
+            t->push({.beat = beats_.at(e.sampleOffset), .out = true, .key = e.key, .velocity = e.value});
 }
 
 void NoteEffect::stopNote(ProcessContext& c, int offset, std::uint8_t channel, std::uint8_t key) noexcept
@@ -208,11 +233,15 @@ void NoteEffect::stopNote(ProcessContext& c, int offset, std::uint8_t channel, s
     while (ledger_.sounding(channel, key))
         if (!ledger_.write(*c.outEvents, off))
             break;
+    if (auto* t = tap())
+        t->push({.beat = beats_.at(offset), .type = NoteTap::Mark::Type::NoteOff, .out = true, .key = key});
 }
 
 void NoteEffect::endAll(ProcessContext& c, int offset) noexcept
 {
     ledger_.endAll(*c.outEvents, offset);
+    if (auto* t = tap())
+        t->push({.beat = beats_.at(offset), .type = NoteTap::Mark::Type::AllOff});
     owners_.fill(0);
     schedule_.clear();
 }

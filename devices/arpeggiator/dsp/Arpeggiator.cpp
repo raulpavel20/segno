@@ -283,7 +283,7 @@ void Arpeggiator::processNotes(ProcessContext& c, const BlockBeats& beats) noexc
         freeSteps_ = 0;
     }
 
-    Moments moments(c, beats, follower_);
+    Moments moments(c, beats, follower_, tap());
     int from = 0;
     for (;;)
     {

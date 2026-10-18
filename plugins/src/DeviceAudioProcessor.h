@@ -140,6 +140,7 @@ private:
     ui::LookAndFeel lnf_;
     std::unique_ptr<Binding> binding_;
     std::unique_ptr<Sidechain> sidechain_;
+    std::unique_ptr<ui::TapFeed> notes_; // a MIDI effect's note display (no song in a plugin host)
     std::unique_ptr<ui::DeviceUiContext> context_;
     std::unique_ptr<ui::DevicePanel> panel_;
     juce::Viewport viewport_;

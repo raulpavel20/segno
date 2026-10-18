@@ -505,6 +505,11 @@ DeviceEditor::DeviceEditor(DeviceAudioProcessor& p) : juce::AudioProcessorEditor
     context_->showEditor = [this](std::unique_ptr<ui::ModuleEditor> editor)
     { showModuleEditor(std::move(editor)); };
     context_->playNote = [this](int note, float velocity) { processor_.playNote(note, velocity); };
+    if (p.device().analysis().notes() != nullptr)
+    {
+        notes_ = std::make_unique<ui::TapFeed>(p.device());
+        context_->notes = notes_.get();
+    }
     panel_ = p.panelFactory()->create(*context_);
     panel_->setViewState(p.viewState());
     panel_->onViewChanged = [this] {

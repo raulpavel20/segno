@@ -1,6 +1,8 @@
 #include "Pitch.h"
 #include "fd/testkit/DeviceRender.h"
 
+#include <algorithm>
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <fd/music/Following.h>
 #include <fd/music/Key.h>
@@ -260,4 +262,40 @@ TEST_CASE("Pitch: under random notes and settings, every note started ends once"
         INFO("round " << round);
         CHECK(balanced(renderNotes(p, 400 * 300 + 10, o)));
     }
+}
+
+TEST_CASE("Pitch: what its note display reads: the notes in and out, the chord it follows", "[fast]")
+{
+    SongView song;
+    song.chords = {{.start = 0.0, .end = 4.0, .root = 0, .notes = music::rotated(0b000010010001, 0)}}; // C
+    P p;
+    p.params().set(P::Fit, 2);
+    REQUIRE(p.analysis().notes() != nullptr);
+    auto o = withKey(keyOf(0, "major"), {on(beat, 62), off(2 * beat, 62)});
+    o.song = &song;
+    o.transport.timeSigNumerator = 3;
+    renderNotes(p, 3 * beat, o);
+    auto& tap = *p.analysis().notes();
+    using T = NoteTap::Mark::Type;
+    std::vector<NoteTap::Mark> marks;
+    for (NoteTap::Mark m; tap.pop(m);)
+        marks.push_back(m);
+    REQUIRE(marks.size() >= 5);
+    CHECK(marks[0].type == T::Chord);
+    CHECK(marks[0].root == 0);
+    const auto find = [&](T type, bool out)
+    {
+        return std::find_if(marks.begin(), marks.end(),
+                            [&](const auto& m) { return m.type == type && m.out == out; });
+    };
+    REQUIRE(find(T::NoteOn, false) != marks.end());
+    CHECK(find(T::NoteOn, false)->key == 62); // came in
+    CHECK(find(T::NoteOn, false)->beat == Catch::Approx(1.0));
+    REQUIRE(find(T::NoteOn, true) != marks.end());
+    CHECK(find(T::NoteOn, true)->key == 60); // went out, fitted
+    CHECK(find(T::NoteOff, true)->beat == Catch::Approx(2.0));
+    CHECK(tap.now() == Catch::Approx(3.0));
+    CHECK(tap.beatsPerBar() == 3.0);
+    CHECK(tap.hasSong());
+    CHECK(tap.keyNotes() == keyOf(0, "major").notes);
 }

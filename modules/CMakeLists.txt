@@ -14,7 +14,7 @@ set_target_properties(fd_ui_assets PROPERTIES POSITION_INDEPENDENT_CODE ON)
 juce_add_modules(ALIAS_NAMESPACE fd fd_ui fd_device_ui fd_host_juce)
 
 target_link_libraries(fd_ui INTERFACE fd_ui_assets)
-target_link_libraries(fd_device_ui INTERFACE fd::device)
+target_link_libraries(fd_device_ui INTERFACE fd::device fd::music)
 target_link_libraries(fd_host_juce INTERFACE fd::device)
 
 # Warning flags for targets that compile JUCE/tracktion sources (plugins, app, tools, JUCE-line

@@ -160,7 +160,7 @@ Chord::Chord() : NoteEffect(chordInfo) {}
 void Chord::processNotes(ProcessContext& c, const BlockBeats& beats) noexcept
 {
     follower_.begin(c, params(), HarmonyFirst);
-    Moments moments(c, beats, follower_);
+    Moments moments(c, beats, follower_, tap());
     const bool moves = params().getInt(Mode) == Song && params().getInt(Change) == 0;
     for (;;)
     {

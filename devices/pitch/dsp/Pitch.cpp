@@ -158,7 +158,7 @@ Pitch::Pitch() : NoteEffect(pitchInfo) {}
 void Pitch::processNotes(ProcessContext& c, const BlockBeats& beats) noexcept
 {
     follower_.begin(c, params(), HarmonyFirst);
-    Moments moments(c, beats, follower_);
+    Moments moments(c, beats, follower_, tap());
     const bool moves = params().getInt(Fit) == 2 && params().getInt(Change) == 0;
     while (moments.next() != INT_MAX)
     {

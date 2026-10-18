@@ -13,6 +13,7 @@
 #include "../../devices/pitch/ui/PitchPanel.h"
 #include "../panels/PanelLint.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
 #include <filesystem>
@@ -550,4 +551,65 @@ TEST_CASE("midi effects drawn: a track's Harmony in the inspector's TRACK, at it
     f.shell->arrangement().selectTrack(ret);
     f.settle();
     CHECK_FALSE(harmony.isVisible());
+}
+
+#include "fd/testkit/DeviceRender.h"
+
+#include <fd/music/Following.h>
+
+TEST_CASE("midi effects drawn: the note display as a module plays, from its tap", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI init;
+    SegnoLook look;
+    using P = fd::devices::Pitch;
+    Drawn<P> d(fd::devices::pitchPanelFactory());
+    d.set(P::Fit, 2.0f); // Chord, with passing notes off the beat
+    // Am7 then Fmaj7, a bar each; the riff of the drawings played into it for six beats.
+    auto song = std::make_shared<fd::SongView>();
+    song->chords = {{.start = 0.0, .end = 4.0, .root = 9, .notes = fd::music::rotated(0b010010001001, 9)},
+                    {.start = 4.0, .end = 8.0, .root = 5, .notes = fd::music::rotated(0b100010010001, 5)}};
+    song->sections = {{.start = 0.0, .end = 8.0, .name = 1}};
+    fd::testkit::RenderOptions o;
+    o.transport.key = {.root = 9, .notes = fd::music::rotated(0b010110101101, 9)}; // A minor
+    o.song = song.get();
+    const std::vector<int> written{57, 60, 64, 62, 60, 64, 67, 64};
+    for (int i = 0; i < 12; ++i)
+    {
+        const auto key = static_cast<std::uint8_t>(written[static_cast<std::size_t>(i % 8)]);
+        o.events.push_back({i * 12000, {.type = fd::EventType::NoteOn, .key = key, .value = 0.8f}});
+        o.events.push_back({i * 12000 + 9600, {.type = fd::EventType::NoteOff, .key = key}});
+    }
+    fd::testkit::renderNotes(d.device, 6 * 24000 - 100, o);
+    fd::ui::TapFeed feed(d.device, {.view = [song] { return song; }});
+    const auto view = feed.view(6.0, 2.5);
+    CHECK(view.now == Catch::Approx(6.0).margin(0.01));
+    CHECK(view.following == "Song");
+    CHECK(view.fallback.isEmpty());
+    REQUIRE(view.chords.size() == 2);
+    CHECK(view.chords[0].name == "Am7");
+    CHECK(view.chords[1].name == "Fmaj7");
+    CHECK(view.sectionEnd == 8.0);
+    int in = 0, out = 0;
+    for (const auto& n : view.notes)
+        (n.played ? out : in) += 1;
+    CHECK(in == 12);
+    CHECK(out == 12);
+    // Every note played on a beat is in the chord sounding; off the beat, in the key (the SPEC's).
+    for (const auto& n : view.notes)
+        if (n.played)
+        {
+            INFO("note " << n.key << " at " << n.start);
+            const auto& chord = n.start < 4.0 - 1e-6 ? song->chords[0] : song->chords[1];
+            CHECK(fd::music::inSet(fd::music::onBeat(n.start) ? chord.notes : o.transport.key.notes, n.key));
+        }
+    d.notes.shown = view;
+    d.refresh();
+    d.check("pitch-from-its-tap");
+
+    // Followed by its own chord: said so, its chord named.
+    d.set(P::HarmonyFirst + static_cast<std::size_t>(fd::devices::harmony::Follow), 3.0f);
+    fd::testkit::renderNotes(d.device, 24000, o);
+    const auto own = feed.view(6.0, 2.0);
+    CHECK(own.following == "Own");
+    CHECK(own.fallback == "Own chord: C");
 }

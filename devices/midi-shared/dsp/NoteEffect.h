@@ -64,7 +64,9 @@ public:
         Event event{};
     };
 
-    Moments(const ProcessContext& c, const BlockBeats& beats, Follower& follower) noexcept;
+    /// With a tap, what it follows and what comes in are written to it (the note display).
+    Moments(const ProcessContext& c, const BlockBeats& beats, Follower& follower,
+            NoteTap* tap = nullptr) noexcept;
     /// The next moment's sample, or INT_MAX when there's none.
     [[nodiscard]] int next() const noexcept;
     Moment take() noexcept;
@@ -75,6 +77,8 @@ private:
     const EventList* events_;
     const EventList* listen_;
     Follower& follower_;
+    const BlockBeats& beats_;
+    NoteTap* tap_;
     std::array<int, 64> changes_{};
     std::size_t changeCount_ = 0, change_ = 0, event_ = 0, heard_ = 0;
     int settled_ = -1; // the sample whose followed notes were taken in
@@ -86,7 +90,7 @@ private:
 class NoteEffect : public Device
 {
 public:
-    using Device::Device;
+    explicit NoteEffect(const DeviceInfo& info) : Device(info) { analysis().enableNotes(); }
 
     void prepare(const ProcessSpec& spec) override;
     void reset() noexcept override;
@@ -121,6 +125,8 @@ protected:
     void playScheduled(ProcessContext& c, int offset, bool offsOnly) noexcept;
     /// The next scheduled note in this block: its sample and whether it's a note-off; INT_MAX if none.
     [[nodiscard]] int nextScheduled(int numSamples, bool& isOff) const noexcept;
+    /// Where its note display reads what it follows and hears (Moments writes there).
+    [[nodiscard]] NoteTap* tap() noexcept { return analysis().notes(); }
 
     Schedule schedule_;
 
@@ -134,6 +140,7 @@ private:
     std::array<std::uint8_t, 16 * 128> owners_{};
     double sampleRate_ = 48000.0;
     std::int64_t clock_ = 0, blockClock_ = 0;
+    BlockBeats beats_; // this block's, for the marks the display reads
     double ownBeat_ = 0.0;
     bool wasPlaying_ = false;
     std::atomic<std::uint64_t> hostRoll_{0};

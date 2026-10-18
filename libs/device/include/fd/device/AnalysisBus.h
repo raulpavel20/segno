@@ -1,9 +1,11 @@
 #pragma once
 
+#include "fd/device/NoteTap.h"
 #include "fd/device/SampleFifo.h"
 
 #include <array>
 #include <atomic>
+#include <memory>
 
 namespace fd
 {
@@ -61,6 +63,11 @@ public:
         return r.load(std::memory_order_relaxed) > 0 && r.exchange(0, std::memory_order_relaxed) > 0;
     }
 
+    /// A MIDI effect's notes, for its note display (added 2026-10-18, ADR 0074): made by the
+    /// device when it's built (not real-time); null for every other device.
+    void enableNotes() { notes_ = std::make_unique<NoteTap>(); }
+    [[nodiscard]] NoteTap* notes() noexcept { return notes_.get(); }
+
 private:
     static void raise(std::atomic<float>& a, float value) noexcept
     {
@@ -74,5 +81,6 @@ private:
     std::array<SampleFifo, numFifos> fifos_{};
     std::array<std::atomic<int>, numRequests> requests_{};
     std::atomic<double> sampleRate_{48000.0};
+    std::unique_ptr<NoteTap> notes_;
 };
 } // namespace fd
