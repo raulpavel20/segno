@@ -10,6 +10,7 @@
 #include "model/TimeEdits.h"
 #include "model/Timeline.h"
 #include "model/TrackEdits.h"
+#include "model/TrackHeaderLayout.h"
 #include "model/TrackLayout.h"
 #include "ui/AutomationLane.h"
 #include "ui/ChannelControls.h"
@@ -108,6 +109,13 @@ public:
     bool cancelRowDrag();
     /// Where a dragged header would land now (tests), if one is being dragged.
     [[nodiscard]] std::optional<model::RowDrop> rowDrop() const;
+    /// Shows `row`'s header being dragged to `drop` (drawn for review, groups.md §17), or none.
+    void previewRowDrop(int row, std::optional<model::RowDrop> drop);
+
+    /// The groups folded in the arrangement (groups.md §6.4): their rows are hidden, the group's
+    /// own row showing them in miniature. The view's state, kept here alone; never an undo step.
+    void setFoldedGroups(std::set<std::uint64_t> folded);
+    [[nodiscard]] const std::set<std::uint64_t>& foldedGroups() const noexcept { return folded_; }
     /// A channel header's right-click items (rename, duplicate, delete, colour): the shell's,
     /// before the items that make rows.
     std::function<void(juce::PopupMenu&, std::uint64_t channel)> onHeaderMenu;
@@ -628,6 +636,32 @@ private:
         model::RowDrop drop;
     };
     std::optional<RowDrag> rowDrag_;
+
+    // Groups (ADR 0072, docs/design/groups.md; ArrangementGroups.cpp).
+    std::set<std::uint64_t> folded_; // the groups folded here (§6.4)
+    /// One line of a miniature (the song row's overview, a group's lane): a track's clips, or a
+    /// nested group's, in one colour; selected ones outlined as selected clips are.
+    struct MiniatureLine
+    {
+        struct Span
+        {
+            double start = 0.0, end = 0.0;
+            bool muted = false, selected = false;
+        };
+        int colour = 0;
+        bool selected = false; // the whole line: a selected member while folded (§6.4)
+        std::vector<Span> spans;
+    };
+    /// The lines, one band each top to bottom, each line at most `maxLine` px thick and a pixel apart
+    /// where there's room; more lines than pixels share them.
+    void paintMiniature(juce::Graphics& g, juce::Rectangle<float> body,
+                        const std::vector<MiniatureLine>& lines, float maxLine) const;
+    /// A group's lane (§6.2): its members in miniature, a nested group as one line.
+    void paintGroupLane(juce::Graphics& g, int row, juce::Rectangle<int> lanes);
+    /// The colour bars of the groups a row is in, its own colour bar, and a group's fold triangle,
+    /// in its header (§6.1).
+    void paintGroupBars(juce::Graphics& g, int row, juce::Rectangle<float> header,
+                        const model::TrackHeaderSlots& slots);
     /// The row boundary nearest `y` (view coordinates): b is above row b.
     [[nodiscard]] std::size_t boundaryAt(float y) const;
     [[nodiscard]] float boundaryY(std::size_t boundary) const;

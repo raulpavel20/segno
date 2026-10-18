@@ -265,6 +265,9 @@ private:
     std::optional<model::TrackInfo> channel_;
     std::optional<model::ClipInfo> clip_;
     int clipCount_ = 0;
+    int trackCount_ = 0;                    // several tracks selected (groups.md §8)
+    std::optional<model::TrackInfo> group_; // the channel's group: TRACK's Group row (§10)
+    int groupTracks_ = 0;                   // a group's tracks, at any depth
     int takeCount_ = 0;
     std::optional<model::AutomationLaneInfo> lane_;
     std::optional<model::AutomationPoint> point_;

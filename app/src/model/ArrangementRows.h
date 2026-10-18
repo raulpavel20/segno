@@ -2,31 +2,37 @@
 
 #include "model/Snapshot.h"
 
+#include <set>
 #include <string>
 #include <vector>
 
 namespace fd::model
 {
 /// One row of the arrangement (docs/design/automation.md §3, §12): a track (it holds clips, and
-/// grows by its open takes, ADR 0032), an automation lane among the tracks, or a return track. The
-/// master isn't one: its row is the song row, pinned above them (ADR 0049).
+/// grows by its open takes, ADR 0032), a group (ADR 0072: its members in miniature), an automation
+/// lane among the tracks, or a return track. The master isn't one: its row is the song row, pinned
+/// above them (ADR 0049).
 struct ArrangementRow
 {
     enum class Kind
     {
         Track,
         Lane,
-        Return
+        Return,
+        Group
     };
     Kind kind = Kind::Track;
-    std::uint64_t channel = 0; // a track, return or master row: its channel
+    std::uint64_t channel = 0; // a track, group, return or master row: its channel
     std::uint64_t lane = 0;    // a lane row: its lane (AutomationLaneInfo::id)
-    /// The index in Snapshot::tracks of a track row; for a lane row, of the track above it (the
-    /// first track for lanes at the top); -1 for return tracks.
+    /// The index in Snapshot::tracks of a track or group row; for a lane row, of the track above it
+    /// (the first track for lanes at the top); -1 for return tracks.
     int track = -1;
+    /// How many groups the row is in (groups.md §6.1): its header shows that many colour bars.
+    int depth = 0;
 
     [[nodiscard]] bool holdsClips() const noexcept { return kind == Kind::Track; }
     [[nodiscard]] bool isLane() const noexcept { return kind == Kind::Lane; }
+    [[nodiscard]] bool isGroup() const noexcept { return kind == Kind::Group; }
     /// Stable while the row exists (row heights are kept by it): "c12", "a40".
     [[nodiscard]] std::string key() const;
 
@@ -36,10 +42,13 @@ struct ArrangementRow
 /// A lane's default height (name and subtitle).
 inline constexpr double kLaneDefaultHeight = 56.0;
 
-/// The rows, top to bottom: the lanes at the top, then each track followed by the lanes after it
-/// (`lanes`: shown), lanes whose track is gone, then (when `returns`) the return tracks.
+/// The rows, top to bottom: the lanes at the top, then each track or group followed by the lanes
+/// after it (`lanes`: shown), lanes whose track is gone, then (when `returns`) the return tracks.
+/// A group's row comes before the rows in it; a lane after a group comes after them. The rows in a
+/// `folded` group are left out (groups.md §6.4).
 [[nodiscard]] std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool returns,
-                                                          bool lanes = true);
+                                                          bool lanes = true,
+                                                          const std::set<std::uint64_t>& folded = {});
 
 /// The row index of the first return row (rows.size() when there is none).
 [[nodiscard]] int firstMixRow(const std::vector<ArrangementRow>& rows);

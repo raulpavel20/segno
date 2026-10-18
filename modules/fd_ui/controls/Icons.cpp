@@ -460,6 +460,12 @@ Glyph glyph(Icon icon)
             p.closeSubPath();
         }
         break;
+    case Icon::FoldOpen:
+        g.solid.addTriangle(3.0f, 5.5f, 13.0f, 5.5f, 8.0f, 11.5f);
+        break;
+    case Icon::FoldClosed:
+        g.solid.addTriangle(5.5f, 3.0f, 11.5f, 8.0f, 5.5f, 13.0f);
+        break;
     case Icon::Search:
         p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
         p.startNewSubPath(9.8f, 9.8f);

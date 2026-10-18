@@ -628,6 +628,8 @@ std::string kindName(const model::TrackInfo& t)
     {
     case model::TrackInfo::Role::Return: return "return";
     case model::TrackInfo::Role::Master: return "master";
+    case model::TrackInfo::Role::Group:
+        return "group";
     case model::TrackInfo::Role::Track: break;
     }
     return "track";

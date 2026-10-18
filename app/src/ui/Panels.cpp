@@ -1333,6 +1333,9 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     channel_ = context.channel;
     clip_ = context.clip;
     clipCount_ = context.clipCount;
+    trackCount_ = context.trackCount;
+    group_ = context.group;
+    groupTracks_ = context.groupTracks;
     lane_ = context.lane;
     point_ = context.point;
     pointCount_ = context.pointCount;
@@ -1392,7 +1395,9 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         button->setVisible(has(model::InspectorSection::Take));
     clipMute_.setVisible(has(model::InspectorSection::Clip) && clip_.has_value());
     // Names and colours.
-    const bool channelShown = (has(model::InspectorSection::Track) || has(model::InspectorSection::Return)) && channel_;
+    const bool channelShown = (has(model::InspectorSection::Track) || has(model::InspectorSection::Return) ||
+                               has(model::InspectorSection::Group)) &&
+                              channel_;
     channelName_.setVisible(channelShown);
     channelColour_.setVisible(channelShown);
     if (channelShown)
@@ -1792,11 +1797,25 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     case S::Track:
         if (!channel_)
             return {};
-        return {{"Name", {}},   // the field
+        {
+            std::vector<ui::Property> rows{
+                {"Name", {}},   // the field
                 {"Colour", {}}, // the swatch
-                {"Instrument", channel_->instrument.empty() ? juce::String("None")
-                                                            : juce::String::fromUTF8(channel_->instrument.c_str())},
+                {"Instrument", channel_->instrument.empty()
+                                   ? juce::String("None")
+                                   : juce::String::fromUTF8(channel_->instrument.c_str())},
                 {"Clips", juce::String(static_cast<int>(channel_->clips.size())), true}};
+            if (group_) // the group it's in (groups.md §10)
+                rows.push_back({"Group", juce::String::fromUTF8(group_->name.c_str())});
+            return rows;
+        }
+    case S::Group: // groups.md §10: the field, the swatch, then what it holds
+        return {{"Name", {}},
+                {"Colour", {}},
+                {"Tracks", juce::String(groupTracks_), true},
+                {"Modules", modules, true}};
+    case S::Tracks:
+        return {{"Selected", juce::String(trackCount_), true}};
     case S::Return: return {{"Name", {}}, {"Colour", {}}, {"Modules", modules, true}}; // the field, the swatch
     case S::Master: return {{"Modules", modules, true}};
     case S::Module:
@@ -1953,12 +1972,17 @@ int InspectorPanel::layoutSections(int width)
     const auto& t = ui::Theme::current();
     auto r = juce::Rectangle<int>(0, t.shell.itemGap, width, std::numeric_limits<int>::max() / 2).reduced(t.shell.padding, 0);
 
-    static const std::map<S, juce::String> titles{
-        {S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},       {S::Assignments, "Assignments"},
-        {S::Input, "Input"}, {S::Take, "Take"},     {S::Takes, "Takes"},     {S::Clip, "Clip"},
-        {S::Audio, "Audio"}, {S::Clips, "Clips"},   {S::Section, "Section"}, {S::Sections, "Sections"},
-        {S::Time, "Time"},   {S::Track, "Track"},   {S::Return, "Return"},   {S::Master, "Master"},
-        {S::Mix, "Mix"},     {S::Sends, "Sends"},   {S::Module, "Module"},   {S::Routes, "Routes"}};
+    static const std::map<S, juce::String> titles{{S::Point, "Point"},     {S::Points, "Points"},
+                                                  {S::Lane, "Lane"},       {S::Assignments, "Assignments"},
+                                                  {S::Input, "Input"},     {S::Take, "Take"},
+                                                  {S::Takes, "Takes"},     {S::Clip, "Clip"},
+                                                  {S::Audio, "Audio"},     {S::Clips, "Clips"},
+                                                  {S::Section, "Section"}, {S::Sections, "Sections"},
+                                                  {S::Time, "Time"},       {S::Track, "Track"},
+                                                  {S::Return, "Return"},   {S::Master, "Master"},
+                                                  {S::Group, "Group"},     {S::Tracks, "Tracks"},
+                                                  {S::Mix, "Mix"},         {S::Sends, "Sends"},
+                                                  {S::Module, "Module"},   {S::Routes, "Routes"}};
     std::vector<ui::SectionStack::Section> sections;
     for (const auto s : sections_)
     {
@@ -2010,7 +2034,8 @@ int InspectorPanel::layoutSections(int width)
             laneName_.setBounds(content.reduced(0, t.shell.propertyFieldInset));
             laneColour_.setBounds(content.translated(0, t.shell.rowHeight));
         }
-        else if (sections_[i] == S::Track || sections_[i] == S::Return) // the Name and Colour rows
+        else if (sections_[i] == S::Track || sections_[i] == S::Return ||
+                 sections_[i] == S::Group) // Name, Colour
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth).withHeight(t.shell.rowHeight);
             channelName_.setBounds(content.reduced(0, t.shell.propertyFieldInset));

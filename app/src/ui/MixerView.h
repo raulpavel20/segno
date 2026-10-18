@@ -5,9 +5,21 @@
 #include "ui/TrackInputs.h"
 
 #include <map>
+#include <optional>
+#include <set>
 
 namespace fd::app
 {
+/// Where a strip stands among groups (groups.md §9): the colours of the groups it's in, outermost
+/// first; a group's fold state; mute and solo half lit by its groups.
+struct StripGroups
+{
+    std::vector<int> colours;
+    std::optional<bool> folded; // a group's strip: its fold triangle, folded or not
+    bool mutedByGroup = false;  // in a muted group
+    bool holdsSolo = false;     // a group with something soloed in it
+};
+
 /// One channel as a strip (docs/design/mixer.md §6): its name, its modules, its sends, pan, mute
 /// and solo, the peak readout, the fader with a dB scale and the meter, and the volume typed.
 /// Placed by model::layoutChannelStrip, so strips line up.
@@ -17,10 +29,11 @@ public:
     ChannelStrip(engine::Session& session, const model::TrackInfo& channel);
 
     [[nodiscard]] std::uint64_t channel() const noexcept { return info_.id; }
+    using Groups = StripGroups;
     /// The channel as the snapshot has it, the project's return tracks, how strips look, and
     /// whether it is the selected one.
     void update(const model::TrackInfo& channel, const std::vector<model::TrackInfo>& returns,
-                const model::ChannelStripOptions& options, bool selected);
+                const model::ChannelStripOptions& options, bool selected, const Groups& groups = {});
 
     std::function<void()> onSelect;
     std::function<void(std::uint64_t module)> onSelectModule;
@@ -52,6 +65,7 @@ private:
     model::TrackInfo info_;
     model::ChannelStripOptions options_;
     bool selected_ = false;
+    Groups groups_;
     model::ChannelStripSlots slots_;
     VolumeBar fader_;
     PanBar pan_;
@@ -98,6 +112,10 @@ public:
 
     [[nodiscard]] const model::ChannelStripOptions& options() const noexcept { return options_; }
     void setOptions(bool modules, bool sends, bool narrow);
+    /// The groups folded in the mixer, apart from the arrangement's (groups.md §6.4): their
+    /// members' strips are hidden. The view's state, kept here alone; never an undo step.
+    void setFoldedGroups(std::set<std::uint64_t> folded);
+    [[nodiscard]] const std::set<std::uint64_t>& foldedGroups() const noexcept { return folded_; }
     [[nodiscard]] int scrollX() const;
     void setScrollX(int x);
     /// Renames a channel's strip in place (F2, tracks-and-clips.md §4). False for the master.
@@ -134,6 +152,7 @@ private:
     engine::Session& session_;
     std::shared_ptr<const model::Snapshot> snapshot_;
     std::optional<std::uint64_t> selected_;
+    std::set<std::uint64_t> folded_;
     model::ChannelStripOptions options_;
     ui::PanelHeader header_;
     ui::ViewOption modules_{"Modules"}, sends_{"Sends"}, narrow_{"Narrow"};

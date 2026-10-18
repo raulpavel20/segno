@@ -1,6 +1,7 @@
 #include "ui/ArrangementView.h"
 
 #include "model/ClipLoops.h"
+#include "model/Groups.h"
 #include "model/MusicalTime.h"
 #include "model/Takes.h"
 #include "model/TrackHeaderLayout.h"
@@ -178,6 +179,9 @@ void ArrangementView::syncRows()
         }
         controls->mute.update(channel->mix.mute);
         controls->solo.update(channel->mix.solo);
+        // Half lit (groups.md §7.3): a member silenced by its group's mute; a group holding a solo.
+        controls->mute.setPartlyOn(model::inMutedGroup(*snapshot_, *channel));
+        controls->solo.setPartlyOn(model::holdsSolo(*snapshot_, *channel));
         controls->arm.updateArm(channel->input);
         controls->volume.update(*channel);
         controls->pan.update(*channel);
@@ -241,7 +245,7 @@ bool ArrangementView::rowInTime(const model::ArrangementRow& row) const noexcept
         return false;
     if (row.isLane())
         return selection_.rowLanes.contains(row.lane);
-    return row.holdsClips() && selection_.rowTracks.contains(row.channel);
+    return (row.holdsClips() || row.isGroup()) && selection_.rowTracks.contains(row.channel);
 }
 
 void ArrangementView::previewStretchMove(std::optional<StretchMove> move)
@@ -326,7 +330,10 @@ bool ArrangementView::rowSelected(const model::ArrangementRow& row) const noexce
 {
     if (row.isLane())
         return selection_.lane == row.lane;
-    return !selection_.lane && selection_.channel == row.channel; // a take's track too
+    // Several tracks and groups chosen together (groups.md §8), or the channel: a take's track too.
+    if (!selection_.hasTime() && selection_.rowTracks.contains(row.channel))
+        return true;
+    return !selection_.lane && selection_.channel == row.channel;
 }
 
 juce::Rectangle<float> ArrangementView::rowBounds(int row, juce::Rectangle<int> column) const
@@ -366,7 +373,7 @@ void ArrangementView::setLanesVisible(bool visible)
 
 void ArrangementView::syncLayout()
 {
-    rows_ = model::arrangementRows(*snapshot_, showMixRows_, showLanes_);
+    rows_ = model::arrangementRows(*snapshot_, showMixRows_, showLanes_, folded_);
     layout_.setTrackCount(static_cast<int>(rows_.size()));
     for (int i = 0; i < static_cast<int>(rows_.size()); ++i)
     {
@@ -417,7 +424,8 @@ void ArrangementView::placeHeaderControls()
             const auto it = laneControls_.find(rows_[static_cast<size_t>(i)].key());
             if (it == laneControls_.end())
                 continue;
-            const auto slots = model::layoutTrackHeader(area.getWidth(), height, 1, false);
+            const auto slots = model::layoutTrackHeader(area.getWidth(), height, 1, false, {},
+                                                        rows_[static_cast<size_t>(i)].depth);
             // The on switch only means something with points to play and parameters to play them;
             // the bar only with one parameter to move.
             const bool playable = !lane->points.empty() && !lane->assignments.empty();
@@ -432,7 +440,8 @@ void ArrangementView::placeHeaderControls()
         if (it == headerControls_.end())
             continue;
         auto& c = *it->second;
-        const auto slots = model::layoutTrackHeader(area.getWidth(), height, buttonsOf(*channel), true);
+        const auto slots = model::layoutTrackHeader(area.getWidth(), height, buttonsOf(*channel), true, {},
+                                                    rows_[static_cast<size_t>(i)].depth, channel->isGroup());
         show(c.mute, slots.buttons.size() > 0 ? slots.buttons[0] : none, slots.buttons.size() > 0 ? at(slots.buttons[0]) : juce::Rectangle<int>());
         show(c.solo, slots.buttons.size() > 1 ? slots.buttons[1] : none, slots.buttons.size() > 1 ? at(slots.buttons[1]) : juce::Rectangle<int>());
         if (channel->holdsClips())
@@ -732,9 +741,25 @@ void ArrangementView::paint(juce::Graphics& g)
     {
         juce::Graphics::ScopedSaveState saved(g);
         g.reduceClipRegion(getLocalBounds().withTrimmedTop(rulerHeight()));
-        const auto y = boundaryY(rowDrag_->drop.boundary);
+        const auto& drop = rowDrag_->drop;
+        // Into a group (groups.md §5.3): its row lit as a drop target, whether the header was
+        // dropped on it or between its rows.
+        for (int r = 0; r < static_cast<int>(rows_.size()) && drop.group != 0; ++r)
+            if (rows_[static_cast<size_t>(r)].isGroup() &&
+                rows_[static_cast<size_t>(r)].channel == drop.group)
+            {
+                g.setColour(t.roles.dropTarget);
+                g.fillRect(rowBounds(r, getLocalBounds().withTop(laneArea().getY())).withTrimmedBottom(1.0f));
+            }
+        // Where it lands: a line from the depth it lands at, indented as its header would be.
+        const auto y = boundaryY(drop.boundary);
+        const auto x =
+            static_cast<float>(model::layoutTrackHeader(headerWidth(), model::TrackLayout::defaultHeight, 0,
+                                                        false, {}, drop.depth)
+                                   .colour.x);
         g.setColour(t.active);
-        g.fillRect(juce::Rectangle<float>(0.0f, y - static_cast<float>(t.shell.dropLine) * 0.5f, static_cast<float>(getWidth()),
+        g.fillRect(juce::Rectangle<float>(x, y - static_cast<float>(t.shell.dropLine) * 0.5f,
+                                          static_cast<float>(getWidth()) - x,
                                           static_cast<float>(t.shell.dropLine)));
     }
     paintSectionDrop(g);
@@ -778,9 +803,11 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
             // name, what it drives and its value now.
             g.setColour(selected ? t.surface2 : t.roles.subLane);
             g.fillRect(row);
-            const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), 1, false);
+            const int depth = rows_[static_cast<size_t>(i)].depth;
+            const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), 1, false, {}, depth);
             g.setColour(t.clipColour(lane->colour));
             g.fillRect(at(slots.colour));
+            paintGroupBars(g, i, row, slots);
             g.setColour(t.line);
             g.fillRect(juce::Rectangle<float>(row).removeFromBottom(1.0f));
             g.setColour(t.textPrimary);
@@ -820,9 +847,14 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
         // The slots of the header (docs/design/ui-foundations.md, "Track headers"); the mixer
         // (C3) and recording (C5) add their buttons, controls and meter to it.
         // Its own height: open takes grow the row below it (ADR 0032), and the colour runs down it.
-        const auto slots = model::layoutTrackHeader(row.getWidth(), layout_.baseHeight(i), buttonsOf(track), true);
+        const int depth = rows_[static_cast<size_t>(i)].depth;
+        const auto slots = model::layoutTrackHeader(row.getWidth(), layout_.baseHeight(i), buttonsOf(track),
+                                                    true, {}, depth, track.isGroup());
+        const auto bars =
+            model::layoutTrackHeader(row.getWidth(), row.getHeight(), 0, false, {}, depth, track.isGroup());
         g.setColour(master ? t.textTertiary : t.clipColour(track.colour));
-        g.fillRect(at(model::layoutTrackHeader(row.getWidth(), row.getHeight(), 0, false).colour));
+        g.fillRect(at(bars.colour));
+        paintGroupBars(g, i, row, bars); // the groups it's in; a group's fold triangle, beside its name
         g.setColour(t.line);
         if (i == mixRow)
             g.fillRect(row.withHeight(2.0f)); // the divider above the returns and the master
@@ -833,6 +865,14 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
         g.drawText(juce::String::fromUTF8(track.name.c_str()), at(slots.name), juce::Justification::centredLeft, true);
         if (slots.subtitle.isEmpty())
             continue;
+        if (track.isGroup()) // how many tracks it holds (groups.md §6.2)
+        {
+            g.setColour(t.textTertiary);
+            g.setFont(ui::font(ui::TextStyle::Caption));
+            g.drawText(juce::String(model::tracksText(model::tracksIn(*snapshot_, track.id))),
+                       at(slots.subtitle), juce::Justification::centredLeft, true);
+            continue;
+        }
         if (!track.holdsClips())
         {
             g.setColour(t.textTertiary);
@@ -876,7 +916,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         if (!rowVisible(i))
             continue;
         const auto& r = rows_[static_cast<size_t>(i)];
-        g.setColour(rowSelected(r) ? t.roles.laneSelected : r.holdsClips() ? t.roles.lane : t.roles.subLane);
+        g.setColour(rowSelected(r)                  ? t.roles.laneSelected
+                    : r.holdsClips() || r.isGroup() ? t.roles.lane
+                                                    : t.roles.subLane);
         g.fillRect(rowBounds(i, area));
     }
 
@@ -907,6 +949,8 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     for (int i = 0; i < layout_.trackCount(); ++i)
     {
         const auto& r = rows_[static_cast<size_t>(i)];
+        if (r.isGroup() && rowVisible(i)) // its members in miniature (groups.md §6.2)
+            paintGroupLane(g, i, area);
         if (!r.holdsClips() || !rowVisible(i))
             continue;
         const auto& track = shownTrack(snapshot_->tracks[static_cast<size_t>(r.track)]);

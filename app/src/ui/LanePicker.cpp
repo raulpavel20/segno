@@ -16,6 +16,8 @@ juce::String kindOf(const model::TrackInfo& channel)
     case model::TrackInfo::Role::Track: return "Track";
     case model::TrackInfo::Role::Return: return "Return track";
     case model::TrackInfo::Role::Master: return "Master";
+    case model::TrackInfo::Role::Group:
+        return "Group";
     }
     return {};
 }

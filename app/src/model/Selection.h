@@ -38,7 +38,8 @@ struct Selection
     /// Rows chosen together (time-selection.md §4): tracks and automation lanes, next to each
     /// other or not. With `time` it's a time selection on them, never together with clips, a
     /// lane's points, takes or sections; the channel is the row it was started on (a lane's: its
-    /// first assignment's). Without `time`, several selected tracks (groups.md §8, later).
+    /// first assignment's). A group's row brings every row in it (groups.md §6.5). Without `time`,
+    /// several selected tracks and groups (groups.md §8).
     std::set<std::uint64_t> rowTracks, rowLanes;
     std::optional<TimeSpan> time;
 
@@ -60,8 +61,9 @@ struct Selection
 [[nodiscard]] Selection withSections(const Snapshot& snapshot, std::set<std::uint64_t> sections);
 
 /// A time selection (time-selection.md §4): `span` (start before end) on the rows that exist of
-/// `tracks` and `lanes`, its channel `channel` if it's one of them, else the topmost track's, else
-/// the first lane's first assignment's. An empty selection if no row exists or the span is empty.
+/// `tracks` (a group with everything in it) and `lanes`, its channel `channel` if it's one of them,
+/// else the topmost track's, else the first lane's first assignment's. An empty selection if no
+/// row exists or the span is empty.
 [[nodiscard]] Selection withTime(const Snapshot& snapshot, TimeSpan span,
                                  const std::set<std::uint64_t>& tracks, const std::set<std::uint64_t>& lanes,
                                  std::optional<std::uint64_t> channel = std::nullopt);
@@ -106,8 +108,10 @@ enum class InspectorSection
     Notes, // the clip view's selected notes (piano-roll.md §9.6), added by the inspector
     Section,
     Sections,
-    Time, // a time selection's Start, End, Length and rows (time-selection.md §7)
+    Time,   // a time selection's Start, End, Length and rows (time-selection.md §7)
+    Tracks, // several selected tracks: how many (groups.md §8)
     Track,
+    Group, // a group's Name, Colour, Tracks and Modules (groups.md §10)
     Input,
     Return,
     Master,
@@ -135,6 +139,9 @@ struct PanelContext
     int sectionCount = 0;               // selected sections
     std::optional<TimeSpan> time;       // a time selection's stretch
     int timeTracks = 0, timeLanes = 0;  // ... and its rows
+    int trackCount = 0;                 // several selected tracks and groups (groups.md §8)
+    std::optional<TrackInfo> group;     // the group the channel is in (its TRACK's Group row)
+    int groupTracks = 0;                // a group channel: the tracks it holds, at any depth
 
     bool clipViewOffered = false; // the detail panel has its Clip tab (the arrangement only)
     bool opensClipView =

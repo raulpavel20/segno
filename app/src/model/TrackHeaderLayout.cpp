@@ -4,10 +4,17 @@
 
 namespace fd::model
 {
-TrackHeaderSlots layoutTrackHeader(double width, double height, int buttons, bool meter, const TrackHeaderMetrics& m)
+TrackHeaderSlots layoutTrackHeader(double width, double height, int buttons, bool meter,
+                                   const TrackHeaderMetrics& m, int depth, bool fold)
 {
     TrackHeaderSlots s;
-    s.colour = {0.0, 1.0, m.colourWidth, std::max(0.0, height - 2.0)};
+    // The groups' bars, a step apart (closer past the deepest indent), then its own.
+    depth = std::max(0, depth);
+    const double indent = m.groupIndent * std::min(depth, m.maxIndentDepth);
+    const double step = depth > 0 ? indent / depth : 0.0;
+    for (int k = 0; k < depth; ++k)
+        s.groupBars.push_back({step * k, 1.0, m.colourWidth, std::max(0.0, height - 2.0)});
+    s.colour = {indent, 1.0, m.colourWidth, std::max(0.0, height - 2.0)};
 
     double right = width - m.paddingRight;
     if (meter)
@@ -15,8 +22,13 @@ TrackHeaderSlots layoutTrackHeader(double width, double height, int buttons, boo
         s.meter = {right - m.meterWidth, m.paddingY, m.meterWidth, std::max(0.0, height - 2.0 * m.paddingY)};
         right -= m.meterWidth + m.meterGap;
     }
-    const double left = m.paddingLeft;
+    double left = indent + m.paddingLeft;
     double y = m.paddingY;
+    if (fold)
+    {
+        s.fold = {left, y + (m.nameHeight - m.foldSize) * 0.5, m.foldSize, m.foldSize};
+        left += m.foldSize + m.foldGap; // the name, its subtitle and bars line up after it
+    }
 
     // The name row, with the buttons right-aligned beside it (centred on the name).
     double nameRight = right;

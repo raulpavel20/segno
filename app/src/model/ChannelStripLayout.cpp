@@ -9,14 +9,27 @@ double channelStripWidth(const ChannelStripOptions& o, const ChannelStripMetrics
     return o.narrow ? m.narrowWidth : m.width;
 }
 
-ChannelStripSlots layoutChannelStrip(double height, const ChannelStripOptions& o, const ChannelStripMetrics& m)
+ChannelStripSlots layoutChannelStrip(double height, const ChannelStripOptions& o,
+                                     const ChannelStripMetrics& m, int depth, bool fold)
 {
     ChannelStripSlots s;
     const double width = channelStripWidth(o, m);
     const double left = m.padding, inner = width - 2.0 * m.padding;
-    s.colour = {0.0, 0.0, width, m.colourHeight};
-    double y = 2.0 * m.rowGap; // the first row on the grid, clear of the colour bar
+    // The groups' bars, then its own colour: every strip keeps the rows of the deepest, so the rows
+    // below line up across the mixer.
+    const double barStep = m.colourHeight + m.groupBarGap;
+    for (int k = 0; k < std::min(depth, o.groupRows); ++k)
+        s.groupBars.push_back({0.0, k * barStep, width, m.colourHeight});
+    const double top = std::max(0, o.groupRows) * barStep;
+    s.colour = {0.0, top, width, m.colourHeight};
+    double y = top + 2.0 * m.rowGap; // the first row on the grid, clear of the colour bar
     s.name = {left, y, inner, m.nameHeight};
+    if (fold)
+    {
+        s.fold = {left, y + (m.nameHeight - m.foldSize) * 0.5, m.foldSize, m.foldSize};
+        s.name = {left + m.foldSize + m.foldGap, y, std::max(0.0, inner - m.foldSize - m.foldGap),
+                  m.nameHeight};
+    }
     y += m.nameHeight + m.rowGap;
     s.input = {left, y, inner, m.rowHeight}; // returns and the master keep the space, so rows line up
     y += m.rowHeight + m.sectionGap;

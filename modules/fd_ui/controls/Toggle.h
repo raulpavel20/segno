@@ -18,6 +18,8 @@ public:
     /// An arm button (recording.md §4): a round indicator in the `record` colour, filled when on
     /// and a ring when only partly on (armed by the selection).
     void setArmStyle(bool arm);
+    /// Partly on: by something else (armed by the selection; a group's solo holding a soloed track,
+    /// a member's mute by its group, groups.md §7.3): a ring instead of the fill.
     void setPartlyOn(bool partly);
     [[nodiscard]] AutomationState automationState() const noexcept { return automation_; }
     /// A right-click: the control's menu (it doesn't toggle).

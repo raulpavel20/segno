@@ -1,5 +1,6 @@
 #include "ui/MixerView.h"
 
+#include "model/Groups.h"
 #include "model/Taper.h"
 #include "ui/BrowserDrops.h"
 
@@ -39,21 +40,25 @@ ChannelStrip::ChannelStrip(engine::Session& session, const model::TrackInfo& cha
 }
 
 void ChannelStrip::update(const model::TrackInfo& channel, const std::vector<model::TrackInfo>& returns,
-                          const model::ChannelStripOptions& options, bool selected)
+                          const model::ChannelStripOptions& options, bool selected, const Groups& groups)
 {
     const bool relayout = !(options.modules == options_.modules && options.sends == options_.sends &&
-                            options.narrow == options_.narrow && options.sendRows == options_.sendRows);
+                            options.narrow == options_.narrow && options.sendRows == options_.sendRows &&
+                            options.groupRows == options_.groupRows) ||
+                          groups.colours.size() != groups_.colours.size() ||
+                          groups.folded.has_value() != groups_.folded.has_value();
     info_ = channel;
     options_ = options;
+    groups_ = groups;
     if (selected != selected_)
     {
         selected_ = selected;
         repaint();
     }
 
-    // Sends: a track's, one per return track, when the view shows them.
+    // Sends: a track's or a group's, one per return track, when the view shows them.
     std::vector<std::uint64_t> wanted;
-    if (channel.role == model::TrackInfo::Role::Track && options.sends)
+    if ((channel.role == model::TrackInfo::Role::Track || channel.isGroup()) && options.sends)
         for (const auto& r : returns)
             wanted.push_back(r.id);
     if (wanted != sendReturns_)
@@ -83,6 +88,8 @@ void ChannelStrip::update(const model::TrackInfo& channel, const std::vector<mod
     pan_.update(channel);
     mute_.update(channel.mix.mute);
     solo_.update(channel.mix.solo);
+    mute_.setPartlyOn(groups.mutedByGroup); // half lit by its groups (groups.md §7.3)
+    solo_.setPartlyOn(groups.holdsSolo);
     arm_.updateArm(channel.input);
     input_.update(channel);
     value_.update(channel);
@@ -98,7 +105,8 @@ juce::Rectangle<int> ChannelStrip::at(const model::HeaderRect& r) const
 
 void ChannelStrip::resized()
 {
-    slots_ = model::layoutChannelStrip(getHeight(), options_);
+    slots_ = model::layoutChannelStrip(getHeight(), options_, {}, static_cast<int>(groups_.colours.size()),
+                                       groups_.folded.has_value());
     fader_.setBounds(at(slots_.fader));
     meter_.setBounds(at(slots_.meter));
     pan_.setBounds(at(slots_.pan));
@@ -130,6 +138,15 @@ void ChannelStrip::paint(juce::Graphics& g)
     g.fillRect(getWidth() - 1, 0, 1, getHeight());
     g.setColour(master ? t.textTertiary : t.clipColour(info_.colour));
     g.fillRect(at(slots_.colour));
+    // Its groups' bars, across the top of their members' strips (groups.md §9).
+    for (size_t k = 0; k < slots_.groupBars.size() && k < groups_.colours.size(); ++k)
+    {
+        g.setColour(t.clipColour(groups_.colours[k]));
+        g.fillRect(at(slots_.groupBars[k]));
+    }
+    if (groups_.folded && !slots_.fold.isEmpty())
+        ui::drawIcon(g, *groups_.folded ? ui::Icon::FoldClosed : ui::Icon::FoldOpen,
+                     at(slots_.fold).toFloat(), t.textSecondary);
 
     g.setColour(t.textPrimary);
     g.setFont(ui::font(ui::TextStyle::Name));
@@ -306,6 +323,14 @@ void MixerView::setScrollX(int x)
 void MixerView::setSnapshot(std::shared_ptr<const model::Snapshot> snapshot)
 {
     snapshot_ = std::move(snapshot);
+    rebuild();
+}
+
+void MixerView::setFoldedGroups(std::set<std::uint64_t> folded)
+{
+    if (folded == folded_)
+        return;
+    folded_ = std::move(folded);
     rebuild();
 }
 
@@ -490,9 +515,21 @@ void MixerView::rebuild()
             else
                 content_.addAndMakeVisible(*strip);
         }
-        strip->update(t, snapshot_->returns, options_, selected_ == t.id);
+        ChannelStrip::Groups groups;
+        for (const auto* g : model::groupsAbove(*snapshot_, t))
+            groups.colours.push_back(g->colour);
+        if (t.isGroup())
+            groups.folded = folded_.contains(t.id);
+        groups.mutedByGroup = model::inMutedGroup(*snapshot_, t);
+        groups.holdsSolo = model::holdsSolo(*snapshot_, t);
+        strip->update(t, snapshot_->returns, options_, selected_ == t.id, groups);
         return *strip;
     };
+    // The bars' rows: as many as the deepest strip shown has.
+    options_.groupRows = 0;
+    for (const auto& t : snapshot_->tracks)
+        if (!model::hiddenByFolding(*snapshot_, t, folded_))
+            options_.groupRows = std::max(options_.groupRows, model::groupDepth(*snapshot_, t));
     for (const auto* list : {&snapshot_->tracks, &snapshot_->returns})
         for (const auto& t : *list)
         {
@@ -523,6 +560,11 @@ void MixerView::layoutStrips()
         for (const auto& t : *list)
             if (auto it = strips_.find(t.id); it != strips_.end())
             {
+                // A folded group's members are hidden (groups.md §9).
+                const bool shown = !model::hiddenByFolding(*snapshot_, t, folded_);
+                it->second->setVisible(shown);
+                if (!shown)
+                    continue;
                 it->second->setBounds(x, 0, width, height);
                 x += width;
             }

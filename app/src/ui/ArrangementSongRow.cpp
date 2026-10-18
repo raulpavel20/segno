@@ -268,32 +268,20 @@ void ArrangementView::paintSongRow(juce::Graphics& g)
 void ArrangementView::paintOverview(juce::Graphics& g, juce::Rectangle<int> area)
 {
     const auto& t = ui::Theme::current();
-    const auto& tracks = snapshot_->tracks;
+    // Every track a line, top to bottom in the arrangement's order, the members of folded groups
+    // too; groups hold no clips of their own (groups.md §11). The same miniature as a group's lane.
+    std::vector<MiniatureLine> lines;
+    for (const auto& track : snapshot_->tracks)
+        if (track.holdsClips())
+        {
+            MiniatureLine line{.colour = track.colour};
+            for (const auto& c : track.clips)
+                line.spans.push_back({c.start, c.end(), c.muted, false});
+            lines.push_back(std::move(line));
+        }
     const auto body =
         area.withTrimmedBottom(t.shell.dropLine).reduced(0, t.shell.songOverviewInset).toFloat();
-    if (tracks.empty() || body.getHeight() < 1.0f)
-        return;
-    // A band each, top to bottom in the arrangement's order; a line at most two pixels thick, a
-    // pixel apart where there's room. More tracks than pixels share lines.
-    const float band = body.getHeight() / static_cast<float>(tracks.size());
-    const float line = std::clamp(band - 1.0f, 1.0f, 2.0f);
-    const float left = static_cast<float>(area.getX()), right = static_cast<float>(area.getRight());
-    for (size_t i = 0; i < tracks.size(); ++i)
-    {
-        const auto& track = tracks[i];
-        const float y = std::floor(body.getY() + static_cast<float>(i) * band + (band - line) * 0.5f);
-        const auto colour = t.clipColour(track.colour);
-        for (const auto& c : track.clips)
-        {
-            // On whole pixels, as the sections over them are.
-            const float x0 = std::max(left, std::round(laneX(c.start))),
-                        x1 = std::min(right, std::round(laneX(c.end())));
-            if (x1 < left || x0 > right)
-                continue;
-            g.setColour(c.muted ? t.clipDimmed(colour) : colour);
-            g.fillRect(juce::Rectangle<float>(x0, y, std::max(1.0f, x1 - x0), line));
-        }
-    }
+    paintMiniature(g, body, lines, static_cast<float>(t.shell.songOverviewLine));
 }
 
 void ArrangementView::paintSectionDrop(juce::Graphics& g)

@@ -2,7 +2,7 @@
 
 A **group** holds tracks and sums them. Put the drums in a group and they share one fader, one chain of modules (a bus compressor, a saturator), one mute and solo, and the group's own sends. A group folds to a single row in the arrangement, or a single strip in the mixer, with its tracks drawn in miniature in its lane. Groups nest: a Drums group can sit inside a Rhythm group.
 
-**Status:** approved by the product owner (2026-10-17), every recommendation of G1–G23 but one, with [ADR 0072](../decisions/0072-a-group-is-a-channel-that-sums-tracks.md) accepted. The exception is editing on a group's row (G16, §6.5): a drag there selecting the members' clips was a stand-in for a time selection, which Segno lacks. The product owner chose the real thing: **selecting a stretch of time** is designed and built first, everywhere it makes sense ([time-selection.md](time-selection.md)), and a group's row uses it. Groups are built after it.
+**Status:** approved by the product owner (2026-10-17), every recommendation of G1–G23 but one, with [ADR 0072](../decisions/0072-a-group-is-a-channel-that-sums-tracks.md) accepted. The exception is editing on a group's row (G16, §6.5): a drag there selecting the members' clips was a stand-in for a time selection, which Segno lacks. The product owner chose the real thing: **selecting a stretch of time** is designed and built first, everywhere it makes sense ([time-selection.md](time-selection.md)), and a group's row uses it. Groups are built after it. Time selection was built and signed off (2026-10-18). Step 0 here, the engine spike and the UI drawn in every state, is done for the product owner's approval (§20).
 
 What the product owner asked (2026-10-17):
 - "We need to implement a new feature. For a buss/group. I think calling it a group is fine."
@@ -152,7 +152,7 @@ Sources:
 - **Dragging a header** ([tracks-and-clips.md](tracks-and-clips.md) §6) moves tracks, lanes and groups in and out of groups:
   - dropped between two members, it joins their group;
   - dropped on a group's header, it goes into that group, at the end;
-  - dropped at the end of a group (after its last row), it could land inside the group or after it. **The pointer's left–right position chooses**, as in outliners. The drop line is drawn at the depth it lands at, indented as the header would be.
+  - dropped at the end of a group (after its last row), it could land inside the group or after it. **The pointer's left–right position chooses**, as in outliners. The drop line is drawn at the depth it lands at, indented as the header would be, and the group it lands in is lit as a drop target (§20: one step of indent alone was too little to tell the two apart).
 - **A dragged group** moves with everything in it. It can't be dropped inside itself.
 - **Several selected tracks** move together, in their order (§8).
 - **Remove from group** (the Track menu, or a member's right-click): the selected tracks leave their group and land right after it, in the group above it if there is one. One undo step, "Remove from group".
@@ -186,7 +186,7 @@ Sources:
 - **Members are marked by the group's colour.** The group's colour bar (the header kit's 3 px bar) runs down the left edge of every row in it, and each member's own colour bar sits beside it.
   - Each nested group adds another bar, so depth reads as a stack of colour bars.
   - It's built from the part every header already has, not a new look.
-  - The step from one level to the next is one new metric, `shell.groupIndent`, drawn for approval in step 0.
+  - The step from one level to the next is one new metric of the header kit, `TrackHeaderMetrics::groupIndent` (8 px), drawn in step 0 (§20).
 - **A group's rows** are its members and the lanes among them (§5.1). They fold with it.
 
 ### 6.2 The group's header and lane
@@ -207,7 +207,7 @@ Sources:
 ### 6.3 Nesting
 
 - **Any depth.** tracktion nests submixes without a limit, and of the DAWs in §2 only Pro Tools sets one (nine).
-- **The header column stays 180 px wide.** At depth 4 the names still have room: four steps of `shell.groupIndent`. Deeper than that, the indent stops growing and the colour bars still show the depth.
+- **The header column stays 180 px wide.** At depth 4 the names still have room: four steps of `groupIndent`. Deeper than that, the indent stops growing and the colour bars still show the depth.
 - A test checks that nothing touches at depth 4 at the narrowest header.
 
 ### 6.4 Folding
@@ -247,7 +247,7 @@ Sources:
 
 - **Muting a group** silences it and everything in it, including the members' sends. That's today's rule: a track that isn't heard sends nothing to the returns.
   - The members' own mute buttons keep their state.
-  - Their rows look the way a solo-silenced track's do.
+  - Their mute buttons show half lit, a ring in the on colour, as a group holding a soloed track shows its solo (§20; a solo-silenced track has no look of its own to borrow).
 - **Soloing a group** solos it with every member.
 - **Soloing a member** keeps its group, and every group above it, heard. Everything else is silenced, the group's other members included.
 - **A group holding a soloed track** shows its solo half-lit, as Live does.
@@ -500,3 +500,47 @@ Grouping needs several tracks selected. [mixer.md](mixer.md) §8 and [tracks-and
 | G21 | **Export and bounce** | For all tracks, stems with Groups whole by default, or Every track; Bounce to new track on a group (§11) |
 | G22 | **Add track with a group selected** | Adds the track at the group's end (§11) |
 | G23 | **Building it** | The spike and the UI drawn first (step 0), then selecting several tracks (1), then groups (2), each signed off |
+
+## 20. Step 0, the spike and the drawing (2026-10-18; for the product owner's approval)
+
+**The spike** (§15), kept as tests (`tests/integration/GroupSpikeTests.cpp`): a group is a submix folder track holding the channel plugins every Segno channel has (`Edit::insertNewFolderTrack` as a submix gives exactly them), its members moved into it.
+- A neutral group nulls against no group, three deep too (< −120 dBFS).
+- A member's sends, post- and pre-fader, reach the returns straight from it, with the group's fader all the way down. A group's own send works.
+- A muted group silences its members and their sends; the members keep their own mute. A soloed member is heard through its group with its send, and its group reports itself soloed indirectly (shown half lit).
+- A group's compressor ducks from a track's sidechain, and the Follower hears a group.
+- **A group as a sidechain source needed the patch** §15 expected: `cmake/patches/tracktion_engine-submix-sidechain.patch`, five lines. Without it a module listening to a group heard silence.
+- A lookahead module on a group keeps it in time with the other tracks (it nulls against no module).
+- A group's volume automation and an LFO on its chain moving its module both play.
+- A track moved into a group and out again while the song plays keeps sounding, block by block.
+- Grouping is one undo step; three levels, a group's module and volume and a property of the view's are saved and opened the same.
+- Stems: a member alone leaves out its group's modules; a group whole is its members through them.
+- 64 tracks in 8 groups render as fast as 64 tracks (`[.benchmark]`: 2.3 s against 2.5 s for 10 s in the dev build). The arrangement's and the mixer's frame budgets with groups come with step 2, when the views hold real groups.
+
+**How a lane among groups is stored, settled:** lanes aren't tracktion's tracks but Segno's own rows, each naming the row above it (`after`). So it's a rule of the model, not the engine's: a lane after a member is in the member's group, at its depth; a lane after a group comes after the group's rows, outside it. A lane can't be a group's first row; a drop there isn't offered to a lane.
+
+**Drawn** (`tests/integration/GroupUiTests.cpp`, `FD_DUMP_DIR`): the real arrangement, mixer and inspector showing a stub of what the engine will hold, in every state of §17's step 0. Each state's header slots are checked: inside the header, apart, and the name at least 24 px wide at depth 4 in the 180 px column.
+- several tracks selected, Ctrl+G about to group them, the inspector's TRACKS;
+- Drums open with the Snare's lane among its members, Bass folded, Lead in none;
+- All ▸ Rhythm ▸ Drums and Bass, three deep, and a fourth level (Toms ▸ Tom);
+- a header dragged between members, onto a group's header, and to a group's end, inside it and after it;
+- the Drums muted and the Sub soloed: half lit;
+- bars 2 to 4 selected on the folded Bass group; the Sub selected while it's folded;
+- the mixer with Bass folded, and with both open;
+- the inspector for a group, a member and several tracks;
+- at 1800 and 1100 px.
+
+**What drawing settled:**
+- **Depth:** a 3 px bar each, 8 px apart (the header kit's `groupIndent`); the row's own bar after them; names indent by the same step. Past four levels the indent stays and the bars come closer.
+- **The fold triangle** is a new icon pair (`FoldOpen`, `FoldClosed`) in `textSecondary`, 12 px, before a group's name; its "3 tracks" and its bars line up with the name after it.
+- **A group's header** is a track's kit: M and S, the meter, the volume and pan bars when tall; no arm.
+- **The miniature** is one painter for the song row's overview and a group's lane. A group's lines grow with its row up to 6 px (`shell.miniatureLine`); the overview's stay at 2 (`shell.songOverviewLine`). A nested group is one line.
+- **Half lit** is a ring in `active` round M or S, as an arm button's ring: the shared toggle (`ui::Toggle::setPartlyOn`) now draws it on text toggles too.
+- **A selected member while folded** keeps its colour and is outlined as a selected clip is: the selection's blue would hide on a blue track.
+- **A drop** lights the group it lands in as a drop target, besides the line at its depth; onto a group's header, the line is at the group's end.
+- **The mixer:** each group's bar is a row across its members' tops above their own colour, and every strip keeps as many rows as the deepest shown, so faders still line up. A group's strip has the triangle beside its name, no arm and no input, and its sends.
+- **The inspector:** GROUP (Name, Colour, Tracks, Modules), MIX and SENDS; a member's TRACK ends with Group; several tracks: TRACKS (Selected), then MIX.
+
+Model behind the drawing, under `[fast]` tests (`app/tests/GroupsTests.cpp`): `model/Groups` (what a group holds, depth, folding, half-lit states), the rows with groups, depth and folding, the header and strip slots at each depth, a time selection on a group's row, and the inspector's sections. Built on, not yet wired: nothing reaches the engine until step 2.
+
+**Next, once approved:** step 1, selecting several tracks (§8).
+

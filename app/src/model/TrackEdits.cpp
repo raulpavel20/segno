@@ -108,6 +108,7 @@ RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, st
     switch (rows[dragged].kind)
     {
     case ArrangementRow::Kind::Track:
+    case ArrangementRow::Kind::Group:
     case ArrangementRow::Kind::Lane:
     {
         const auto b = std::min(boundary, mix);

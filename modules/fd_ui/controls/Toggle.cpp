@@ -126,6 +126,13 @@ void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
 
     g.setColour(t.lift(on ? t.active : t.surface3, highlighted, down));
     g.fillRoundedRectangle(bounds, t.radiusControl);
+    // Partly on (a group's solo with a soloed track in it, a member's mute by its muted group): a
+    // ring in `active`, as an arm button's ring.
+    if (partly_ && !on)
+    {
+        g.setColour(t.active);
+        g.drawRoundedRectangle(bounds.reduced(0.75f), t.radiusControl, 1.5f);
+    }
 
     if (hasKeyboardFocus(false))
     {

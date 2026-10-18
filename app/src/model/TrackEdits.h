@@ -44,6 +44,9 @@ struct RowDrop
     std::size_t boundary = 0; // where the line is drawn
     bool moves = false;       // false: it would land where it is
     std::uint64_t before = 0; // the track, lane or return it lands right above (0: the last of its part)
+    int depth = 0;            // how many groups it lands in: the line starts that far in (groups.md §5.3)
+    std::uint64_t group = 0;  // the group it lands in (0: none): its row lit as a drop target
+    bool onHeader = false;    // dropped on that group's header: at its end
 };
 [[nodiscard]] RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, std::size_t boundary);
 

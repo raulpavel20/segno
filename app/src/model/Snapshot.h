@@ -325,8 +325,15 @@ struct TakeStackInfo
 struct TrackInfo
 {
     enum class Kind { Audio, Instrument };
-    /// What the channel is (ADR 0026): a track holds clips; returns and the master don't.
-    enum class Role { Track, Return, Master };
+    /// What the channel is (ADR 0026, ADR 0072): a track holds clips; a group sums the tracks and
+    /// groups in it, which follow it in Snapshot::tracks; returns and the master hold neither.
+    enum class Role
+    {
+        Track,
+        Return,
+        Master,
+        Group
+    };
 
     std::uint64_t id = 0;
     Kind kind = Kind::Audio; // Instrument when the chain has one (ADR 0019: one kind of track)
@@ -340,8 +347,10 @@ struct TrackInfo
     InputInfo input; // tracks only (C5): what it listens to and records, and whether it's armed
     std::vector<TakeStackInfo> stacks; // tracks only: its clips' takes (ADR 0032), by start
     std::uint64_t audition = 0;        // the take heard in place of its clip (ADR 0038); 0: none
+    std::uint64_t group = 0;           // tracks and groups: the group it's in (ADR 0072); 0: none
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
+    [[nodiscard]] bool isGroup() const noexcept { return role == Role::Group; }
     [[nodiscard]] const TakeStackInfo* stack(std::uint64_t stackId) const noexcept
     {
         for (const auto& s : stacks)

@@ -1,6 +1,7 @@
 #include "model/Selection.h"
 
 #include "model/Editing.h"
+#include "model/Groups.h"
 #include "model/Takes.h"
 
 #include <set>
@@ -58,8 +59,14 @@ Selection withTime(const Snapshot& snapshot, TimeSpan span, const std::set<std::
     if (!(span.end > span.start))
         return s;
     for (const auto id : tracks)
-        if (const auto* t = snapshot.channel(id); t != nullptr && t->holdsClips())
+        if (const auto* t = snapshot.channel(id); t != nullptr && (t->holdsClips() || t->isGroup()))
+        {
             s.rowTracks.insert(id);
+            // A group's row covers every row in it, folded or not (groups.md §6.5).
+            if (t->isGroup())
+                for (const auto* m : membersOf(snapshot, id, true))
+                    s.rowTracks.insert(m->id);
+        }
     for (const auto id : lanes)
         if (snapshot.automationLane(id) != nullptr)
             s.rowLanes.insert(id);
@@ -120,6 +127,11 @@ Selection pruned(const Selection& selection, const Snapshot& snapshot)
             for (const auto id : selection.takes)
                 if (t->take(id) != nullptr)
                     s.takes.insert(id);
+    // Several selected tracks and groups stay while they exist (groups.md §8).
+    if (s.clips.empty())
+        for (const auto id : selection.rowTracks)
+            if (snapshot.channel(id) != nullptr)
+                s.rowTracks.insert(id);
     // Sections stay while they exist, with the master.
     if (!selection.sections.empty() && s.clips.empty() && !selection.lane)
     {
@@ -239,10 +251,25 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
     else if (ctx.clipCount > 1)
         ctx.subject = Subject::Clips;
     else if (channel != nullptr)
+    {
         ctx.subject = Subject::Channel;
+        // Several tracks and groups, chosen together (groups.md §8): the channel is the one
+        // clicked last.
+        if (!selection.hasTime())
+            for (const auto id : selection.rowTracks)
+                ctx.trackCount += snapshot.channel(id) != nullptr ? 1 : 0;
+        if (ctx.trackCount < 2)
+            ctx.trackCount = 0;
+    }
 
     if (channel != nullptr)
+    {
         ctx.channel = *channel;
+        if (const auto* g = parentGroup(snapshot, *channel))
+            ctx.group = *g;
+        if (channel->isGroup())
+            ctx.groupTracks = tracksIn(snapshot, channel->id);
+    }
     ctx.key.clip = ctx.clip ? std::optional(ctx.clip->id) : std::nullopt;
     ctx.opensClipView = ctx.clip.has_value();
     if (channel != nullptr && channel->holdsClips() && channel->kind == TrackInfo::Kind::Instrument)
@@ -282,8 +309,17 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         ctx.inspector.push_back(InspectorSection::Clips);
     if (channel == nullptr)
         return ctx;
+    if (ctx.trackCount > 1)
+    {
+        ctx.inspector.insert(ctx.inspector.end(), {InspectorSection::Tracks, InspectorSection::Mix});
+        return ctx;
+    }
     switch (channel->role)
     {
+    case TrackInfo::Role::Group:
+        ctx.inspector.insert(ctx.inspector.end(),
+                             {InspectorSection::Group, InspectorSection::Mix, InspectorSection::Sends});
+        break;
     case TrackInfo::Role::Track:
         ctx.inspector.insert(ctx.inspector.end(),
                              {InspectorSection::Track, InspectorSection::Input, InspectorSection::Mix, InspectorSection::Sends});

@@ -1,5 +1,7 @@
 #include "model/ArrangementRows.h"
 
+#include "model/Groups.h"
+
 #include <algorithm>
 
 namespace fd::model
@@ -9,23 +11,50 @@ std::string ArrangementRow::key() const
     return isLane() ? "a" + std::to_string(lane) : "c" + std::to_string(channel);
 }
 
-std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool returns, bool lanes)
+std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool returns, bool lanes,
+                                            const std::set<std::uint64_t>& folded)
 {
     std::vector<ArrangementRow> rows;
     const int last = static_cast<int>(snapshot.tracks.size()) - 1;
-    auto lanesAfter = [&](std::uint64_t after, int track) {
+    auto lanesAfter = [&](std::uint64_t after, int track, int depth)
+    {
         if (lanes)
             for (const auto& l : snapshot.automationLanes)
                 if (l.after == after)
-                    rows.push_back({.kind = ArrangementRow::Kind::Lane, .lane = l.id, .track = track});
+                    rows.push_back(
+                        {.kind = ArrangementRow::Kind::Lane, .lane = l.id, .track = track, .depth = depth});
     };
-    lanesAfter(0, last >= 0 ? 0 : -1);
+    lanesAfter(0, last >= 0 ? 0 : -1, 0);
+    // The groups open above the next row, innermost last: a lane after a group comes once its rows
+    // have.
+    std::vector<const TrackInfo*> open;
+    const auto close = [&](const TrackInfo* until, int track)
+    {
+        while (!open.empty() && open.back() != until)
+        {
+            const auto* group = open.back();
+            open.pop_back();
+            if (!hiddenByFolding(snapshot, *group, folded))
+                lanesAfter(group->id, track, groupDepth(snapshot, *group));
+        }
+    };
     for (int i = 0; i <= last; ++i)
     {
         const auto& t = snapshot.tracks[static_cast<size_t>(i)];
-        rows.push_back({.kind = ArrangementRow::Kind::Track, .channel = t.id, .track = i});
-        lanesAfter(t.id, i);
+        close(parentGroup(snapshot, t), i - 1);
+        if (t.isGroup())
+            open.push_back(&t);
+        if (hiddenByFolding(snapshot, t, folded))
+            continue;
+        const int depth = groupDepth(snapshot, t);
+        rows.push_back({.kind = t.isGroup() ? ArrangementRow::Kind::Group : ArrangementRow::Kind::Track,
+                        .channel = t.id,
+                        .track = i,
+                        .depth = depth});
+        if (!t.isGroup())
+            lanesAfter(t.id, i, depth);
     }
+    close(nullptr, last);
     // A lane whose track is gone sits after the last track.
     if (lanes)
         for (const auto& l : snapshot.automationLanes)
