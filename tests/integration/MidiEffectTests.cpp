@@ -4,6 +4,7 @@
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
+#include "engine/SessionImpl.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <tracktion_engine/tracktion_engine.h>
@@ -93,4 +94,63 @@ TEST_CASE("midi effects: listed apart, as MIDI effects", "[integration]")
             names.push_back(d.name);
         }
     CHECK(names == std::vector<std::string>{"Arpeggiator", "Chord", "Pitch"}); // A to Z
+}
+
+namespace
+{
+fd::engine::DevicePlugin& nativeOf(Session& s, std::uint64_t id)
+{
+    auto* p = dynamic_cast<fd::engine::DevicePlugin*>(s.impl().plugin(id));
+    REQUIRE(p != nullptr);
+    return *p;
+}
+} // namespace
+
+TEST_CASE("midi effects: each is handed its track's song, again only when it changes", "[integration]")
+{
+    Daw daw;
+    auto& s = *daw.session;
+    // A track of chords: C for two beats (a second), then F.
+    const auto keys = daw.track(0);
+    const auto clip = s.createMidiClip(keys, 0.0, 2.0);
+    std::vector<model::Note> notes;
+    for (const int p : {60, 64, 67})
+        notes.push_back({.pitch = p, .start = 0.0, .length = 2.0});
+    for (const int p : {60, 65, 69})
+        notes.push_back({.pitch = p, .start = 2.0, .length = 2.0});
+    s.setNotes(clip, notes);
+    // A lead track with Pitch on it.
+    const auto lead = s.addTrack();
+    s.createMidiClip(lead, 1.0, 1.0);
+    const auto pitch = s.addDevice(lead, "fd:pitch");
+    s.updateSnapshotNow();
+    auto view = nativeOf(s, pitch).songView();
+    REQUIRE(view != nullptr);
+    REQUIRE(view->chords.size() == 2);
+    CHECK(view->chords[0].root == 0);
+    CHECK(view->chords[1].start == 2.0);
+    CHECK(view->chords[1].root == 5);
+    REQUIRE(view->clips.size() == 1); // the lead's own clip, in beats
+    CHECK(view->clips[0].start == 2.0);
+
+    // An edit elsewhere that leaves the song as it was: the same view, not handed again.
+    s.setTrackColour(lead, 5);
+    s.updateSnapshotNow();
+    CHECK(nativeOf(s, pitch).songView() == view);
+
+    // The keys track's Harmony off: no chords.
+    CHECK(s.setTrackHarmony(keys, model::HarmonyUse::Off));
+    s.updateSnapshotNow();
+    CHECK(nativeOf(s, pitch).songView()->chords.empty());
+    CHECK(s.snapshot()->channel(keys)->harmony == model::HarmonyUse::Off);
+    s.undo();
+    s.updateSnapshotNow();
+    CHECK(nativeOf(s, pitch).songView()->chords.size() == 2);
+
+    // Chords may change once a bar: the second chord, two beats long, joins the first.
+    CHECK(s.setChordChange(model::ChordChange::Bar));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->chordChange == model::ChordChange::Bar);
+    CHECK(nativeOf(s, pitch).songView()->chords.size() == 1);
+    CHECK_FALSE(s.setChordChange(model::ChordChange::Bar)); // already so
 }

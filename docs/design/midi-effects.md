@@ -397,7 +397,7 @@ Eight shape what you play; three write a part of their own.
 - **Menu bar** ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)):
   - Module ▸ **Add MIDI effect ▸** (before the instrument), **Keep as notes**, **Vary**, **Keep roll ▸** (with the rolls heard), **Learn from clip**;
   - Notes ▸ Transform ▸ **With a MIDI effect ▸**;
-  - Song ▸ **Harmony…** (how fast chords may change);
+  - Song ▸ **Chords change ▸** Every bar, Every half bar, Every beat, Any time (how fast chords may change; §22);
   - Track ▸ **Harmony ▸** Auto, On, Off;
   - View ▸ **Show song chords** (the song row), **Show played notes** (the clip view), as Show automation lanes and Show other tracks' notes are named.
   - Each also where it's used: the module's right-click and surface, the track's right-click, the inspector.
@@ -407,7 +407,7 @@ Eight shape what you play; three write a part of their own.
 - **Modules as today:** `add_module`, `set_parameters`, `load_preset`, `get_module`, `vary_module` and `keep_roll` (extended to MIDI effects and the rolls heard).
 - **New:**
   - `get_song_context` (`start?`, `length?`): what MIDI effects read: the key, the chords with their times and bass notes, the sections with their Energy, and which tracks make the harmony;
-  - `set_track_harmony` (`track`, `auto` / `on` / `off`); `set_section` gains `energy`;
+  - `set_track_harmony` (`track`, `auto` / `on` / `off`); `set_chords_change` (`every`: `bar`, `half-bar`, `beat`, `any`); `set_section` gains `energy`;
   - `set_module_listen` (`module`, `track`), as `set_module_sidechain`;
   - `get_played_notes` (`track`, `start`, `length`): what the track's MIDI effects play there, without keeping it;
   - `keep_as_notes` (`track`, `clips?` or `start` and `length`, `upTo?`), as the menu;

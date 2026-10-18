@@ -89,13 +89,14 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           action("edit.selectLoop"),
           submenu("Time selection", {action("edit.timeEndLater"), action("edit.timeEndEarlier")})}});
 
-    menus.push_back(
-        {"Track",
-         't',
-         {action("track.add"), action("track.addReturn"), separator(), action("track.duplicate"),
-          action("track.delete"), submenu("Colour", {list("trackColour")}), separator(), action("track.arm"),
-          action("track.mute"), action("track.solo"), separator(), action("automation.addLane"),
-          action("automation.assign"), action("automation.showLastTouched")}});
+    menus.push_back({"Track",
+                     't',
+                     {action("track.add"), action("track.addReturn"), separator(), action("track.duplicate"),
+                      action("track.delete"), submenu("Colour", {list("trackColour")}),
+                      // Whether its notes make the song's harmony (midi-effects.md §5.1).
+                      submenu("Harmony", {list("trackHarmony")}), separator(), action("track.arm"),
+                      action("track.mute"), action("track.solo"), separator(), action("automation.addLane"),
+                      action("automation.assign"), action("automation.showLastTouched")}});
 
     menus.push_back(
         {"Clip",
@@ -185,7 +186,9 @@ std::vector<Menu> menuBar(MenuPlatform platform)
     menus.push_back(
         {"Song",
          'g', // Alt+S solos; Notes has the n
-         {action("song.key"), action("song.noKey"), separator(), action("song.addSection"),
+         {action("song.key"), action("song.noKey"),
+          // How often the harmony MIDI effects follow may change (midi-effects.md §5.1).
+          submenu("Chords change", {list("chordChange")}), separator(), action("song.addSection"),
           action("song.insertSection"), separator(), action("song.loopSection"),
           action("song.previousSection"), action("song.nextSection"), separator(),
           action("song.selectSectionTime"), action("song.duplicateSection"), action("song.deleteSection"),

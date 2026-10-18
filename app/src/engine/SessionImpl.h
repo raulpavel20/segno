@@ -177,6 +177,14 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A track's or clip's colour (an index into the clip palette, `paletteSize` long) and a
     /// track's role ("return" on a return track, ADR 0026).
     static inline const juce::Identifier colourPropertyId{"fdColour"}, rolePropertyId{"fdRole"};
+    // What MIDI effects follow (midi-effects.md §5.1): a track's Harmony, the song's chord change.
+    static inline const juce::Identifier harmonyPropertyId{"fdHarmony"},
+        chordChangePropertyId{"fdChordChange"};
+    [[nodiscard]] static model::HarmonyUse harmonyOf(const te::Track& track);
+    [[nodiscard]] model::ChordChange chordChange() const;
+    /// Hands each MIDI effect its track's song view (§5), when it changed: built from `song`.
+    void publishSongViews(const model::Snapshot& song);
+    std::map<std::uint64_t, std::shared_ptr<const SongView>> songViews; // by track, as last handed over
     static constexpr int paletteSize = model::kPaletteSize;
     static constexpr int maxReturns = 32; // tracktion's aux buses
     /// The lowest aux bus no return listens to yet (maxReturns: none free).

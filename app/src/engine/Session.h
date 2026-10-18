@@ -1555,6 +1555,15 @@ public:
     [[nodiscard]] std::vector<music::KeyCandidate> detectKeys(const std::vector<std::uint64_t>& clips = {},
                                                               int count = 3) const;
 
+    // ---- what MIDI effects follow (M3 P11, ADR 0074, docs/design/midi-effects.md §5) ----------
+
+    /// Whether a track's notes make the song's harmony (Track ▸ Harmony). One undo step, "Harmony:
+    /// On"; false for a return or the master, or when it's already so.
+    bool setTrackHarmony(std::uint64_t track, model::HarmonyUse use);
+    /// How often the song's chords may change (Song ▸ Chords change). One undo step; false when
+    /// it's already so.
+    bool setChordChange(model::ChordChange change);
+
     // ---- tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md) --------------------
 
     /// Renames a track or return track (and its aux bus); an empty name changes nothing. One undo

@@ -171,6 +171,10 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return transport_->midiLoopMenu();
         if (list == "trackColour")
             return trackColourMenu();
+        if (list == "trackHarmony")
+            return trackHarmonyMenu();
+        if (list == "chordChange")
+            return chordChangeMenu();
         if (list == "clipColour")
             return clipColourMenu();
         if (list == "sectionColour")
@@ -313,6 +317,8 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         actions_.addMenuItem(menu, "track.duplicate");
         actions_.addMenuItem(menu, "track.delete");
         menu.addSubMenu("Colour", trackColourMenu());
+        if (const auto harmony = trackHarmonyMenu(); harmony.getNumItems() > 0) // a track's, not a return's
+            menu.addSubMenu("Harmony", harmony);
     };
     // A clip's menu (bounce.md §10): bounce and mute, then the edits; while bouncing, cancel first.
     arrangement_.onClipMenu = [this](juce::PopupMenu& menu) {

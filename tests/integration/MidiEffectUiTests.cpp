@@ -519,3 +519,35 @@ TEST_CASE("midi effects drawn: the song's chords on the song row; a generator's 
                 view.createComponentSnapshot(view.getLocalBounds().withHeight(360), true, 2.0f));
     }
 }
+
+TEST_CASE("midi effects drawn: a track's Harmony in the inspector's TRACK, at its narrowest", "[integration]")
+{
+    SongFixture f(1800);
+    auto& inspector = f.shell->inspector();
+    f.shell->arrangement().selectTrack(f.bass);
+    f.settle();
+    auto& harmony = inspector.trackHarmony();
+    REQUIRE(harmony.isVisible());
+    CHECK(harmony.getText() == "Auto");
+    const int narrowest = fd::ui::Theme::current().shell.inspectorWidth;
+    inspector.setSize(narrowest, inspector.getHeight());
+    f.settle();
+    // On its row, inside the section, clear of its label.
+    CHECK(harmony.getWidth() > 0);
+    CHECK(harmony.getRight() <= inspector.getWidth());
+    harmony.setSelectedId(2, juce::sendNotificationSync); // On, as a click would
+    f.session->updateSnapshotNow();
+    f.settle();
+    CHECK(f.session->snapshot()->channel(f.bass)->harmony == fd::model::HarmonyUse::On);
+    CHECK(harmony.getText() == "On");
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        fd::testing::dumpPng(
+            dir, "inspector-track-harmony@2x.png",
+            inspector.createComponentSnapshot(inspector.getLocalBounds().withHeight(320), true, 2.0f));
+    // A return track has no Harmony.
+    const auto ret = f.session->addReturnTrack();
+    f.session->updateSnapshotNow();
+    f.shell->arrangement().selectTrack(ret);
+    f.settle();
+    CHECK_FALSE(harmony.isVisible());
+}

@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <span>
+#include <string_view>
 
 namespace fd::model
 {
@@ -18,4 +20,31 @@ enum class ChainRole : std::uint8_t
 /// the first module that plays notes, however far after it it's dropped; anything else where it's
 /// asked. `chain` as it'll be when the module goes in (without it, when it's moving).
 [[nodiscard]] int placeInChain(std::span<const ChainRole> chain, int index, ChainRole role) noexcept;
+
+/// Whether a track's notes make the song's harmony (midi-effects.md §5.1; Track ▸ Harmony): Auto
+/// counts a track that plays chords somewhere, never a Drum Kit's; On counts whatever it plays (a
+/// bass part gives the chords their bass); Off never.
+enum class HarmonyUse : std::uint8_t
+{
+    Auto,
+    On,
+    Off
+};
+/// How often the song's chords may change (Song ▸ Chords change): a shorter chord joins the one
+/// before it, as a musician hears a passing chord.
+enum class ChordChange : std::uint8_t
+{
+    Bar,
+    HalfBar,
+    Beat,
+    Any
+};
+
+/// Their IDs, as projects and assistants write them ("auto", "half-bar"); nullopt for none.
+[[nodiscard]] std::string_view idOf(HarmonyUse use) noexcept;
+[[nodiscard]] std::optional<HarmonyUse> harmonyUseOf(std::string_view id) noexcept;
+[[nodiscard]] std::string_view idOf(ChordChange change) noexcept;
+[[nodiscard]] std::optional<ChordChange> chordChangeOf(std::string_view id) noexcept;
+/// The shortest a chord lasts, in beats, in a bar of `numerator`/`denominator`.
+[[nodiscard]] double shortestChord(ChordChange change, int numerator, int denominator) noexcept;
 } // namespace fd::model

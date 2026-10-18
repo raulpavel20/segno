@@ -209,8 +209,12 @@ private:
     void registerNotesActions();
     // The modulators' (ShellModulators.cpp, ADR 0061): Module ▸ Add modulator, Keep, Remove routes.
     void registerModulatorActions();
-    // The MIDI effects' (ShellMidiEffects.cpp, ADR 0074): Module ▸ Add MIDI effect.
+    // The MIDI effects' (ShellMidiEffects.cpp, ADR 0074): Module ▸ Add MIDI effect; what they follow,
+    // Track ▸ Harmony (the selected track's; empty for a return or the master) and Song ▸ Chords
+    // change.
     void registerMidiEffectActions();
+    [[nodiscard]] juce::PopupMenu trackHarmonyMenu();
+    [[nodiscard]] juce::PopupMenu chordChangeMenu();
     // MIDI learn's (ShellMidi.cpp, midi-learn.md): map mode, its banner, the overlay, the tooltips.
     void registerMidiActions();
     bool midiMapMode_ = false;

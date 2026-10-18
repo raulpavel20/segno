@@ -45,6 +45,7 @@ void addSettingsTools(Registry& registry, ToolEnv& env);
 void addBrowserTools(Registry& registry, ToolEnv& env);
 void addGridTools(Registry& registry, ToolEnv& env);
 void addKeyTools(Registry& registry, ToolEnv& env);
+void addMidiEffectTools(Registry& registry, ToolEnv& env);
 void addRackTools(Registry& registry, ToolEnv& env);
 void addKitTools(Registry& registry, ToolEnv& env);
 void addModulatorTools(Registry& registry, ToolEnv& env);

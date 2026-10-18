@@ -90,7 +90,15 @@ public:
     }
     /// The song as a MIDI effect reads it (midi-effects.md §5): handed over whole whenever it
     /// changes (message thread); the module takes it at its next block.
-    void setSongView(std::shared_ptr<const SongView> view) { songView_.publish(std::move(view)); }
+    /// The song view last handed over (message thread): what its display names along the top.
+    [[nodiscard]] std::shared_ptr<const SongView> songView() const noexcept { return sentSong_; }
+    void setSongView(std::shared_ptr<const SongView> view)
+    {
+        if (view == sentSong_)
+            return; // it has this one
+        sentSong_ = view;
+        songView_.publish(std::move(view));
+    }
     /// Listens to `track`'s notes, or to none (an invalid id); kept in the plugin's state, one undo
     /// step with `um`. Playback is rebuilt so the notes reach it.
     void setListenTo(te::EditItemID track, juce::UndoManager* um);
@@ -120,6 +128,7 @@ private:
     std::size_t heardCount_ = 0;
     EventList listen_;
     AssetHandoff<SongView> songView_;
+    std::shared_ptr<const SongView> sentSong_; // the last handed over (message thread)
     AssetHandoff<SongView>::Ref song_;
     std::atomic<bool> listening_{false}; // whether it listens to a track: the audio thread's copy
     bool wasPlaying_ = false;            // audio thread: whether the song played in the last block

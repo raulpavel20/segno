@@ -18,6 +18,7 @@ struct SongChord
     int root = -1;           // 0 = C … 11 = B
     std::uint16_t notes = 0; // bit n: pitch class n is in the chord
     int bass = -1;           // the lowest note sounding (a MIDI pitch), −1 for none
+    friend bool operator==(const SongChord&, const SongChord&) = default;
 };
 
 struct SongSection
@@ -28,6 +29,7 @@ struct SongSection
     std::uint32_t name = 0;
     int time = 1; // which time a section of this name plays: 1 for the first
     float energy = 0.5f;
+    friend bool operator==(const SongSection&, const SongSection&) = default;
 };
 
 /// A note one of this track's clips plays, in song beats.
@@ -36,6 +38,7 @@ struct SongNote
     double start = 0.0, length = 0.0;
     std::uint8_t key = 0, channel = 0;
     float velocity = 0.0f;
+    friend bool operator==(const SongNote&, const SongNote&) = default;
 };
 
 struct SongView
@@ -45,9 +48,13 @@ struct SongView
     struct Span
     {
         double start = 0.0, end = 0.0;
+        friend bool operator==(const Span&, const Span&) = default;
     };
     std::vector<Span> clips;     // where this track's clips play, in time order
     std::vector<SongNote> notes; // what they play, by start
+
+    /// The same song (added 2026-10-18): a host hands a view over only when it changed.
+    friend bool operator==(const SongView&, const SongView&) = default;
 
     /// The chord sounding at `beat`, or null.
     [[nodiscard]] const SongChord* chordAt(double beat) const noexcept { return at(chords, beat); }

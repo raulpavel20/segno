@@ -643,6 +643,7 @@ void Session::Impl::rebuildSnapshot()
         info.role = isReturn(*t) ? model::TrackInfo::Role::Return : model::TrackInfo::Role::Track;
         info.name = t->getName().toStdString();
         info.colour = static_cast<int>(t->state.getProperty(kColourId, index * 3 % kPaletteSize));
+        info.harmony = harmonyOf(*t);
         for (auto* c : t->getClips())
         {
             if (c->state.hasProperty(auditionId)) // an audition's copy: not the project (ADR 0038)
@@ -730,8 +731,11 @@ void Session::Impl::rebuildSnapshot()
         std::sort(s->sections.begin(), s->sections.end(),
                   [](const auto& a, const auto& b) { return a.start < b.start; });
     }
-    // The song's harmony, read from its notes, as the MIDI effects follow it (midi-effects.md §5.1).
+    // The song's harmony, read from its notes, as the MIDI effects follow it (midi-effects.md §5.1),
+    // and what each MIDI effect reads of the song.
+    s->chordChange = chordChange();
     s->songChords = model::songHarmony(*s);
+    publishSongViews(*s);
     auto& master = s->master;
     master.id = masterId();
     master.role = model::TrackInfo::Role::Master;

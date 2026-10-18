@@ -213,6 +213,8 @@ public:
     [[nodiscard]] ui::Toggle& audioFormants() noexcept { return audioFormants_; }
     [[nodiscard]] ui::NumberField& audioSensitivity() noexcept { return audioSensitivity_; }
     [[nodiscard]] juce::ComboBox& audioKey() noexcept { return audioKey_; }
+    /// The TRACK section's Harmony (midi-effects.md §5.1), for tests.
+    [[nodiscard]] juce::ComboBox& trackHarmony() noexcept { return trackHarmony_; }
     [[nodiscard]] ui::Toggle& audioFollow() noexcept { return audioFollow_; }
     void resized() override;
     void paint(juce::Graphics& g) override;
@@ -318,6 +320,8 @@ private:
     };
     std::optional<Join> crossIn_, crossOut_;
     juce::ComboBox crossInShape_, crossInPlace_, crossOutShape_, crossOutPlace_;
+    /// A track's Harmony (midi-effects.md §5.1): whether its notes make the song's harmony.
+    juce::ComboBox trackHarmony_;
     void showCrossfade(juce::ComboBox& shape, juce::ComboBox& place, const std::optional<Join>& join);
     void setCrossfadeShape(const std::optional<Join>& join, int id);
     void setCrossfadePlace(const std::optional<Join>& join, int id);

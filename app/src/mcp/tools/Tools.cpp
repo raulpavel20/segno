@@ -35,6 +35,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addSectionTools(registry, env);
     addTimeTools(registry, env);
     addKeyTools(registry, env);
+    addMidiEffectTools(registry, env);
     addRackTools(registry, env);
     addKitTools(registry, env);
     addModulatorTools(registry, env);
@@ -680,7 +681,9 @@ Json trackJson(ToolEnv& env, const model::TrackInfo& t, bool notes)
             {"clips", std::move(clips)},
             {"chain", std::move(chain)},
             {"mix", mixJson(env, t)},
-            {"input", t.holdsClips() ? inputJson(t.input) : Json(nullptr)}};
+            {"input", t.holdsClips() ? inputJson(t.input) : Json(nullptr)},
+            // Whether its notes make the song's harmony (midi-effects.md §5.1): set_track_harmony.
+            {"harmony", t.holdsClips() ? Json(std::string(model::idOf(t.harmony))) : Json(nullptr)}};
 }
 
 Json inputJson(const model::InputInfo& in)

@@ -221,6 +221,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 |---|---|
 | Add track | Ctrl+T |
 | Add return track | Ctrl+Alt+T |
+| Harmony ▸ Auto: when it plays chords, On, Off | (*new*, [midi-effects.md](midi-effects.md) §5.1: whether the selected track's notes make the song's harmony, ticked as it is; also its header's right-click and the inspector's TRACK) |
 | — | |
 | Arm selected track | Alt+R |
 | Mute selected track | Alt+M |
@@ -310,6 +311,7 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 |---|---|---|
 | Key… | | *new* (`song.key`, M3 P3, [key-and-scale.md](key-and-scale.md) §13): the Key popover under the top bar's key field |
 | No key | | *new* (`song.noKey`): the song has no key; dimmed while it has none |
+| Chords change ▸ | | *new* ([midi-effects.md](midi-effects.md) §5.1): Every bar, Every half bar, Every beat (the default), Any time: how often the harmony MIDI effects follow may change; a shorter chord joins the one before it |
 | — | | |
 | Add section | | The loop if it's on, else from the playhead to the next section (or 8 bars) |
 | Insert empty section | | After the selected ones, as long as the last of them |
