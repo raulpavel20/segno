@@ -294,3 +294,39 @@ TEST_CASE("midi effects: Keep as notes keeps an arpeggio, a looped clip's laps a
             CHECK(c.notes[2].pitch == 67);
         }
 }
+
+TEST_CASE("midi effects: what they play in each clip, shown faint, kept up to date", "[integration]")
+{
+    Daw daw;
+    auto& s = *daw.session;
+    const auto t = daw.track(0);
+    const auto clip = s.createMidiClip(t, 1.0, 2.0); // from beat 2
+    s.setNotes(clip,
+               {{.pitch = 60, .start = 0.0, .length = 1.0}, {.pitch = 62, .start = 1.0, .length = 1.0}});
+    const auto up = s.addDevice(t, "fd:pitch");
+    auto* pitch = dynamic_cast<fd::engine::DevicePlugin*>(s.impl().plugin(up));
+    REQUIRE(pitch != nullptr);
+    const auto played = [&]
+    {
+        s.updateSnapshotNow();
+        for (const auto& c : s.snapshot()->channel(t)->clips)
+            if (c.id == clip)
+                return c.played;
+        return std::vector<model::Note>{};
+    };
+    auto notes = played();
+    REQUIRE(notes.size() == 2); // as they come: nothing changed yet
+    CHECK(notes[0].pitch == 60);
+    CHECK(notes[1].start == Catch::Approx(1.0)); // in the clip's beats, as its notes are
+    // A knob moved: within a moment, what it plays now.
+    const auto& spec = pitch->device().info().params[fd::devices::Pitch::Semitones];
+    pitch->setStoredValue(fd::devices::Pitch::Semitones, spec.toNormalized(7.0f));
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(600);
+    notes = s.snapshot()->channel(t)->clips.front().played;
+    REQUIRE(notes.size() == 2);
+    CHECK(notes[0].pitch == 67);
+    CHECK(notes[1].pitch == 69);
+    // Off: nothing played over the clip's own notes.
+    pitch->setEnabled(false);
+    CHECK(played().empty());
+}

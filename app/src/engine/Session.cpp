@@ -761,6 +761,7 @@ void Session::Impl::rebuildSnapshot()
     s->chordChange = chordChange();
     s->songChords = model::songHarmony(*s);
     publishSongViews(*s);
+    fillPlayed(*s);
     auto& master = s->master;
     master.id = masterId();
     master.role = model::TrackInfo::Role::Master;

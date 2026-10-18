@@ -571,3 +571,4 @@ The DAW's side of step 1, and Keep as notes.
   - the takes: "Before MIDI effects" (unless the clip was playing one of its takes) and "Kept notes", as bounce in place keeps its source;
   - the effects kept turned off; one undo step.
   - **Not yet:** a plugin's MIDI effect (refused, saying so); parameters under automation (their stored values are used); a listened track's notes are its clips' as written, before its own MIDI effects.
+- **Played notes** (§7; the arrangement's ghost behind a clip's notes, View ▸ Show played notes in the clip view) come from the same offline run: each MIDI clip on a track with MIDI effects of ours, with the rolls heard, kept per clip and run again only when the clip, the song, the notes heard or the effects changed. A knob moving or a new pass doesn't make a snapshot by itself: a check every quarter second compares the effects' settings and rolls, and makes one when they've changed.

@@ -191,6 +191,26 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] std::vector<std::uint64_t> listenSources(DevicePlugin& effect) const;
     /// Its Listen: a track of listenSources, or none. One undo step, "Set Listen".
     bool setListen(DevicePlugin& effect, std::optional<std::uint64_t> track);
+    /// What a track's MIDI effects play in each of its MIDI clips (ClipInfo::played, §7), run offline
+    /// with the rolls heard; a clip runs again only when it, the song or the effects changed.
+    void fillPlayed(model::Snapshot& song);
+    struct PlayedRun
+    {
+        std::size_t key = 0;
+        std::vector<model::Note> notes;
+    };
+    std::map<std::uint64_t, PlayedRun> playedCache; // by clip
+    /// The MIDI effects' settings and rolls, by track, as the last snapshot ran them: a change
+    /// (a knob moved, a new pass) makes a new snapshot, which plays them again.
+    std::map<std::uint64_t, std::size_t> playedSignatures;
+    [[nodiscard]] std::size_t effectsSignature(te::AudioTrack& track) const;
+    struct PlayedCheck final : juce::Timer
+    {
+        explicit PlayedCheck(Impl& i) : impl(i) {}
+        void timerCallback() override;
+        Impl& impl;
+    };
+    PlayedCheck playedCheck{*this};
     static constexpr int paletteSize = model::kPaletteSize;
     static constexpr int maxReturns = 32; // tracktion's aux buses
     /// The lowest aux bus no return listens to yet (maxReturns: none free).

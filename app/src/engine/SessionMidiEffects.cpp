@@ -141,7 +141,213 @@ std::unique_ptr<Device> copyOf(DevicePlugin& effect)
     copy->readExtraState(extra);
     return copy;
 }
+
+SongNote songNoteOf(const model::Note& n)
+{
+    return {.start = n.start,
+            .length = n.length,
+            .key = static_cast<std::uint8_t>(std::clamp(n.pitch, 0, 127)),
+            .velocity = n.velocity};
+}
+
+void mixInto(std::size_t& seed, std::size_t value)
+{
+    seed ^= value + 0x9E3779B97F4A7C15ull + (seed << 6) + (seed >> 2);
+}
+
+/// A track's MIDI effects run offline (§9): ours that are on, up to `last` (null: all of them),
+/// with what each hears and the roll each played.
+struct ChainRun
+{
+    std::vector<DevicePlugin*> effects;
+    std::vector<std::vector<SongNote>> heard;
+    std::vector<std::uint64_t> rolls;
+    bool foreign = false; // a plugin's MIDI effect among them: it can't run offline
+};
+
+ChainRun chainOf(te::AudioTrack& track, const te::Plugin* last, const model::Snapshot& song)
+{
+    ChainRun run;
+    for (auto* p : track.pluginList)
+    {
+        if (Session::Impl::isNoteEffect(*p) && p->isEnabled())
+        {
+            if (auto* native = dynamic_cast<DevicePlugin*>(p))
+                run.effects.push_back(native);
+            else
+                run.foreign = true;
+        }
+        if (p == last)
+            break;
+    }
+    run.heard.resize(run.effects.size());
+    run.rolls.resize(run.effects.size(), 0);
+    for (std::size_t i = 0; i < run.effects.size(); ++i)
+    {
+        if (const auto* noteEffect = dynamic_cast<const devices::NoteEffect*>(&run.effects[i]->device()))
+            run.rolls[i] = noteEffect->rollHeard();
+        if (const auto id = run.effects[i]->getNoteSourceID(); id.isValid())
+            if (const auto* source = song.channel(id.getRawID()))
+            {
+                for (const auto& c : source->clips)
+                    for (const auto& n : model::playedNotes(c, song.tempo))
+                        run.heard[i].push_back(songNoteOf(n));
+                std::sort(run.heard[i].begin(), run.heard[i].end(),
+                          [](const auto& a, const auto& b) { return a.start < b.start; });
+            }
+    }
+    return run;
+}
+
+/// What `run` plays over a clip, given its notes as they play: in song beats.
+std::vector<SongNote> playOver(const ChainRun& run, const model::ClipInfo& clip,
+                               const std::vector<SongNote>& in, const model::Snapshot& song,
+                               const SongView& view, KeyInfo key)
+{
+    std::vector<std::unique_ptr<Device>> copies;
+    std::vector<Device*> chain;
+    std::vector<const std::vector<SongNote>*> listen;
+    for (std::size_t i = 0; i < run.effects.size(); ++i)
+        if (auto copy = copyOf(*run.effects[i]))
+        {
+            chain.push_back(copy.get());
+            copies.push_back(std::move(copy));
+            listen.push_back(run.heard[i].empty() ? nullptr : &run.heard[i]);
+        }
+    const auto& tempo = song.tempo;
+    devices::NoteRun noteRun{.transport = {.tempoBpm = tempo.bpm,
+                                           .timeSigNumerator = tempo.numerator,
+                                           .timeSigDenominator = tempo.denominator,
+                                           .key = key},
+                             .song = &view,
+                             .from = tempo.beatsForSeconds(clip.start),
+                             .to = tempo.beatsForSeconds(clip.end()),
+                             .listen = listen,
+                             .rolls = run.rolls};
+    return devices::runNotes(chain, in, noteRun);
+}
+
+/// The seed a clip's chance is decided with, as playback last decided it (or as it keeps it).
+std::optional<std::uint32_t> chanceSeedOf(te::Clip& clip, const model::ClipInfo& info, const ChancePass* pass)
+{
+    if (const auto kept = keptChanceOf(clip))
+        return model::passSeed(info.chanceSeed, kept->roll, kept->lap);
+    if (pass != nullptr)
+        return model::passSeed(info.chanceSeed, pass->roll.load(), 0);
+    return std::nullopt;
+}
+
+std::vector<SongNote> notesIn(const model::ClipInfo& info, const model::TempoMap& tempo,
+                              std::optional<std::uint32_t> seed)
+{
+    std::vector<SongNote> in;
+    for (const auto& n : model::playedNotes(info, tempo, seed))
+        in.push_back(songNoteOf(n));
+    return in;
+}
 } // namespace
+
+std::size_t Session::Impl::effectsSignature(te::AudioTrack& track) const
+{
+    std::size_t seed = 0;
+    for (auto* p : track.pluginList)
+        if (auto* native = dynamic_cast<DevicePlugin*>(p); native != nullptr && native->isMidiEffect())
+        {
+            mixInto(seed, p->itemID.getRawID());
+            mixInto(seed, p->isEnabled() ? 1 : 2);
+            for (std::size_t i = 0; i < native->device().params().size(); ++i)
+                mixInto(seed, std::hash<float>{}(native->storedValue(i)));
+            nlohmann::json extra = nlohmann::json::object();
+            native->device().writeExtraState(extra);
+            mixInto(seed, std::hash<std::string>{}(extra.dump()));
+            mixInto(seed, native->getNoteSourceID().getRawID());
+            if (const auto* noteEffect = dynamic_cast<const devices::NoteEffect*>(&native->device()))
+                mixInto(seed, noteEffect->rollHeard());
+        }
+    return seed;
+}
+
+void Session::Impl::PlayedCheck::timerCallback()
+{
+    if (impl.edit == nullptr)
+        return;
+    for (auto* t : te::getAudioTracks(*impl.edit))
+        if (const auto known = impl.playedSignatures.find(t->itemID.getRawID());
+            known != impl.playedSignatures.end() && known->second != impl.effectsSignature(*t))
+        {
+            impl.triggerAsyncUpdate(); // a new snapshot plays them again
+            return;
+        }
+}
+
+void Session::Impl::fillPlayed(model::Snapshot& song)
+{
+    std::map<std::uint64_t, PlayedRun> kept;
+    playedSignatures.clear();
+    for (auto* t : te::getAudioTracks(*edit))
+    {
+        const auto id = t->itemID.getRawID();
+        auto* info = [&]() -> model::TrackInfo*
+        {
+            for (auto& tr : song.tracks)
+                if (tr.id == id)
+                    return &tr;
+            return nullptr;
+        }();
+        const auto view = songViews.find(id);
+        if (info == nullptr || view == songViews.end())
+            continue; // no MIDI effect of ours on it
+        const auto run = chainOf(*t, nullptr, song);
+        playedSignatures[id] = effectsSignature(*t);
+        if (run.effects.empty() || run.foreign)
+            continue;
+        std::size_t chainKey = playedSignatures[id];
+        mixInto(chainKey, std::hash<const void*>{}(view->second.get()));
+        mixInto(chainKey, std::hash<double>{}(song.tempo.bpm));
+        for (const auto& heard : run.heard)
+            for (const auto& n : heard)
+                mixInto(chainKey, std::hash<double>{}(n.start) ^ n.key);
+        const auto key = run.effects.front()->songKey();
+        mixInto(chainKey, static_cast<std::size_t>(key.root) << 16 | key.notes);
+        for (auto& c : info->clips)
+        {
+            if (c.kind != model::ClipInfo::Kind::Midi || c.muted)
+                continue;
+            auto* clip = this->clip(c.id);
+            if (clip == nullptr)
+                continue;
+            const auto seed = chanceSeedOf(*clip, c, chancePass.get());
+            const auto in = notesIn(c, song.tempo, seed);
+            std::size_t clipKey = chainKey;
+            mixInto(clipKey, std::hash<double>{}(c.start));
+            mixInto(clipKey, std::hash<double>{}(c.end()));
+            mixInto(clipKey, std::hash<double>{}(c.offset));
+            for (const auto& n : in)
+                mixInto(clipKey, std::hash<double>{}(n.start) ^ (std::hash<double>{}(n.length) << 1) ^ n.key ^
+                                     std::hash<float>{}(n.velocity));
+            auto& entry = kept[c.id];
+            if (const auto cached = playedCache.find(c.id);
+                cached != playedCache.end() && cached->second.key == clipKey)
+                entry = std::move(cached->second);
+            else
+            {
+                entry.key = clipKey;
+                entry.notes.clear();
+                // In the clip's beats, from its content's start, as its notes are.
+                const double zero = song.tempo.beatsForSeconds(c.start - c.offset);
+                for (const auto& n : playOver(run, c, in, song, *view->second, key))
+                    entry.notes.push_back({.pitch = n.key,
+                                           .start = n.start - zero,
+                                           .length = n.length,
+                                           .velocity = n.velocity});
+            }
+            c.played = entry.notes;
+        }
+    }
+    playedCache = std::move(kept);
+    if (!playedSignatures.empty() && !playedCheck.isTimerRunning())
+        playedCheck.startTimer(250);
+}
 
 bool Session::keepAsNotes(std::uint64_t upTo, const std::vector<std::uint64_t>& clipIds, std::string* why)
 {
@@ -155,22 +361,6 @@ bool Session::keepAsNotes(std::uint64_t upTo, const std::vector<std::uint64_t>& 
     auto* track = last != nullptr ? dynamic_cast<te::AudioTrack*>(last->getOwnerTrack()) : nullptr;
     if (last == nullptr || !last->isMidiEffect() || last->isInRack() || track == nullptr)
         return refuse("Keep as notes keeps what a track's MIDI effects play: choose one of them.");
-    // Its MIDI effects up to it, in order; the ones turned off play nothing.
-    std::vector<DevicePlugin*> effects;
-    for (auto* p : track->pluginList)
-    {
-        if (Impl::isNoteEffect(*p) && p->isEnabled())
-        {
-            auto* native = dynamic_cast<DevicePlugin*>(p);
-            if (native == nullptr)
-                return refuse("A plugin's MIDI effect can't be kept as notes yet: only Segno's.");
-            effects.push_back(native);
-        }
-        if (p == last)
-            break;
-    }
-    if (effects.empty())
-        return refuse("Its MIDI effects are off: there's nothing they play to keep.");
 
     updateSnapshotNow();
     const auto snap = snapshot();
@@ -178,6 +368,11 @@ bool Session::keepAsNotes(std::uint64_t upTo, const std::vector<std::uint64_t>& 
     const auto* info = snap->channel(trackId);
     if (info == nullptr)
         return false;
+    const auto run = chainOf(*track, last, *snap);
+    if (run.foreign)
+        return refuse("A plugin's MIDI effect can't be kept as notes yet: only Segno's.");
+    if (run.effects.empty())
+        return refuse("Its MIDI effects are off: there's nothing they play to keep.");
     std::vector<const model::ClipInfo*> clips;
     for (const auto& c : info->clips)
         if (c.kind == model::ClipInfo::Kind::Midi &&
@@ -186,69 +381,19 @@ bool Session::keepAsNotes(std::uint64_t upTo, const std::vector<std::uint64_t>& 
     if (clips.empty())
         return refuse("There's no MIDI clip to keep its notes in.");
 
-    // What the modules read: the song, the notes each hears, the rolls heard.
-    const auto tempo = snap->tempo;
+    const auto& tempo = snap->tempo;
     const auto view = model::songView(*snap, trackId);
-    std::vector<std::vector<SongNote>> heard(effects.size());
-    std::vector<const std::vector<SongNote>*> listen(effects.size(), nullptr);
-    std::vector<std::uint64_t> rolls(effects.size(), 0);
-    for (std::size_t i = 0; i < effects.size(); ++i)
-    {
-        if (const auto* noteEffect = dynamic_cast<const devices::NoteEffect*>(&effects[i]->device()))
-            rolls[i] = noteEffect->rollHeard();
-        if (const auto id = effects[i]->getNoteSourceID(); id.isValid())
-            if (const auto* source = snap->channel(id.getRawID()))
-            {
-                for (const auto& c : source->clips)
-                    for (const auto& n : model::playedNotes(c, tempo))
-                        heard[i].push_back({.start = n.start,
-                                            .length = n.length,
-                                            .key = static_cast<std::uint8_t>(std::clamp(n.pitch, 0, 127)),
-                                            .velocity = n.velocity});
-                std::sort(heard[i].begin(), heard[i].end(),
-                          [](const auto& a, const auto& b) { return a.start < b.start; });
-                listen[i] = &heard[i];
-            }
-    }
-
+    const auto key = run.effects.front()->songKey();
     EditGroup group(*this, "Keep as notes");
     auto* um = &impl_->edit->getUndoManager();
-    const auto keyInfo = effects.front()->songKey();
     for (const auto* c : clips)
     {
         auto* clip = dynamic_cast<te::MidiClip*>(impl_->clip(c->id));
         if (clip == nullptr)
             continue;
         // What it plays, its chance decided as playback last did (or as it keeps it).
-        std::optional<std::uint32_t> seed;
-        if (const auto kept = keptChanceOf(*clip))
-            seed = model::passSeed(c->chanceSeed, kept->roll, kept->lap);
-        else if (impl_->chancePass != nullptr)
-            seed = model::passSeed(c->chanceSeed, impl_->chancePass->roll.load(), 0);
-        std::vector<SongNote> in;
-        for (const auto& n : model::playedNotes(*c, tempo, seed))
-            in.push_back({.start = n.start,
-                          .length = n.length,
-                          .key = static_cast<std::uint8_t>(std::clamp(n.pitch, 0, 127)),
-                          .velocity = n.velocity});
-        std::vector<std::unique_ptr<Device>> copies;
-        std::vector<Device*> chain;
-        for (auto* e : effects)
-            if (auto copy = copyOf(*e))
-            {
-                chain.push_back(copy.get());
-                copies.push_back(std::move(copy));
-            }
-        devices::NoteRun run{.transport = {.tempoBpm = tempo.bpm,
-                                           .timeSigNumerator = tempo.numerator,
-                                           .timeSigDenominator = tempo.denominator,
-                                           .key = keyInfo},
-                             .song = &view,
-                             .from = tempo.beatsForSeconds(c->start),
-                             .to = tempo.beatsForSeconds(c->end()),
-                             .listen = listen,
-                             .rolls = rolls};
-        const auto played = devices::runNotes(chain, in, run);
+        const auto in = notesIn(*c, tempo, chanceSeedOf(*clip, *c, impl_->chancePass.get()));
+        const auto played = playOver(run, *c, in, *snap, view, key);
 
         // The clip's notes before, as a take; a plain clip gets a stack (as bounce in place does).
         auto stack = impl_->stackOf(*clip);
@@ -275,18 +420,15 @@ bool Session::keepAsNotes(std::uint64_t upTo, const std::vector<std::uint64_t>& 
             notes.push_back(
                 {.pitch = n.key, .start = n.start - zero, .length = n.length, .velocity = n.velocity});
         setNotes(c->id, notes);
-        std::vector<model::TakeInfo> names;
-        for (auto take : stack)
-            names.push_back({.name = take[te::IDs::name].toString().toStdString()});
         int count = 0;
-        for (const auto& t : names)
-            count += t.name.rfind(model::kKeptNotesName, 0) == 0 ? 1 : 0;
+        for (auto take : stack)
+            count += take[te::IDs::name].toString().startsWith(model::kKeptNotesName) ? 1 : 0;
         const auto name = count == 0 ? juce::String(model::kKeptNotesName)
                                      : juce::String(model::kKeptNotesName) + " " + juce::String(count + 1);
         auto take = impl_->addTake(stack, name, {clip->state}, um);
         clip->state.setProperty(Impl::fromTakeId, static_cast<juce::int64>(Impl::idOf(take.getChild(0))), um);
     }
-    for (auto* e : effects) // kept: turned off, not removed
+    for (auto* e : run.effects) // kept: turned off, not removed
         e->setEnabled(false);
     impl_->settle(*track, um);
     return true;
