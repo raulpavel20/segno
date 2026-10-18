@@ -28,7 +28,9 @@ inline constexpr std::array<std::string_view, 12> rootChoices{
     "G", "A\xE2\x99\xAD", "A", "B\xE2\x99\xAD", "B"};
 inline constexpr std::array<std::string_view, 8> chordChoices{"Major", "Minor", "7",   "Maj 7",
                                                               "Min 7", "Sus 4", "Dim", "Aug"};
-/// The scale catalogue's names (libs/music), in its order.
+/// The scales the Scale parameter chooses from, by index: their IDs (frozen, appended to only)
+/// and their names.
+[[nodiscard]] std::span<const std::string_view> scaleIds();
 [[nodiscard]] std::span<const std::string_view> scaleChoices();
 
 /// The six parameters, for a module's table.

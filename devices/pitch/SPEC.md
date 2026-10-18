@@ -1,6 +1,6 @@
 # Pitch: device spec
 
-- **Status:** Draft, for the product owner's review with the panels drawn (midi-effects.md §18, step 0). IDs become permanent when it's approved.
+- **Status:** Approved by the product owner (2026-10-18) with the panels drawn (midi-effects.md §21); IDs are permanent (made lowercase and dotted, as docs/ids.md has them, before any build: midi-effects.md §22). Built in step 1a; the DAW's side in 1b, presets in 1c.
 - **Type:** MIDI effect
 - **Tier / milestone:** Tier 1, M3 P11 step 1 ([midi-effects.md](../../docs/design/midi-effects.md), [ADR 0074](../../docs/decisions/0074-midi-effects-know-the-song.md))
 - **Live target:** Live 12's Pitch (transpose by semitones or steps of the scale, a pitch window that blocks, folds or limits), Scale (notes mapped to a scale, folded) and Random (a chance, choices by an interval, up, down or both, in the scale), in one module (MX3). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -51,7 +51,7 @@ And the HARMONY section's parameters, the same in every module that follows harm
 | `follow` | Follow | Whose chords it follows: the song's, the listened track's, chords played below the split, or its own. | Song, Track, Played, Own | Song | choice | – | – | Yes |
 | `key` | Key | The song's key, or a key of its own (used too when the song has none). | Song, Own | Song | choice | – | – | Yes |
 | `root` | Root | Its own key's and its own chord's root. | C … B | C | choice | – | – | Yes |
-| `scale` | Scale | Its own key's scale. | the 36 scales of `libs/music` | Major | choice | – | – | Yes |
+| `scale` | Scale | Its own key's scale. | the 36 scales of `libs/music`, by an index frozen with the parameter (new scales appended) | Major | choice | – | – | Yes |
 | `chord` | Own chord | Its own chord, on the root. | Major, Minor, 7, Maj 7, Min 7, Sus 4, Dim, Aug | Major | choice | – | – | Yes |
 | `split` | Split | With Follow on Played, notes below this note set the chord and aren't played. | C−2 … G8 | C2 | note | linear | – | Yes |
 
@@ -71,7 +71,7 @@ notes in ─> Mirror ─> Semitones, Steps ─> Random ─> Fit ─> Range ─> 
 - **Random:** each note-on rolls (a hash of the pass's roll, the module and the note's place, ADR 0062): with Chance, it moves by 1 to Spread steps, Up, Down or Both. Keep holds a roll.
 - **Fit:**
   - **Key:** to the nearest note of the key (Toward), as Fit to key does in the clip view.
-  - **Chord:** to the nearest note of the chord sounding at the note's start (the song view's, or Follow's). With Passing notes on, a note off the strong beats (the beat's metric weight below the half bar's) fits to the key instead.
+  - **Chord:** to the nearest note of the chord sounding at the note's start (the song view's, or Follow's). With Passing notes on, a note off the beat fits to the key instead (midi-effects.md §22).
   - **At a change** (Move): when the chord changes under a held note that isn't in the new chord, it ends and its fitted note starts at the change. A held note can't change pitch in MIDI without a bend, so moving plays it again.
   - **No chord** at a place: the key's home chord; no key either: its own chord. The display says which.
 - **Range:** a note outside Lowest and Highest folds in by octaves (Fold), is left out (Drop), or plays the edge, the nearest note of the key inside it (Limit).

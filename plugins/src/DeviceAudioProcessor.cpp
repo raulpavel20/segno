@@ -279,6 +279,10 @@ void DeviceAudioProcessor::updateLatency()
 
 bool DeviceAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
+    // A MIDI effect: notes in and out, no audio (ADR 0074).
+    if (device_->info().buses.outputChannels == 0)
+        return layouts.getMainOutputChannelSet().isDisabled() &&
+               layouts.getMainInputChannelSet().isDisabled();
     const auto out = layouts.getMainOutputChannelSet();
     if (out != juce::AudioChannelSet::stereo() && out != juce::AudioChannelSet::mono())
         return false;
@@ -298,6 +302,7 @@ void DeviceAudioProcessor::prepareToPlay(double sampleRate, int maxBlockSize)
     pullParameters();
     device_->prepare({.sampleRate = sampleRate, .maxBlockSize = maxBlockSize});
     events_.reserve(2048);
+    outEvents_.reserve(2048);
     channelPtrs_.resize(static_cast<size_t>(juce::jmax(getTotalNumInputChannels(), getTotalNumOutputChannels())));
     sidechainPtrs_.resize(static_cast<size_t>(std::max(1, device_->info().buses.sidechainChannels)));
     setLatencySamples(device_->latencySamples());
@@ -324,8 +329,7 @@ void DeviceAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         queued.forEach([this](int i) { events_.push(notes_[static_cast<size_t>(i)]); });
         events_.sortByTime();
     }
-    if (!producesMidi())
-        midi.clear();
+    midi.clear(); // a MIDI effect's notes replace them, after it plays
 
     const int channels = juce::jmin(buffer.getNumChannels(), static_cast<int>(channelPtrs_.size()));
     for (int c = 0; c < channels; ++c)
@@ -346,6 +350,9 @@ void DeviceAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
             ctx.sidechain = {sidechainPtrs_.data(), juce::jmax(0, n)};
         }
     ctx.events = &events_;
+    outEvents_.clear();
+    if (producesMidi())
+        ctx.outEvents = &outEvents_;
     ctx.numSamples = buffer.getNumSamples();
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
@@ -357,9 +364,20 @@ void DeviceAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
                 ctx.transport.ppqPosition = *ppq;
             if (auto s = pos->getTimeInSamples())
                 ctx.transport.samplePosition = *s;
+            if (auto sig = pos->getTimeSignature())
+            {
+                ctx.transport.timeSigNumerator = sig->numerator;
+                ctx.transport.timeSigDenominator = sig->denominator;
+            }
         }
 
     processRealtime(*device_, ctx);
+    if (producesMidi())
+    {
+        outEvents_.sortByTime();
+        for (const auto& e : outEvents_)
+            midi.addEvent(host::toMidiMessage(e), e.sampleOffset);
+    }
 }
 
 void DeviceAudioProcessor::getStateInformation(juce::MemoryBlock& destData)

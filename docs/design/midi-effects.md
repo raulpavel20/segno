@@ -529,4 +529,27 @@ What drawing settled:
 - **For tests and snapshots:** `DevicePanel::refreshNow` does what the panel's refresh tick does, on screen or not.
 - **Not drawn:** Keep as notes is a menu item and a right-click item, built with step 1.
 
-For approval: the drawings, and the SPECs of step 1's three ([Pitch](../../devices/pitch/SPEC.md), [Chord](../../devices/chord/SPEC.md), [Arpeggiator](../../devices/arpeggiator/SPEC.md)), whose IDs become permanent then. Melody's SPEC is an early draft, drawn to show a generator, and is reviewed with step 2.
+**Approved by the product owner (2026-10-18):** the drawings and the SPECs of step 1's three ([Pitch](../../devices/pitch/SPEC.md), [Chord](../../devices/chord/SPEC.md), [Arpeggiator](../../devices/arpeggiator/SPEC.md)); their IDs are permanent (docs/ids.md). Melody's SPEC is an early draft, drawn to show a generator, and is reviewed with step 2.
+
+## 22. Step 1a, the modules (2026-10-18)
+
+Pitch, Chord and Arpeggiator are built and registered: in the DAW's device list, as plugins, and under the conformance suite. The DAW's side (placement before the instrument, the song view handed over, Harmony per track, Listen, the display's feed, the browser and menus, assistants) is step 1b; Keep as notes and the presets are 1c.
+
+- **Their theory is `libs/music`'s,** pure and allocation free, for the clip view's tools and assistants too (principle 9): steps of a key, fitting, mirroring (`Following.h`); Pitch's note as two functions, moved (Mirror, Semitones, Steps, Random) then fitted (Fit, Range), so a chord change fits a held note again from where it was before it was fitted; a chord of a kind, its third, fifth, seventh and ninth from the chord where it has them, else from the key (Chord's Kind; a sus chord keeps its 4th); voicings around a played note or near a note (`voiceAround`, `voiceNear`); the arpeggio's orders (`Arpeggio.h`).
+- **What they share** (`devices/midi-shared/dsp`, JUCE-free):
+  - **`NoteEffect`,** the base: a clock in samples, its own beats while the song is stopped (an arpeggio under your hands at the song's tempo), its roll (ADR 0062: the host's pass, or its own each time playback starts), and its notes written through the ledger. **A note has owners:** one played twice (two notes fitted to the same one, a step overlapping the next with Gate past 100 %) starts again, and ends when the last owner lets go, so a note still held is never cut by another's end. All notes off ends everything and the module's state.
+  - **`Follower`:** the key (the song's, or its own when it has none or Key is Own) and the chord now. Chords from notes held (Follow on Track or Played) **stay after the notes end,** until new ones come: chords played short don't fall back to the key's between them.
+  - **`Moments`:** a block in time order. At one sample the chord settles first (the listened track's notes, the notes below the split, the song's change), then the notes coming in: a note on a change plays the new chord. A module's own later notes (a strum's, a step's end) go before what comes in when they're ends, after when they're starts.
+  - **A beat on a sample lands on it however the blocks are cut** (rounded, never truncated): steps and changes are the same to the sample for any block size and after a jump.
+- **Settled while building:**
+  - **Parameter IDs are lowercase and dotted,** as docs/ids.md has them: the approved SPECs had `inKey`, `songChords` and `velocityLength`; they're `inkey`, `song.chords` and `velocity.length` (likewise each lane, and Melody's `change.mode`). Corrected before any build used them.
+  - **Passing notes** (Pitch): a note off the beat fits to the key. "Off the strong beats" would have made every second beat's note a passing note.
+  - **Swing** (Arpeggiator): every odd step later by up to half a step: 50 % is a triplet's feel, 75 % a dotted one.
+  - **Free rate** (Sync off): its clock starts with the first note, so the first step plays as you press it.
+  - **Song chords** (Arpeggiator): the pattern runs on through a chord change, as through new notes with Retrigger off; Retrigger on bars or sections lines it up with the form.
+  - **Keys** (Chord): the chords sit around Around wherever the key is played; the octave you play in doesn't move them.
+  - **Strum:** Curve above zero speeds up through the chord; Swell only with a strum.
+  - **Learn** (Chord) writes the shifts in semitones from the lowest note held and turns In key off, one undo step; a single note learns nothing.
+  - **Drawing a lane's step** writes the lane to the module's state through the host binding.
+- **The plugins:** MIDI effects with no audio bus (AU's MIDI processor, CLAP's note effect, VST3, LV2), and no standalone. A host has no song: they follow their own key and chord, or the chord played below the split.
+- **Tests:** each module's unit tests (the pure functions, every note ended under random streams and settings, timing to the sample); the conformance suite's MIDI checks for every MIDI effect (the same notes for any block size, every note ended through stops and jumps, state and reset reproducing the notes, no allocation); the plugin adapter's notes out.

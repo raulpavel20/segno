@@ -1,6 +1,6 @@
 #include "Melody.h"
 
-#include "../../midi-shared/PassThrough.h"
+#include "../../midi-shared/dsp/PassThrough.h"
 
 namespace fd::devices
 {
@@ -19,8 +19,8 @@ constexpr std::array<std::string_view, 3> sectionsChoices{"By name", "Each", "On
 constexpr std::array<std::string_view, 3> notesChoices{"Transpose", "Restart", "Ignore"};
 constexpr std::array<std::string_view, 3> answerChoices{"Off", "Answer", "Counter"};
 constexpr std::array<std::string_view, 3> fillChoices{"None", "Fill", "Drop out"};
-constexpr std::array<std::string_view, 6> laneIds{"pitchLength",  "velocityLength", "gateLength",
-                                                  "chanceLength", "ratchetLength",  "slideLength"};
+constexpr std::array<std::string_view, 6> laneIds{"pitch.length",  "velocity.length", "gate.length",
+                                                  "chance.length", "ratchet.length",  "slide.length"};
 constexpr std::array<std::string_view, 6> laneNames{"Pitch length",  "Velocity length", "Gate length",
                                                     "Chance length", "Ratchet length",  "Slide length"};
 
@@ -121,7 +121,7 @@ const std::array<ParamSpec, Melody::Count>& table()
                         .smoothing = none,
                         .decimals = 0,
                         .description = "How much each lap differs from the last; at 0 the line loops."};
-        p[M::ChangeMode] = {.id = "changeMode",
+        p[M::ChangeMode] = {.id = "change.mode",
                             .name = "Change mode",
                             .shortName = "Mode",
                             .kind = ParamKind::Choice,

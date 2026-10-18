@@ -1,12 +1,13 @@
 #pragma once
 
 #include <fd_device_ui/fd_device_ui.h>
+#include <nlohmann/json.hpp>
 
 namespace fd::devices
 {
 /// A step sequence's lanes as the panel shows them (ui::StepFeed): each lane's steps read from the
-/// module (`Module` has step(), playingStep(), maxSteps and neutral()), its length a parameter.
-/// Drawing a step edits the module's extra state (step 1).
+/// module (`Module` has step(), playingStep(), maxSteps, neutral() and laneKey()), its length a
+/// parameter. Drawing a step writes the lane to the module's extra state, through the host binding.
 template <typename Module> class LaneFeed final : public ui::StepFeed
 {
 public:
@@ -46,7 +47,16 @@ public:
         const auto* module = dynamic_cast<const Module*>(ctx_.device);
         return module != nullptr ? module->playingStep(index) : -1;
     }
-    void setStep(int, int, float) override {} // extra state through the host binding: step 1
+    void setStep(int index, int step, float value) override
+    {
+        const auto* module = dynamic_cast<const Module*>(ctx_.device);
+        if (module == nullptr)
+            return;
+        auto values = nlohmann::json::array();
+        for (int s = 0; s < Module::maxSteps; ++s)
+            values.push_back(s == step ? value : module->step(index, s));
+        ctx_.params.applyExtraState({{std::string(Module::laneKey(index)), std::move(values)}});
+    }
     void setLength(int index, int length) override
     {
         const auto p = firstLength_ + static_cast<std::size_t>(index);

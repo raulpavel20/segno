@@ -16,7 +16,7 @@ protected:
     /// STEPS [columns]: the lane chooser along its first row (`lanes`, one cell each), the step
     /// display under it.
     StepDisplay& addStepsSection(int columns, const juce::StringArray& lanes, StepFeed* steps);
-    /// HARMONY [3] from the module's harmony parameters (devices/midi-shared/Harmony.h, from
+    /// HARMONY [3] from the module's harmony parameters (devices/midi-shared/dsp/Harmony.h, from
     /// `first`): Follow, Key, Root, Scale, Own chord, Split, each dimmed while it doesn't apply.
     /// Collapsed by default: the song is what it follows, and the display says so.
     PanelSection& addHarmonySection(std::size_t first);

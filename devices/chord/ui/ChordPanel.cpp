@@ -8,6 +8,29 @@ namespace
 {
 using C = Chord;
 
+/// Learn (devices/chord/SPEC.md): the chord held becomes the shifts, in semitones from its lowest
+/// note, as one undo step. Nothing to learn from fewer than two notes.
+void learn(ui::DeviceUiContext& ctx)
+{
+    const auto* chord = dynamic_cast<const Chord*>(ctx.device);
+    if (chord == nullptr)
+        return;
+    std::array<int, 7> held{};
+    const auto n = chord->heldNotes(held);
+    if (n < 2)
+        return;
+    ctx.params.beginEdit("Learn chord");
+    const auto set = [&ctx](std::size_t p, float value)
+    {
+        ctx.params.beginGesture(p);
+        ctx.params.setPlain(p, value);
+        ctx.params.endGesture(p);
+    };
+    set(C::InKey, 0.0f);
+    for (std::size_t i = 0; i < 6; ++i)
+        set(C::Shift1 + i, i + 1 < n ? static_cast<float>(std::clamp(held[i + 1] - held[0], -36, 36)) : 0.0f);
+}
+
 /// Sections per devices/chord/SPEC.md, on the module grid (docs/design/device-panels.md).
 class ChordPanel final : public ui::MidiEffectPanel
 {
@@ -28,7 +51,8 @@ public:
         for (int i = 0; i < 6; ++i)
             add.knob(C::Shift1 + static_cast<std::size_t>(i), i % 3, i < 3 ? 0 : 3);
         add.toggle(C::InKey, 3, 0);
-        addButton(add, "Learn", "Hold a chord and press Learn: its shape becomes the shifts", 3, 1, 1);
+        addButton(add, "Learn", "Hold a chord and press Learn: its shape becomes the shifts", 3, 1, 1)
+            .onClick = [&ctx] { learn(ctx); };
         add.knob(C::Level, 3, 3);
 
         auto& voices = addSection("voices", "Voices", 3);

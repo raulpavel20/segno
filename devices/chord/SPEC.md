@@ -1,6 +1,6 @@
 # Chord: device spec
 
-- **Status:** Draft, for the product owner's review with the panels drawn (midi-effects.md §18, step 0). IDs become permanent when it's approved.
+- **Status:** Approved by the product owner (2026-10-18) with the panels drawn (midi-effects.md §21); IDs are permanent (made lowercase and dotted, as docs/ids.md has them, before any build: midi-effects.md §22). Built in step 1a; the DAW's side in 1b, presets in 1c.
 - **Type:** MIDI effect
 - **Tier / milestone:** Tier 1, M3 P11 step 1 ([midi-effects.md](../../docs/design/midi-effects.md), [ADR 0074](../../docs/decisions/0074-midi-effects-know-the-song.md))
 - **Live target:** Live 12's Chord: up to six shifts of ±36 semitones (or steps of the clip's scale), each with its own velocity, a strum with tension and crescendo, Learn from held keys. Checked against Logic's Chord Trigger (one chord transposed, or a chord a key), Cubase's Chorder and Chord Pads (adaptive voicing), Studio Pro's Chorder, and the plugins that play chords from one finger (Scaler, Captain Chords, InstaChord). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -30,7 +30,7 @@ Turns each note into a chord. **Add** puts notes over it at intervals you set (i
 |---|---|---|---|---|---|---|---|---|
 | `mode` | Mode | Adds notes at your intervals, plays the song's chord on each note, or the key's chord for each key. | Add, Song, Keys | Add | choice | – | – | Yes |
 | `shift<n>` (1–6) | Shift *n* | A note added over each note played, this far from it; 0 adds none. | −36 … 36 | +4, +7, 0, 0, 0, 0 | st or steps | linear | – | Yes |
-| `inKey` | In key | Shifts count steps of the key, so each added note stays in it. | Off, On | Off | toggle | – | – | Yes |
+| `inkey` | In key | Shifts count steps of the key, so each added note stays in it. | Off, On | Off | toggle | – | – | Yes |
 | `level` | Level | How hard the added notes play, as a share of the note played. | 0 … 100 | 100 | % | linear | – | Yes |
 | `kind` | Kind | How many notes the chords have in Song and Keys: three, a 7th added, or a 9th. | Triad, 7th, 9th | Triad | choice | – | – | Yes |
 | `voicing` | Voicing | How the chord's notes are spread: close, open, drop 2 or spread over two octaves. | Close, Open, Drop 2, Spread | Close | choice | – | – | Yes |
@@ -42,7 +42,16 @@ Turns each note into a chord. **Add** puts notes over it at intervals you set (i
 | `swell` | Swell | Each note of a strum louder (or softer) than the one before. | −100 … 100 | 0 | % | linear | – | Yes |
 | `direction` | Direction | The order a strum plays the chord's notes in: up, down, or alternating. | Up, Down, Alt | Up | choice | – | – | Yes |
 
-And HARMONY's (`follow`, `key`, `root`, `scale`, `chord`, `split`), as the [Pitch's](../pitch/SPEC.md). Song mode follows Follow; Keys uses Key.
+And HARMONY's, as the [Pitch's](../pitch/SPEC.md): Song mode follows Follow; Keys uses Key.
+
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|---|
+| `follow` | Follow | Whose chords it follows: the song's, the listened track's, chords played below the split, or its own. | Song, Track, Played, Own | Song | choice | – | – | Yes |
+| `key` | Key | The song's key, or a key of its own (used too when the song has none). | Song, Own | Song | choice | – | – | Yes |
+| `root` | Root | Its own key's and its own chord's root. | C … B | C | choice | – | – | Yes |
+| `scale` | Scale | Its own key's scale. | the 36 scales of `libs/music`, by an index frozen with the parameter (new scales appended) | Major | choice | – | – | Yes |
+| `chord` | Own chord | Its own chord, on the root. | Major, Minor, 7, Maj 7, Min 7, Sus 4, Dim, Aug | Major | choice | – | – | Yes |
+| `split` | Split | With Follow on Played, notes below this note set the chord and aren't played. | C−2 … G8 | C2 | note | linear | – | Yes |
 
 **Non-parameter state:** none. **Learn** (a button) writes Shift 1–6 from the chord held, one undo step; it isn't a parameter.
 

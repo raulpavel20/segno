@@ -6,14 +6,11 @@ fd_add_test(NAME fd_integration_tests
     LIBS fd_app_ui fd::testkit_device fd_dep_httplib juce::juce_recommended_config_flags
     JUCE OWN_MAIN)
 target_compile_definitions(fd_integration_tests PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 FD_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
-# MIDI effects drawn before they're built (docs/design/midi-effects.md §18, step 0): their modules
-# and panels compiled here until step 1 registers them.
+# The Melody, drawn before it's built (docs/design/midi-effects.md §18, step 0): its module and
+# panel compiled here until step 2 registers it.
 target_sources(fd_integration_tests PRIVATE
-    ${PROJECT_SOURCE_DIR}/devices/midi-shared/Harmony.cpp
-    ${PROJECT_SOURCE_DIR}/devices/pitch/dsp/Pitch.cpp ${PROJECT_SOURCE_DIR}/devices/pitch/ui/PitchPanel.cpp
-    ${PROJECT_SOURCE_DIR}/devices/chord/dsp/Chord.cpp ${PROJECT_SOURCE_DIR}/devices/chord/ui/ChordPanel.cpp
-    ${PROJECT_SOURCE_DIR}/devices/arpeggiator/dsp/Arpeggiator.cpp ${PROJECT_SOURCE_DIR}/devices/arpeggiator/ui/ArpeggiatorPanel.cpp
     ${PROJECT_SOURCE_DIR}/devices/melody/dsp/Melody.cpp ${PROJECT_SOURCE_DIR}/devices/melody/ui/MelodyPanel.cpp)
+target_link_libraries(fd_integration_tests PRIVATE fd_midi_shared)
 
 if(TARGET fd_plugin_utility_VST3 AND TARGET fd_plugin_subtractive_synth_VST3)
     # Paths of our built VST3s, for the "VST3 hosted in tracktion" tests (an effect and an

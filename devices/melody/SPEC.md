@@ -14,14 +14,14 @@ A step sequencer that also writes. Draw the steps, or let it write a line from t
 | ID | Name | Description | Range | Default |
 |---|---|---|---|---|
 | `sync`, `rate`, `hz` | Sync, Rate | As the Arpeggiator's | | 1/16 |
-| `<lane>Length` | *Lane* length | Pitch, Velocity, Gate, Chance, Ratchet, Slide: steps before the lane starts again | 1 … 64 | 16 |
+| `<lane>.length` | *Lane* length | Pitch, Velocity, Gate, Chance, Ratchet, Slide: steps before the lane starts again | 1 … 64 | 16 |
 | `density` | Density | How many steps it writes notes on | 0 … 100 % | 60 % |
 | `leaps` | Leaps | Steps of the key, or leaps | 0 … 100 % | 25 % |
 | `contour` | Contour | The line's shape over its length | Rise, Fall, Arch, Wave, Any | Arch |
 | `phrase` | Phrase | A motif and its repeats | Free, AA′, AABA, ABAB | AA′ |
 | `lowest`, `highest` | Lowest, Highest | The range it writes in | notes | C3, C5 |
 | `change` | Change | How much each lap differs from the last; 0 loops | 0 … 100 % | 0 |
-| `changeMode` | Change mode | New notes, or the same notes in new orders | New, Shuffle | New |
+| `change.mode` | Change mode | New notes, or the same notes in new orders | New, Shuffle | New |
 | `climb` | Climb | Steps of the key the line moves each lap, home at each section | −7 … 7 | 0 |
 | `plays` | Plays | Where its track has clips, or whenever the song plays | In clips, Always | In clips |
 | `sections` | Sections | Each section's name its own line, each section its own, or one line | By name, Each, One | By name |

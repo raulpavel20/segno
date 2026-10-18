@@ -1,6 +1,6 @@
 # Arpeggiator: device spec
 
-- **Status:** Draft, for the product owner's review with the panels drawn (midi-effects.md §18, step 0). IDs become permanent when it's approved.
+- **Status:** Approved by the product owner (2026-10-18) with the panels drawn (midi-effects.md §21); IDs are permanent (made lowercase and dotted, as docs/ids.md has them, before any build: midi-effects.md §22). Built in step 1a; the DAW's side in 1b, presets in 1c.
 - **Type:** MIDI effect
 - **Tier / milestone:** Tier 1, M3 P11 step 1 ([midi-effects.md](../../docs/design/midi-effects.md), [ADR 0074](../../docs/decisions/0074-midi-effects-know-the-song.md))
 - **Live target:** Live 12's Arpeggiator (styles, rate synced or free, gate past 100 % for legato, Steps and Distance in semitones or steps of the scale, retrigger by note or beat, repeats, groove, hold, velocity decay) and the Sequencers pack's Step Arp (values per step). Checked against Bitwig's (17 patterns, per-step lanes), Logic's (patterns, capture), Studio Pro's (32-step velocity and gate), Kirnu Cream, BlueARP and Thesys (lanes of their own lengths), and the NDLR's motifs (a pattern and a rhythm of different lengths). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -37,14 +37,23 @@ Plays the notes held one at a time, in an order, at a rate, over octaves or step
 | `swing` | Swing | Delays every second step. | 0 … 75 | 0 | % | linear | – | Yes |
 | `steps` | Steps | How many times the pattern plays, each time moved by Distance. | 1 … 8 | 1 | | linear | – | Yes |
 | `distance` | Distance | How far each repeat of the pattern moves: semitones, or steps of the key with In key. | −24 … 24 | 12 | st or steps | linear | – | Yes |
-| `inKey` | In key | Distance and the Octave lane count steps of the key. | Off, On | Off | toggle | – | – | Yes |
+| `inkey` | In key | Distance and the Octave lane count steps of the key. | Off, On | Off | toggle | – | – | Yes |
 | `retrigger` | Retrigger | When the pattern starts again from its first step. | Off, Note, 1 bar, 2 bars, 4 bars, 8 bars, Section | Note | choice | – | – | Yes |
 | `hold` | Hold | Keeps playing the notes after they're let go, until new ones are played. | Off, On | Off | toggle | – | – | Yes |
-| `songChords` | Song chords | With no notes held, plays the chord sounding in the song. | Off, On | Off | toggle | – | – | Yes |
+| `song.chords` | Song chords | With no notes held, plays the chord sounding in the song. | Off, On | Off | toggle | – | – | Yes |
 | `from` | From | The note the song's chords are played from. | C−2 … G8 | C3 | note | linear | – | Yes |
-| `<lane>Length` (`velocityLength`, `gateLength`, `octaveLength`, `ratchetLength`, `chanceLength`) | *Lane* length | How many steps the lane has before it starts again. | 1 … 16 | 16 | steps | linear | – | Yes |
+| `<lane>.length` (`velocity.length`, `gate.length`, `octave.length`, `ratchet.length`, `chance.length`) | *Lane* length | How many steps the lane has before it starts again. | 1 … 16 | 16 | steps | linear | – | Yes |
 
-And HARMONY's (`follow`, `key`, `root`, `scale`, `chord`, `split`), as the [Pitch's](../pitch/SPEC.md): Song chords follow Follow; In key uses Key.
+And HARMONY's, as the [Pitch's](../pitch/SPEC.md): Song chords follow Follow; In key uses Key.
+
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|---|
+| `follow` | Follow | Whose chords it follows: the song's, the listened track's, chords played below the split, or its own. | Song, Track, Played, Own | Song | choice | – | – | Yes |
+| `key` | Key | The song's key, or a key of its own (used too when the song has none). | Song, Own | Song | choice | – | – | Yes |
+| `root` | Root | Its own key's and its own chord's root. | C … B | C | choice | – | – | Yes |
+| `scale` | Scale | Its own key's scale. | the 36 scales of `libs/music`, by an index frozen with the parameter (new scales appended) | Major | choice | – | – | Yes |
+| `chord` | Own chord | Its own chord, on the root. | Major, Minor, 7, Maj 7, Min 7, Sus 4, Dim, Aug | Major | choice | – | – | Yes |
+| `split` | Split | With Follow on Played, notes below this note set the chord and aren't played. | C−2 … G8 | C2 | note | linear | – | Yes |
 
 **Non-parameter state** (extra state, kept in presets): the lanes' values, 16 each:
 - Velocity: 0–200 % of the note's (100);

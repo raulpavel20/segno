@@ -1,6 +1,6 @@
 #include "MelodyPanel.h"
 
-#include "../../midi-shared/LaneFeed.h"
+#include "../../midi-shared/ui/LaneFeed.h"
 #include "../dsp/Melody.h"
 
 namespace fd::devices

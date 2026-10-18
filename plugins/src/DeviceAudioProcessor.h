@@ -95,7 +95,7 @@ private:
     juce::String name_;
     std::vector<juce::RangedAudioParameter*> params_; // owned by AudioProcessor
     std::vector<size_t> latencyParams_;               // ParamFlags::ChangesLatency (ADR 0020)
-    EventList events_;
+    EventList events_, outEvents_;
     // Notes from the editor, waiting for the audio thread (one writer, one reader).
     static constexpr int kQueuedNotes = 32;
     juce::AbstractFifo noteFifo_{kQueuedNotes};

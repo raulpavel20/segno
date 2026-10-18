@@ -1,6 +1,9 @@
 #include "Pitch.h"
 
-#include "../../midi-shared/PassThrough.h"
+#include "../../midi-shared/dsp/PassThrough.h"
+
+#include <cmath>
+#include <fd/music/Following.h>
 
 namespace fd::devices
 {
@@ -150,11 +153,137 @@ const DeviceInfo pitchInfo{.id = "pitch",
                            .params = table()};
 } // namespace
 
-Pitch::Pitch() : Device(pitchInfo) {}
+Pitch::Pitch() : NoteEffect(pitchInfo) {}
 
-void Pitch::process(ProcessContext& context) noexcept
+void Pitch::processNotes(ProcessContext& c, const BlockBeats& beats) noexcept
 {
-    passThrough(context);
+    follower_.begin(c, params(), HarmonyFirst);
+    Moments moments(c, beats, follower_);
+    const bool moves = params().getInt(Fit) == 2 && params().getInt(Change) == 0;
+    while (moments.next() != INT_MAX)
+    {
+        const auto m = moments.take();
+        if (m.kind == Moments::Kind::Change && moves)
+            refit(c, m.offset, beats);
+        else if (m.kind == Moments::Kind::Input && !passOn(c, m.event))
+            play(c, m.event, beats);
+    }
+}
+
+namespace
+{
+music::PitchMoves movesOf(const ParamStore& p)
+{
+    return {.semitones = p.getInt(Pitch::Semitones),
+            .steps = p.getInt(Pitch::Steps),
+            .mirror = p.getBool(Pitch::Mirror),
+            .axis = p.getInt(Pitch::Axis),
+            .chance = p.get(Pitch::Chance) / 100.0,
+            .spread = p.getInt(Pitch::Spread),
+            .way = p.getInt(Pitch::Way)};
+}
+
+music::PitchFit fitOf(const ParamStore& p)
+{
+    return {.fit = p.getInt(Pitch::Fit),
+            .toward = static_cast<music::Toward>(p.getInt(Pitch::Toward)),
+            .passing = p.getBool(Pitch::Passing),
+            .lowest = p.getInt(Pitch::Lowest),
+            .highest = p.getInt(Pitch::Highest),
+            .outside = p.getInt(Pitch::Outside)};
+}
+
+/// A note's place for its roll: its beat in 960ths and its key.
+std::uint64_t place(double beat) noexcept
+{
+    return static_cast<std::uint64_t>(std::llround(beat * 960.0));
+}
+} // namespace
+
+void Pitch::play(ProcessContext& c, const Event& e, const BlockBeats& beats) noexcept
+{
+    auto& h = held_[static_cast<std::size_t>(e.channel & 15) * 128 + (e.key & 127)];
+    if (e.type == EventType::PolyPressure)
+    {
+        // Pressure follows its note to the note it became.
+        if (h.out >= 0)
+        {
+            Event p = e;
+            p.key = static_cast<std::uint8_t>(h.out);
+            c.outEvents->push(p);
+        }
+        return;
+    }
+    if (h.out >= 0)
+    {
+        // Ended (or played again over itself): the note it became ends.
+        stopNote(c, e.sampleOffset, e.channel, static_cast<std::uint8_t>(h.out));
+        h.out = -1;
+        --holding_;
+    }
+    if (e.type != EventType::NoteOn)
+        return;
+
+    const double beat = beats.at(e.sampleOffset);
+    const int tie = last_ >= 0 && e.key > last_ ? 1 : -1;
+    last_ = e.key;
+    const auto key = follower_.key();
+    const int moved =
+        music::pitchMoved(e.key, movesOf(params()), key, music::mix(roll(), place(beat), e.key));
+    const int out = music::pitchFitted(moved, fitOf(params()), key, follower_.chordAt(beat).notes,
+                                       music::onBeat(beat), tie);
+    if (out < 0 || out > 127)
+        return;
+    h = {.out = static_cast<std::int16_t>(out),
+         .moved = static_cast<std::int16_t>(moved),
+         .velocity = e.value,
+         .tie = static_cast<std::int8_t>(tie)};
+    ++holding_;
+    startNote(c, {.sampleOffset = e.sampleOffset,
+                  .channel = e.channel,
+                  .key = static_cast<std::uint8_t>(out),
+                  .value = e.value});
+}
+
+void Pitch::refit(ProcessContext& c, int offset, const BlockBeats& beats) noexcept
+{
+    if (holding_ == 0)
+        return;
+    const double beat = beats.at(offset);
+    const auto key = follower_.key();
+    const auto chord = follower_.chordAt(beat).notes;
+    const auto fit = fitOf(params());
+    for (std::size_t i = 0; i < held_.size(); ++i)
+    {
+        auto& h = held_[i];
+        if (h.out < 0)
+            continue;
+        const int out = music::pitchFitted(h.moved, fit, key, chord, music::onBeat(beat), h.tie);
+        if (out == h.out)
+            continue;
+        // A held note can't change pitch: it ends, and the note that fits starts at the change.
+        const auto channel = static_cast<std::uint8_t>(i / 128);
+        stopNote(c, offset, channel, static_cast<std::uint8_t>(h.out));
+        if (out < 0 || out > 127)
+        {
+            h.out = -1;
+            --holding_;
+            continue;
+        }
+        h.out = static_cast<std::int16_t>(out);
+        startNote(c, {.sampleOffset = offset,
+                      .channel = channel,
+                      .key = static_cast<std::uint8_t>(out),
+                      .value = h.velocity});
+    }
+}
+
+void Pitch::clearNotes() noexcept
+{
+    held_.fill({});
+    holding_ = 0;
+    last_ = -1;
+    follower_.reset();
 }
 
 const DeviceFactory& pitchFactory()

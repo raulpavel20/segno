@@ -86,6 +86,8 @@ The contract is frozen since M1's sign-off ([ADR 0034](decisions/0034-device-api
   - `listen`: the notes of the track the module listens to, this block (the note-sources tracktion patch).
 
   `host::toMidiMessage` turns events back into MIDI for both adapters.
+
+  The suite's MIDI effects share `devices/midi-shared/dsp` (JUCE-free; §22 of the design): `NoteEffect`, the base (a clock, its own beats while the song is stopped, its roll, notes shared by owners and written through the ledger), the `Follower` (the key and the chord now, from the song, a listened track or the notes below the split) and `Moments` (a block's chord changes and notes in time order). Their theory is `libs/music`'s (`Following.h`, `Arpeggio.h`), pure, for the clip view's tools and assistants too. As plugins they have no audio bus (`KIND midi`).
 - **Latency** is constant for a device instance ([ADR 0016](decisions/0016-constant-device-latency.md)), except for settings marked `ParamFlags::ChangesLatency` (lookahead, [ADR 0020](decisions/0020-latency-follows-lookahead.md)), which hosts learn of on the message thread.
 
 ## The DAW

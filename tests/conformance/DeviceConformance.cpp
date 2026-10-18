@@ -293,6 +293,213 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
     });
 }
 
+// --- MIDI effects (ADR 0074) ---------------------------------------------------------------
+
+namespace
+{
+bool isNoteEffect(const DeviceInfo& info)
+{
+    return info.kind == DeviceKind::MidiEffect;
+}
+
+/// What a MIDI effect hears: a melody and chords, overlapping, with a controller and pressure; a
+/// song of chords changing every two beats, in a key. Deterministic from the seed.
+struct NoteStimulus
+{
+    std::vector<TimedEvent> events;
+    SongView song;
+};
+
+NoteStimulus noteStimulusFor(int numSamples, std::uint32_t seed)
+{
+    NoteStimulus s;
+    Rng rng(seed);
+    std::vector<std::pair<std::int64_t, TimedEvent>> offs;
+    for (std::int64_t at = 0; at < numSamples - 4000;
+         at += 1500 + static_cast<std::int64_t>(rng.nextU32() % 4000))
+    {
+        const int notes = 1 + static_cast<int>(rng.nextU32() % 3);
+        for (int n = 0; n < notes; ++n)
+        {
+            const auto key = static_cast<std::uint8_t>(40 + rng.nextU32() % 40);
+            s.events.push_back({at,
+                                {.type = EventType::NoteOn,
+                                 .key = key,
+                                 .value = 0.3f + 0.6f * static_cast<float>(rng.next01())}});
+            const auto end = std::min<std::int64_t>(numSamples - 1, at + 500 + rng.nextU32() % 9000);
+            offs.push_back({end, {end, {.type = EventType::NoteOff, .key = key}}});
+        }
+        if (rng.nextU32() % 4 == 0)
+            s.events.push_back({at + 7, {.type = EventType::Controller, .key = 1, .value = 0.5f}});
+    }
+    for (const auto& [at, e] : offs)
+        s.events.push_back(e);
+    std::stable_sort(s.events.begin(), s.events.end(), [](const TimedEvent& a, const TimedEvent& b)
+                     { return a.samplePosition < b.samplePosition; });
+    // Notes that overlap themselves are left as they come: a module has to cope.
+    for (int i = 0; i < 64; ++i)
+    {
+        const int root = static_cast<int>((i * 7) % 12);
+        const std::uint16_t triad = (i % 3 == 1) ? 0b000010001001 : 0b000010010001;
+        std::uint16_t notes = 0;
+        for (int b = 0; b < 12; ++b)
+            if ((triad >> b) & 1u)
+                notes = static_cast<std::uint16_t>(notes | (1u << ((b + root) % 12)));
+        s.song.chords.push_back({.start = i * 2.0, .end = i * 2.0 + 2.0, .root = root, .notes = notes});
+    }
+    s.song.sections = {{.start = 0.0, .end = 16.0, .name = 1}, {.start = 16.0, .end = 128.0, .name = 2}};
+    return s;
+}
+
+RenderOptions noteOptionsFor(const NoteStimulus& s, std::vector<TimedEvent>& out,
+                             std::vector<int> pattern = {512})
+{
+    RenderOptions o;
+    o.sampleRate = kSampleRate;
+    o.blockPattern = std::move(pattern);
+    o.events = s.events;
+    o.song = &s.song;
+    o.transport.key = {.root = 2, .notes = 0x0AD6}; // D major: D E F♯ G A B C♯
+    o.eventsOut = &out;
+    return o;
+}
+
+std::vector<TimedEvent> notesOut(Device& d, const NoteStimulus& s, int numSamples,
+                                 std::vector<int> pattern = {512})
+{
+    std::vector<TimedEvent> out;
+    render(d, AudioBuffer(1, numSamples), noteOptionsFor(s, out, std::move(pattern)));
+    return out;
+}
+
+bool sameNotes(const std::vector<TimedEvent>& a, const std::vector<TimedEvent>& b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (std::size_t i = 0; i < a.size(); ++i)
+        if (a[i].samplePosition != b[i].samplePosition || a[i].event.type != b[i].event.type ||
+            a[i].event.key != b[i].event.key || a[i].event.channel != b[i].event.channel ||
+            a[i].event.value != b[i].event.value)
+            return false;
+    return true;
+}
+
+/// Every note started is ended once, and none is ended that wasn't started.
+std::string unbalanced(const std::vector<TimedEvent>& events)
+{
+    std::map<int, int> sounding;
+    for (const auto& e : events)
+    {
+        const int k = e.event.channel * 128 + e.event.key;
+        if (e.event.type == EventType::NoteOn)
+            ++sounding[k];
+        else if (e.event.type == EventType::NoteOff && --sounding[k] < 0)
+            return "note " + std::to_string(e.event.key) + " ended unstarted at " +
+                   std::to_string(e.samplePosition);
+    }
+    for (const auto& [k, n] : sounding)
+        if (n != 0)
+            return "note " + std::to_string(k % 128) + " left sounding";
+    return {};
+}
+} // namespace
+
+TEST_CASE("conformance: a MIDI effect's notes are the same for any block size", "[fast][conformance]")
+{
+    forEachDevice(
+        [](const DeviceFactory& f)
+        {
+            if (!isNoteEffect(f.info()))
+                return;
+            const auto s = noteStimulusFor(96000, 3);
+            for (std::uint32_t setting : {0u, 11u, 12u, 13u})
+            {
+                auto make = [&]
+                {
+                    auto d = create(f);
+                    if (setting != 0)
+                        randomize(*d, setting);
+                    return d;
+                };
+                auto ref = make();
+                const auto reference = notesOut(*ref, s, 96000);
+                for (const auto& pattern :
+                     std::vector<std::vector<int>>{{1}, {7}, {64}, {480}, {4096}, {3, 100, 31, 33, 1000}})
+                {
+                    auto d = make();
+                    INFO("setting " << setting << ", first block size " << pattern.front());
+                    CHECK(sameNotes(notesOut(*d, s, 96000, pattern), reference));
+                }
+            }
+        });
+}
+
+TEST_CASE("conformance: a MIDI effect ends every note it starts, through stops and jumps",
+          "[fast][conformance]")
+{
+    forEachDevice(
+        [](const DeviceFactory& f)
+        {
+            if (!isNoteEffect(f.info()))
+                return;
+            for (std::uint32_t seed = 1; seed <= 12; ++seed)
+            {
+                auto d = create(f);
+                if (seed > 1)
+                    randomize(*d, seed * 31);
+                const auto s = noteStimulusFor(192000, seed);
+                std::vector<TimedEvent> out;
+                auto o = noteOptionsFor(s, out, {64, 1024, 333, 17});
+                // The host's way: a stop or a jump comes with all notes off (DevicePlugin, step 0a).
+                Rng rng(seed);
+                std::vector<std::int64_t> jumps;
+                for (int j = 0; j < 4; ++j)
+                    jumps.push_back(rng.nextU32() % 192000);
+                auto events = o.events;
+                for (const auto at : jumps)
+                    events.push_back({at, {.type = EventType::AllNotesOff}});
+                std::stable_sort(events.begin(), events.end(), [](const TimedEvent& a, const TimedEvent& b)
+                                 { return a.samplePosition < b.samplePosition; });
+                events.push_back({191999, {.type = EventType::AllNotesOff}});
+                o.events = events;
+                o.transportAt = [jumps](TransportInfo& t, std::int64_t at)
+                {
+                    for (const auto j : jumps)
+                        if (at >= j)
+                            t.ppqPosition += 3.25;                         // jumped on
+                    t.playing = !(at >= jumps[0] && at < jumps[0] + 9000); // stopped a while
+                };
+                render(*d, AudioBuffer(1, 192000), o);
+                INFO("seed " << seed);
+                CHECK(unbalanced(out).empty());
+                CAPTURE(unbalanced(out));
+            }
+        });
+}
+
+TEST_CASE("conformance: a MIDI effect's state and reset reproduce its notes", "[fast][conformance]")
+{
+    forEachDevice(
+        [](const DeviceFactory& f)
+        {
+            if (!isNoteEffect(f.info()))
+                return;
+            const auto s = noteStimulusFor(96000, 9);
+            auto a = create(f);
+            randomize(*a, 4321);
+            const auto first = notesOut(*a, s, 96000);
+            auto b = create(f);
+            REQUIRE(deserializeState(*b, serializeState(*a)) == ApplyResult::Ok);
+            CHECK(sameNotes(notesOut(*b, s, 96000), first));
+            a->reset();
+            std::vector<TimedEvent> again;
+            auto o = noteOptionsFor(s, again);
+            o.skipPrepare = true;
+            render(*a, AudioBuffer(1, 96000), o);
+            CHECK(sameNotes(again, first));
+        });
+}
+
 // --- Instruments (M1 step A3) ------------------------------------------------------------
 
 namespace

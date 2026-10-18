@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../../midi-shared/Harmony.h"
+#include "../../midi-shared/dsp/Harmony.h"
 
+#include <algorithm>
 #include <fd/device/Device.h>
 #include <fd/device/Registry.h>
 
@@ -54,6 +55,13 @@ public:
     static constexpr int maxSteps = 64;
     /// What a lane's step holds before it's drawn: nothing changes.
     [[nodiscard]] static float neutral(int lane) noexcept;
+    /// A lane's extra-state key ("lane.pitch").
+    [[nodiscard]] static std::string_view laneKey(int lane) noexcept
+    {
+        static constexpr std::array<std::string_view, LaneCount> keys{
+            "lane.pitch", "lane.velocity", "lane.gate", "lane.chance", "lane.ratchet", "lane.slide"};
+        return keys[static_cast<std::size_t>(std::clamp(lane, 0, LaneCount - 1))];
+    }
 
     Melody();
     /// A lane's steps (extra state: devices/melody/SPEC.md, "Non-parameter state"), read by the

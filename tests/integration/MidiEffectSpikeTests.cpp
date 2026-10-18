@@ -451,7 +451,7 @@ std::shared_ptr<fd::SongView> viewOf(te::AudioTrack& t, std::vector<fd::SongChor
                 v->notes.push_back({.start = start + n->getStartBeat().inBeats(),
                                     .length = n->getLengthBeats().inBeats(),
                                     .key = static_cast<std::uint8_t>(n->getNoteNumber()),
-                                    .velocity = n->getVelocity() / 127.0f});
+                                    .velocity = static_cast<float>(n->getVelocity()) / 127.0f});
         }
     std::sort(v->notes.begin(), v->notes.end(),
               [](const auto& a, const auto& b) { return a.start < b.start; });

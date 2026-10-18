@@ -1,6 +1,6 @@
 #include "ArpeggiatorPanel.h"
 
-#include "../../midi-shared/LaneFeed.h"
+#include "../../midi-shared/ui/LaneFeed.h"
 #include "../dsp/Arpeggiator.h"
 
 namespace fd::devices
