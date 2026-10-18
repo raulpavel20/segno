@@ -130,6 +130,8 @@ Bass and Poli (Max for Live instruments in Live) are covered by Subtractive pres
 
 Delivered **natively in our DAW first**. Many hosts, including Live, have limited support for MIDI-effect plugins, so the plugin builds are best-effort.
 
+**A revision is proposed for review** ([midi-effects.md](../design/midi-effects.md), [ADR 0074](../decisions/0074-midi-effects-know-the-song.md), 2026-10-18): eleven modules that know the song (Pitch taking Scale and Random; Velocity, Note Length, Note Echo, Groove and Controllers; the generators Rhythm, Bassline and Melody), as M3 P11. The table below stands until it's approved.
+
 | Working name | Scope | Covers (Live) | Tier | Milestone |
 |---|---|---|---|---|
 | **Arpeggiator** | Patterns, rate/sync, gate, steps, transposition, retrigger | Arpeggiator | 1 | M4 |
