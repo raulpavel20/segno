@@ -10,6 +10,7 @@
 #include "model/MidiMap.h"
 #include "model/RoundTrip.h"
 #include "model/Snapshot.h"
+#include "model/TimeEdits.h"
 
 #include <array>
 #include <fd/music/Detect.h>
@@ -1442,6 +1443,72 @@ public:
     /// its place. One undo step, "Paste section <name>".
     SectionPaste pasteSections(const SectionClipboard& clipboard, double at);
 
+    // ---- time selection (ADR 0073, docs/design/time-selection.md) --------------------------------
+    // A stretch of time on chosen rows (tracks and automation lanes). Plain commands act on the
+    // stretch on its rows and leave the gap (§8); the "… time" commands act on the whole song (§9).
+
+    /// What a command does to a stretch on its rows (§8).
+    enum class StretchCommand
+    {
+        Delete,      // clears it: clips cut at its edges, the parts inside gone; lanes' points inside gone
+        Split,       // splits its tracks' clips at its edges
+        Crop,        // the clips crossing it lose what's outside it
+        Mute,        // splits at its edges and mutes the parts inside (or unmutes them, all muted)
+        Reverse,     // splits at its edges and reverses the audio parts inside
+        Fade,        // Fade to selection: a fade-in, a fade-out or a crossfade, by where it lies
+        NewMidiClip, // an empty MIDI clip over it on each of its tracks
+        Duplicate,   // a copy right after it, on its rows, overwriting
+    };
+    struct StretchResult
+    {
+        bool changed = false;
+        std::vector<std::uint64_t> clips; // Split: the parts inside; NewMidiClip: the new clips
+        model::TimeSpan span;             // where the selection goes after (Duplicate, Paste: the copy)
+        int rowsLeftOut = 0;              // tracks pasted past the last track
+    };
+    /// Why `command` can't act on `stretch` now (a dimmed item says it); empty if it can.
+    [[nodiscard]] std::string stretchRefusal(const model::TimeSelection& stretch, StretchCommand command);
+    /// Carries `command` out, one undo step named for it ("Delete", "Split", "Crop", "Mute",
+    /// "Reverse", "Fade", "New MIDI clip", "Duplicate"); nothing if it's refused.
+    StretchResult editStretch(const model::TimeSelection& stretch, StretchCommand command);
+    /// Moves the stretch `seconds` later and `tracks` track rows down (lanes stay on their own
+    /// rows), or copies it there: it overwrites where it lands, and a move leaves the place it left
+    /// empty (§10). One undo step, "Move" or "Copy"; nothing if a track would land past the list.
+    StretchResult moveStretch(const model::TimeSelection& stretch, double seconds, int tracks, bool copy);
+    /// A stretch copied (§8): its tracks' clips and its lanes' curves as they are now, so a cut
+    /// still pastes. Empty when nothing was copied.
+    class StretchClipboard
+    {
+    public:
+        [[nodiscard]] bool empty() const noexcept;
+        [[nodiscard]] double length() const noexcept;
+
+    private:
+        friend class Session;
+        struct Data;
+        std::shared_ptr<const Data> data_;
+    };
+    [[nodiscard]] StretchClipboard copyStretch(const model::TimeSelection& stretch) const;
+    /// Pastes at `at`: its tracks from `topTrack` down, keeping their places (gaps between them too);
+    /// its lanes' curves back on their own lanes. It overwrites what it lands on. One undo step,
+    /// "Paste" (`undoName`).
+    StretchResult pasteStretch(const StretchClipboard& clipboard, double at, std::uint64_t topTrack,
+                               const std::string& undoName = "Paste");
+
+    // Song-wide (§9): every track and lane, and the sections' marks, as the sections' commands move
+    // them. Each one undo step named for it.
+    /// Empty time `length` long at `at`, everything after it moving later ("Insert time").
+    bool insertTime(double at, double length);
+    /// The stretch's time gone from the whole song, the gap closing ("Delete time").
+    bool deleteTime(double start, double end);
+    /// A copy of the whole song's stretch right after it, the rest moving later ("Duplicate time").
+    bool duplicateTime(double start, double end);
+    /// The whole song's stretch, with the section marks wholly inside it (a SectionClipboard: a
+    /// piece of the song).
+    [[nodiscard]] SectionClipboard copyTime(double start, double end);
+    /// Pastes a piece of the song at `at` exactly, the music after it moving later ("Paste time").
+    SectionPaste pasteTime(const SectionClipboard& clipboard, double at);
+
     // ---- the song's key (M3 P3, ADR 0057, docs/design/key-and-scale.md) ----------------------
 
     /// The song's key: one for the whole song, or none (std::nullopt). One undo step, "Set key to
@@ -1561,14 +1628,18 @@ public:
 
 private:
     void replaceEdit(std::unique_ptr<tracktion::Edit> edit, std::optional<juce::File> file);
+    /// Pastes a piece of the song (pasteSections, pasteTime) with its start at `landing`, the music
+    /// after moving later. One undo step, `undoName`.
+    SectionPaste pastePiece(const SectionClipboard& clipboard, double landing, const std::string& undoName);
     /// Starts a bounce of `runs` (bounce(), bounceStretch()); null if there are none.
     std::shared_ptr<RenderJob> startBounce(std::vector<model::BounceRun> runs, model::BounceMode mode,
                                            std::function<void(const BounceResult&)> done,
                                            const std::string& undoName);
     // The clipboards' clips (SessionTracks.cpp).
     /// Every clip across `start` to `end`, whole, on its track's row (from the first track), its
-    /// time from `from`.
-    [[nodiscard]] ClipClipboard copyClipsAcross(double start, double end, double from) const;
+    /// time from `from`. With `only`, those tracks' clips alone, rows from the topmost of them.
+    [[nodiscard]] ClipClipboard copyClipsAcross(double start, double end, double from,
+                                                const std::set<std::uint64_t>* only = nullptr) const;
     /// Puts a clipboard's clips on the tracks from `track` down, its time `from` at `at`, with the
     /// takes they play from; with `cutUnder`, they cut what they land on (ADR 0019).
     PasteResult placeClips(const ClipClipboard& clipboard, std::size_t track, double at, bool cutUnder);

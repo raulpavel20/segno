@@ -305,6 +305,41 @@ std::string Session::SectionClipboard::name() const
     return data_ == nullptr ? std::string() : data_->name;
 }
 
+namespace
+{
+/// A piece of the song from `start` to `end` (the section clipboard's, and copied time's): its
+/// sections wholly inside and every lane's curve, from the furthest clip across either edge
+/// (`before` ahead of `start`), so the clips across them come whole and are cut once pasted.
+struct PieceOfSong
+{
+    model::SongPiece piece;
+    double before = 0.0, length = 0.0;
+};
+PieceOfSong songPiece(const model::Snapshot& s, double start, double end)
+{
+    PieceOfSong out;
+    double from = start, to = end;
+    for (const auto& track : s.tracks)
+        for (const auto& c : track.clips)
+            if (c.start < end - kEpsilon && c.end() > start + kEpsilon)
+            {
+                from = std::min(from, c.start);
+                to = std::max(to, c.end());
+            }
+    model::SongContent content;
+    content.sections = s.sections;
+    for (const auto& lane : s.automationLanes)
+        content.lanes.push_back({.id = lane.id, .points = lane.points});
+    out.piece = model::pieceOf(content, from, to);
+    out.before = start - from;
+    out.length = end - start;
+    // Only its own sections: none in the margins.
+    std::erase_if(out.piece.sections, [&](const auto& x)
+                  { return x.start < out.before - kEpsilon || x.end > out.before + out.length + kEpsilon; });
+    return out;
+}
+} // namespace
+
 Session::SectionClipboard Session::copySectionsToClipboard(const std::vector<std::uint64_t>& sections)
 {
     SectionClipboard out;
@@ -313,44 +348,90 @@ Session::SectionClipboard Session::copySectionsToClipboard(const std::vector<std
     const auto span = model::spanOf(s->sections, sections);
     if (!span)
         return out;
-    // Out to the furthest clip across either edge.
-    double from = span->first, to = span->second;
-    for (const auto& track : s->tracks)
-        for (const auto& c : track.clips)
-            if (c.start < span->second - kEpsilon && c.end() > span->first + kEpsilon)
-            {
-                from = std::min(from, c.start);
-                to = std::max(to, c.end());
-            }
-    model::SongContent content;
-    content.sections = s->sections;
-    for (const auto& lane : s->automationLanes)
-        content.lanes.push_back({.id = lane.id, .points = lane.points});
     auto data = std::make_shared<SectionClipboard::Data>();
-    data->piece = model::pieceOf(content, from, to);
-    data->before = span->first - from;
-    data->length = span->second - span->first;
-    // Only the run's own sections: none in the margins.
-    std::erase_if(
-        data->piece.sections, [&](const auto& x)
-        { return x.start < data->before - kEpsilon || x.end > data->before + data->length + kEpsilon; });
-    data->clips = copyClipsAcross(span->first, span->second, from);
+    auto piece = songPiece(*s, span->first, span->second);
+    data->piece = std::move(piece.piece);
+    data->before = piece.before;
+    data->length = piece.length;
+    data->clips = copyClipsAcross(span->first, span->second, span->first - data->before);
     data->name = describe(*s, sections);
+    out.data_ = std::move(data);
+    return out;
+}
+
+Session::SectionClipboard Session::copyTime(double start, double end)
+{
+    SectionClipboard out;
+    if (!(end > start))
+        return out;
+    updateSnapshotNow(); // the project as it is now
+    const auto s = snapshot();
+    auto data = std::make_shared<SectionClipboard::Data>();
+    auto piece = songPiece(*s, start, end);
+    data->piece = std::move(piece.piece);
+    data->before = piece.before;
+    data->length = piece.length;
+    data->clips = copyClipsAcross(start, end, start - data->before);
+    data->name = "time";
     out.data_ = std::move(data);
     return out;
 }
 
 Session::SectionPaste Session::pasteSections(const SectionClipboard& clipboard, double at)
 {
-    SectionPaste result;
     if (clipboard.empty())
-        return result;
-    const auto& data = *clipboard.data_;
+        return {};
     updateSnapshotNow(); // plans read the project as it is now
+    return pastePiece(clipboard, model::pasteLanding(snapshot()->sections, at),
+                      "Paste section " + clipboard.data_->name);
+}
+
+Session::SectionPaste Session::pasteTime(const SectionClipboard& clipboard, double at)
+{
+    if (clipboard.empty())
+        return {};
+    updateSnapshotNow();
+    return pastePiece(clipboard, std::max(0.0, at), "Paste time");
+}
+
+bool Session::insertTime(double at, double length)
+{
+    if (!(length > 0.0) || at < 0.0)
+        return false;
+    updateSnapshotNow(); // plans read the project as it is now
+    EditGroup group(*this, "Insert time");
+    PlanRun{*this, *impl_->edit}.run(model::planInsert(at, length), std::nullopt);
+    return true;
+}
+
+bool Session::deleteTime(double start, double end)
+{
+    if (!(end > start) || start < 0.0)
+        return false;
+    updateSnapshotNow();
+    EditGroup group(*this, "Delete time");
+    PlanRun{*this, *impl_->edit}.run(model::planDelete(start, end), std::nullopt);
+    return true;
+}
+
+bool Session::duplicateTime(double start, double end)
+{
+    if (!(end > start) || start < 0.0)
+        return false;
+    updateSnapshotNow();
+    EditGroup group(*this, "Duplicate time");
+    PlanRun{*this, *impl_->edit}.run(model::planCopy(start, end, end), std::nullopt);
+    return true;
+}
+
+Session::SectionPaste Session::pastePiece(const SectionClipboard& clipboard, double landing,
+                                          const std::string& undoName)
+{
+    SectionPaste result;
+    const auto& data = *clipboard.data_;
     const auto before = snapshot()->sections;
-    const double landing = model::pasteLanding(before, at);
     const double start = landing + data.before, end = start + data.length, room = data.piece.length;
-    EditGroup group(*this, "Paste section " + data.name);
+    EditGroup group(*this, undoName);
     // Room for the whole piece, holding its automation and its sections...
     auto& edit = *impl_->edit;
     const auto placed = PlanRun{*this, edit}.run(model::planPaste(landing, room), std::nullopt, &data.piece);

@@ -454,27 +454,37 @@ Session::ClipClipboard Session::copyClips(const std::vector<std::uint64_t>& aske
     return out;
 }
 
-Session::ClipClipboard Session::copyClipsAcross(double start, double end, double from) const
+Session::ClipClipboard Session::copyClipsAcross(double start, double end, double from,
+                                                const std::set<std::uint64_t>* only) const
 {
     ClipClipboard out;
     auto data = std::make_shared<ClipClipboard::Data>();
     data->start = from;
     const auto tracks = impl_->tracks();
+    // Rows from the first track, or from the topmost of `only`.
+    std::size_t top = 0;
+    if (only != nullptr)
+        while (top < tracks.size() && !only->contains(tracks[top]->itemID.getRawID()))
+            ++top;
     std::set<std::uint64_t> stacks;
-    for (std::size_t row = 0; row < tracks.size(); ++row)
-        for (auto* c : tracks[row]->getClips())
+    for (std::size_t index = top; index < tracks.size(); ++index)
+    {
+        if (only != nullptr && !only->contains(tracks[index]->itemID.getRawID()))
+            continue;
+        const auto row = static_cast<int>(index - top);
+        for (auto* c : tracks[index]->getClips())
         {
             const auto range = c->getPosition().time;
             if (range.getStart().inSeconds() >= end - 1e-6 || range.getEnd().inSeconds() <= start + 1e-6)
                 continue;
             c->flushStateToValueTree();
-            data->clips.push_back(
-                {c->state.createCopy(), static_cast<int>(row), range.getStart().inSeconds() - from});
-            data->rows = static_cast<int>(row) + 1;
+            data->clips.push_back({c->state.createCopy(), row, range.getStart().inSeconds() - from});
+            data->rows = row + 1;
             if (const auto stack = impl_->stackOf(*c);
                 stack.isValid() && stacks.insert(Impl::idOf(stack)).second)
-                data->stacks.push_back({stack.createCopy(), static_cast<int>(row)});
+                data->stacks.push_back({stack.createCopy(), row});
         }
+    }
     if (!data->clips.empty())
         out.data_ = std::move(data);
     return out;
