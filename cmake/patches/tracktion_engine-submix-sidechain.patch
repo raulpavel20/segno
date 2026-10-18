@@ -1,0 +1,22 @@
+A submix as a sidechain source (Segno: docs/design/groups.md §7.5, §15).
+
+An audio track that a plugin's or a modifier's sidechain names sends its sound, after its plugins
+and before its mute, on that sidechain's bus (createNodeForAudioTrack). A submix folder track didn't,
+so a module listening to a group heard silence. The submix node now sends the same way. A folder
+that no sidechain names is unchanged.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-18 15:23:51.253936443 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-18 15:23:51.263322345 +0300
+@@ -1871,6 +1871,11 @@
+ 
+     node = createPluginNodeForTrack (submixTrack, *trackMuteState, std::move (node), params.processState.playHeadState, params);
+ 
++    // Segno: a submix is a sidechain source as an audio track is, heard after its plugins and
++    // before its mute.
++    if (isSidechainSource (submixTrack))
++        node = makeNode<SendNode> (std::move (node), getSidechainBusID (submixTrack.itemID));
++
+     node = makeNode<TrackMutingNode> (std::move (trackMuteState), std::move (node), false);
+ 
+     return node;
