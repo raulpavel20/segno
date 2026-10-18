@@ -34,6 +34,17 @@ void ActionRegistry::require(std::string_view id, std::function<bool()> conditio
     jassertfalse; // added first
 }
 
+void ActionRegistry::amend(std::string_view id, const std::function<void(Action&)>& change)
+{
+    for (auto& a : actions_)
+        if (a.id == id)
+        {
+            change(a);
+            return;
+        }
+    jassertfalse; // added first
+}
+
 bool ActionRegistry::perform(std::string_view id) const
 {
     const auto* a = find(id);

@@ -33,6 +33,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addProjectTools(registry, env);
     addTrackTools(registry, env);
     addSectionTools(registry, env);
+    addTimeTools(registry, env);
     addKeyTools(registry, env);
     addRackTools(registry, env);
     addKitTools(registry, env);

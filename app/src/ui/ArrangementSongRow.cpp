@@ -399,6 +399,15 @@ void ArrangementView::songMouseDown(const juce::MouseEvent& e)
     }
     if (!e.mods.isLeftButtonDown())
         return;
+    // Under the title band, the overview: a drag selects time on every track and lane, a click
+    // selects the master (time-selection.md §5). Sections move by their title band, as clips by
+    // their title strip.
+    if (e.getNumberOfClicks() == 1 && e.position.y >= static_cast<float>(lane.getY() + sh.songTitleHeight))
+    {
+        setQuietly({.channel = snapshot_->master.id});
+        beginTimeDrag(e, -1, true, false);
+        return;
+    }
     if (onSectionActivated)
         onSectionActivated();
     using K = SectionDrag::Kind;

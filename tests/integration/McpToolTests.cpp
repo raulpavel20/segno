@@ -3443,3 +3443,62 @@ TEST_CASE("mcp tools: a Granular's sources: a file and a clip's part loaded, rea
     CHECK(daw.fails("keep_roll", {{"module", eq}, {"keep", true}}).find("rolls no dice") !=
           std::string::npos);
 }
+
+TEST_CASE("mcp tools: a stretch of time on some rows edited, copied and moved; time inserted, deleted, "
+          "duplicated and copied in the whole song (time-selection.md §18)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    auto& s = *daw.session;
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id, t1 = s.snapshot()->tracks[1].id;
+    // A MIDI clip four bars long on each of the first two tracks (16 beats, 8 s at 120 BPM).
+    REQUIRE(s.createMidiClip(t0, 0.0, 8.0) != 0);
+    REQUIRE(s.createMidiClip(t1, 0.0, 8.0) != 0);
+    const auto track0 = fd::mcp::formatId(fd::mcp::IdKind::Track, t0),
+               track1 = fd::mcp::formatId(fd::mcp::IdKind::Track, t1);
+    auto starts = [&](int track)
+    {
+        std::vector<double> out;
+        const auto project = daw.project();
+        for (const auto& clip : project["tracks"][track]["clips"])
+            out.push_back(clip["start"]["beats"].get<double>());
+        return out;
+    };
+
+    // Bars 2 .. 3 of the first track deleted: the gap stays.
+    auto r = daw.call("edit_range",
+                      {{"from", "2.1.1"}, {"to", "3.1.1"}, {"rows", {track0}}, {"action", "delete"}});
+    CHECK(daw.session->undoDescription() == "Assistant: edit range");
+    CHECK(starts(0) == std::vector<double>{0.0, 8.0});
+    CHECK(starts(1) == std::vector<double>{0.0});
+    // Split on both tracks at bar 4 and bar 5: the parts inside handed back.
+    r = daw.call("edit_range",
+                 {{"from", "4.1.1"}, {"to", "5.1.1"}, {"rows", {track0, track1}}, {"action", "split"}});
+    CHECK(r["clips"].size() == 2);
+    CHECK(r["range"]["from"]["bbt"] == "4.1.1");
+    // Nothing crosses there: refused, saying why.
+    CHECK(
+        daw.fails("edit_range", {{"from", "2.1.1"}, {"to", "2.3.1"}, {"rows", {track0}}, {"action", "crop"}})
+            .find("edges") != std::string::npos);
+    CHECK(daw.fails("edit_range",
+                    {{"from", "2.1.1"}, {"to", "1.1.1"}, {"rows", {track0}}, {"action", "delete"}})
+              .find("after") != std::string::npos);
+
+    // The first bar of the second track copied onto the first track at bar 2, filling the gap.
+    r = daw.call("copy_range",
+                 {{"from", "1.1.1"}, {"to", "2.1.1"}, {"rows", {track1}}, {"at", "2.1.1"}, {"onto", track0}});
+    CHECK(daw.session->undoDescription() == "Assistant: copy range");
+    CHECK(r["clips"].size() == 1);
+    CHECK(starts(0) == std::vector<double>{0.0, 4.0, 8.0, 12.0});
+
+    // The whole song: two bars put in at bar 3, then taken out; bar 1 copied to bar 5.
+    r = daw.call("edit_time", {{"action", "insert"}, {"at", "3.1.1"}, {"length", "2 bars"}});
+    CHECK(daw.session->undoDescription() == "Assistant: edit time");
+    CHECK(starts(1).back() == Catch::Approx(20.0));
+    daw.call("edit_time", {{"action", "delete"}, {"from", "3.1.1"}, {"to", "5.1.1"}});
+    CHECK(starts(1).back() == Catch::Approx(12.0));
+    daw.call("edit_time", {{"action", "copy"}, {"from", "1.1.1"}, {"to", "2.1.1"}, {"at", "5.1.1"}});
+    CHECK(daw.fails("edit_time", {{"action", "insert"}, {"at", "1.1.1"}}).find("length") !=
+          std::string::npos);
+}

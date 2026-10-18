@@ -2,7 +2,7 @@
 
 A **time selection** is a stretch of time on chosen rows. Drag across bars 9 to 17 over the drums and the bass, and those eight bars are selected on those rows, whatever clips lie there. Commands then act on exactly that stretch. Delete clears it. Ctrl+D repeats it right after itself. Ctrl+E splits the clips at its edges. Ctrl+L loops it. Export renders it. Song-wide versions insert or remove time across the whole song. The same idea works inside a clip: the audio editor already selects time this way, and the piano roll gains it.
 
-**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 drawn and checked (2026-10-18, §24), and approved by the product owner the same day ("Looks good!"). Step 1, the arrangement, is next. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
+**Status:** approved by the product owner (2026-10-17), every recommendation of T1–T24 (§23), with [ADR 0073](../decisions/0073-a-time-selection-is-a-stretch-of-time-on-chosen-rows.md) accepted. Assistants keep naming the stretch: the product owner kept the selection out of their reach (selection.md §1), "fine as it is". Step 0 drawn and checked (2026-10-18, §24), and approved by the product owner the same day ("Looks good!"). Step 1, the arrangement, built (2026-10-18, §25), for the product owner's hands-on check. Groups ([groups.md](groups.md), approved) are built after it, and their rows use it (§15).
 
 What the product owner asked (2026-10-17), on reviewing the groups design:
 - "I think we need to implement selecting a stretch of time."
@@ -338,6 +338,7 @@ These act on **every track and lane, and the song's section marks,** whatever ro
 | Ctrl+Shift+X crossfades two selected clips | With a selection, it fades or crossfades to it |
 | Ctrl+A selects every clip | With a selection, it widens it to every row |
 | Song ▸ Select clips in section | Song ▸ Select section's time |
+| A drag on a section's body anywhere in the song row moves it | A section moves by its title band; below it, the overview selects time on every row (§25) |
 | The audio editor's Crop to range, Fade to range, Loop range | Crop to selection, Fade to selection, Clip loop to selection |
 | The piano roll's Ctrl+D rounds the notes' span to the grid | It places the copy after the box's stretch |
 
@@ -521,3 +522,47 @@ Then groups ([groups.md](groups.md), P9).
 - **A lane's curve at its landing place** while a stretch is dragged: the drag itself comes with step 1.
 
 **Found for step 2:** a stretch holding both MIDI and audio clips on one track, bounced in place, would render the audio through the modules before the instrument. It's refused there, as a bounce in place already refuses modules before the instrument ([bounce.md](bounce.md) §3), with "Bounce to new track" offered instead.
+
+## 25. Step 1, the arrangement, built (2026-10-18; for the product owner's hands-on check)
+
+**Built:**
+- **The model** (`model/TimeEdits`, `[fast]` tests): a lane's points cleared, copied and laid over a stretch with the curve outside kept; the points in a stretch; Fade to selection's plan. Section marks follow time on any stretch: `applyPlan` maps each section's start and end on its own, so time taken out of a section shortens it and time put in lengthens it. The sections' own commands are unchanged.
+- **The Session** (`SessionTime.cpp`, each command one undo step):
+  - Delete, Split, Crop, Mute, Reverse, Fade, New MIDI clip and Duplicate on a stretch's rows (`editStretch`, `stretchRefusal`);
+  - a stretch copied and pasted (`copyStretch`, `pasteStretch`), moved or copied later and across tracks (`moveStretch`);
+  - song-wide Insert, Delete, Duplicate, Copy and Paste time on the sections' plans.
+
+  A pasted stretch's clips are placed past the song's end, cut to the stretch there and moved into place, so nothing outside it is touched.
+- **The arrangement** (`ArrangementTime.cpp`):
+  - the gestures of §5 and §6;
+  - a stretch dragged by a title strip inside it, its pieces drawn at their landing place;
+  - Shift extends; Ctrl+click inside the stretch, or on a header, takes a row in or out; Ctrl+A widens to every row;
+  - the playhead goes to a new selection's start while stopped.
+- **The shell** (`ShellTime.cpp`):
+  - Delete, Duplicate, Cut, Copy, Paste, Split, Select all, Loop, Zoom to fit, Crossfade, Mute, New MIDI clip, Reverse and ← → act on a time selection when it was used last. Their labels say so ("Split at selection", "Loop selection", "Zoom to selection", "Fade to selection");
+  - new: Select none, Select loop, Selection end later and earlier, Crop to selection, Insert, Delete, Cut, Copy, Paste and Duplicate time, and Select section's time in place of Select clips in section;
+  - the right-click menu on a selection.
+- **Assistants:** `edit_range`, `copy_range`, `edit_time`, each driven in a test.
+
+**Tests:**
+- Delete and Duplicate null against the same edits made by hand (< −120 dB).
+- A duplicated stretch plays twice (< −100 dB).
+- Paste, move, copy, mute, reverse, fades and the song-wide commands with their sections.
+- The gestures and keys through the real arrangement and shell.
+- 1345 tests pass.
+
+**Settled while building:**
+- **A section moves by its title band** (its bracket and name), as a clip moves by its title strip. Below the title band, the overview selects time on every track and lane. A double-click there still loops the section. Added to §16.
+- **A click on a clip's body selects the clip;** a drag from there selects time. A press on a title strip inside the stretch drags the stretch. A Ctrl+click on one, without a drag, takes its row out.
+- **In a lane, only an empty spot selects time:** away from the points and the curve, and without Ctrl, which draws. A press on a point inside a time-selected lane selects the lane's points in the stretch, so a drag moves them all (§11).
+- **Escape is Cancel bounces' key** while something bounces, and Select none's otherwise (Edit ▸ Select none shows it: `Action::keysFrom`).
+- **Paste:** a stretch's tracks land from the time selection's topmost track (else the selected track, else the first), keeping their places, gaps between them too. Its lanes' curves go back onto their own lanes.
+- **Keys:** Select loop and Cut time have none, because Live's are taken here (Ctrl+Shift+L adds a lane, Ctrl+Shift+X crossfades). Selection end later and earlier are Shift+→ and Shift+←, in Edit ▸ Time selection.
+- **A moved clip of a file at another rate** plays its samples from another resampling phase, so the duplicate's null test uses files at the session's rate. A volume ramp moved a few seconds also lands on other automation blocks. Both are what moving clips already does; the test compares the mix against the same edit made by hand.
+
+**Left for step 2, with the clip view and what waited (§13, §14):**
+- export, bounce, Add section from a selection, `edit_clip_time`;
+- the piano roll's stretch and the clip view's controller lanes;
+- the audio editor's own selection, which has the shared look already.
+
+**Found:** Fade to selection across a join two halves of one split clip make does nothing there. Such a join plays on seamlessly and takes no crossfade ([fades.md](fades.md) §4), but `stretchRefusal` doesn't know that yet, so the command isn't dimmed. To fix with step 2.

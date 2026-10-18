@@ -30,7 +30,7 @@ The selection is view state: it is not saved, not an undo step, and assistants n
 | An empty spot in a track's lane | That track | None (a drag box-selects) |
 | A clip | The clip's track | That clip (a click inside a multiple selection keeps the group for a drag, and selects just that clip if released without one) |
 | Shift or Ctrl + click a clip | The clicked clip's track (if the click removed it: the topmost remaining clip's track) | Adds or removes it |
-| A drag box over clips (Shift adds) | The track of the topmost selected clip (none: the track the box started on) | The clips in the box |
+| ~~A drag box over clips (Shift adds)~~ A drag on empty space or a clip's body: a time selection ([time-selection.md](time-selection.md) §5, ADR 0073) | The row it started on | None: the stretch on the rows it crossed |
 | Dragging clips to another track | The grabbed clip's new track | Unchanged |
 | A header's mute, solo, volume or pan control | Unchanged (the control takes the click) | Unchanged |
 | An automation lane's header, or an empty spot in it (C4) | Its first assignment's channel (none without one), and that lane | None |

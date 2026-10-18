@@ -7,6 +7,7 @@
 #include "fd/testkit/WavIO.h"
 #include "model/Selection.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
 
@@ -227,4 +228,207 @@ TEST_CASE("time selection drawn: the audio editor's selection, looking as every 
     CHECK(items.contains("Clip loop to selection"));
     CHECK_FALSE(items.contains("Crop to range"));
     f.dump("time-selection-audio-editor", detail);
+}
+
+namespace
+{
+/// A point in the arrangement: `seconds` on row `row`, `y` down from the row's top.
+juce::Point<float> at(fd::app::ArrangementView& view, double seconds, int row, float y)
+{
+    const auto& rows = view.rows();
+    REQUIRE(row < static_cast<int>(rows.size()));
+    float top = static_cast<float>(fd::app::ArrangementView::defaultRowsTop());
+    for (int i = 0; i < row; ++i)
+        top += 64.0f;
+    return {static_cast<float>(fd::app::ArrangementView::headerWidth()) +
+                static_cast<float>(view.timeline().xForTime(seconds)),
+            top + y};
+}
+} // namespace
+
+TEST_CASE(
+    "time selection: a drag on a clip's body or empty space selects time on the rows it crosses; a click "
+    "selects the clip; its title strip moves it (time-selection.md §5)",
+    "[integration]")
+{
+    TimeFixture f;
+    auto& view = f.shell->arrangement();
+    view.setAllTrackHeights(64.0);
+    f.settle();
+    int told = 0;
+    const auto previous = view.onSelectionChanged;
+    view.onSelectionChanged = [&]
+    {
+        ++told;
+        if (previous)
+            previous();
+    };
+
+    // A click on the Keys clip's body selects it.
+    click(view, at(view, 1.0, 2, 40.0f));
+    CHECK(view.selection().clips == std::set<std::uint64_t>{f.keysClip});
+    CHECK_FALSE(view.selection().hasTime());
+
+    // A drag on its body down to the Bass row: a time selection on Bass and Keys, from where it
+    // started, snapped (the grid at this zoom is a sixteenth or coarser).
+    told = 0;
+    drag(view, at(view, 1.0, 2, 40.0f), at(view, 3.0, 1, 40.0f));
+    REQUIRE(view.selection().hasTime());
+    CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.bass, f.keys});
+    CHECK(view.selection().time->start == Catch::Approx(1.0).margin(0.13));
+    CHECK(view.selection().time->end == Catch::Approx(3.0).margin(0.13));
+    CHECK(view.selection().channel == f.keys);
+    CHECK(view.selection().clips.empty());
+    CHECK(told == 1);
+    // Stopped, the playhead goes to its start (§12).
+    CHECK(f.session->position() == Catch::Approx(view.selection().time->start));
+
+    // From empty space, through the lane: the lane's row too.
+    drag(view, at(view, 4.0, 1, 40.0f), at(view, 4.5, 3, 30.0f));
+    REQUIRE(view.selection().hasTime());
+    CHECK(view.selection().rowLanes == std::set<std::uint64_t>{f.lane});
+    CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.bass, f.keys});
+
+    // A clip's title strip still moves the clip.
+    const auto drum = view.selection();
+    drag(view, at(view, 0.5, 0, 5.0f), at(view, 1.5, 0, 5.0f));
+    f.session->updateSnapshotNow();
+    CHECK(fd::model::findClip(*f.session->snapshot(), f.drumClip)->first->start > 0.5);
+    CHECK(f.session->undoDescription() == "Move clips");
+    (void)drum;
+}
+
+TEST_CASE("time selection: Shift extends it, Ctrl+click takes a row out, Ctrl+A widens it, Escape clears it "
+          "(time-selection.md §6)",
+          "[integration]")
+{
+    TimeFixture f;
+    auto& view = f.shell->arrangement();
+    view.setAllTrackHeights(64.0);
+    f.settle();
+    const auto& actions = f.shell->actions();
+    drag(view, at(view, 2.0, 0, 40.0f), at(view, 4.0, 0, 40.0f));
+    REQUIRE(view.selection().rowTracks == std::set<std::uint64_t>{f.drums});
+
+    // Shift+click on the Keys row, later: to the click, the rows between taken in.
+    click(view, at(view, 6.0, 2, 40.0f), 1, juce::ModifierKeys::shiftModifier);
+    REQUIRE(view.selection().hasTime());
+    CHECK(view.selection().time->end == Catch::Approx(6.0).margin(0.13));
+    CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.drums, f.bass, f.keys});
+    // Ctrl+click inside it on Bass: Bass taken out.
+    click(view, at(view, 3.0, 1, 40.0f), 1, juce::ModifierKeys::commandModifier);
+    CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.drums, f.keys});
+    // Ctrl+A: every track and lane.
+    REQUIRE(actions.perform("edit.selectAll"));
+    CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.drums, f.bass, f.keys});
+    CHECK(view.selection().rowLanes == std::set<std::uint64_t>{f.lane});
+    // Shift+→ moves its end a grid step later.
+    const double end = view.selection().time->end;
+    REQUIRE(
+        actions.handleKey(juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::shiftModifier, 0)));
+    CHECK(view.selection().time->end > end);
+    // Escape: none.
+    REQUIRE(actions.handleKey(juce::KeyPress(juce::KeyPress::escapeKey)));
+    CHECK_FALSE(view.selection().hasTime());
+}
+
+TEST_CASE("time selection: the keys act on it: Delete, Duplicate, Copy and Paste, Split, Loop and Zoom say "
+          "so; its right-click menu; the song-wide commands (time-selection.md §8, §9, §12, §17)",
+          "[integration]")
+{
+    TimeFixture f;
+    auto& view = f.shell->arrangement();
+    view.setAllTrackHeights(64.0);
+    f.settle();
+    const auto& actions = f.shell->actions();
+    auto spans = [&](std::uint64_t track)
+    {
+        f.session->updateSnapshotNow();
+        std::vector<std::pair<double, double>> out;
+        for (const auto& c : f.session->snapshot()->channel(track)->clips)
+            out.emplace_back(c.start, c.end());
+        return out;
+    };
+    view.selectTime({2.0, 3.0}, {f.keys}, {}, f.keys);
+    f.settle();
+    CHECK(actions.label("edit.split") == "Split at selection");
+    CHECK(actions.label("transport.loop") == "Loop selection");
+    CHECK(actions.label("view.zoomFit") == "Zoom to selection");
+    CHECK(actions.label("clip.crossfade") == "Fade to selection");
+
+    // Its right-click menu lists its commands.
+    juce::PopupMenu menu;
+    REQUIRE(view.onTimeMenu);
+    view.onTimeMenu(menu);
+    const auto items = itemsOf(menu);
+    for (const auto* item :
+         {"Cut", "Copy", "Paste", "Delete", "Duplicate", "Split at selection", "Crop to selection",
+          "Fade to selection", "Loop selection", "Insert time", "Delete time"})
+        CHECK(items.contains(item));
+
+    // Delete: the stretch goes, the gap stays.
+    REQUIRE(actions.perform("edit.delete"));
+    CHECK(f.session->undoDescription() == "Delete");
+    CHECK(spans(f.keys) == std::vector<std::pair<double, double>>{{0.0, 2.0}, {3.0, 8.0}});
+    f.session->undo();
+    f.settle();
+
+    // Ctrl+D: a copy after it, and the selection moves onto it.
+    view.selectTime({2.0, 3.0}, {f.keys}, {}, f.keys);
+    REQUIRE(actions.perform("edit.duplicate"));
+    CHECK(f.session->undoDescription() == "Duplicate");
+    REQUIRE(view.selection().hasTime());
+    CHECK(view.selection().time->start == Catch::Approx(3.0));
+
+    // Copy, then paste at the playhead (at 6 s).
+    view.selectTime({0.0, 1.0}, {f.keys}, {}, f.keys);
+    REQUIRE(actions.perform("edit.copy"));
+    f.session->setPosition(6.0);
+    REQUIRE(actions.perform("edit.paste"));
+    CHECK(f.session->undoDescription() == "Paste");
+    REQUIRE(view.selection().hasTime());
+    CHECK(view.selection().time->start == Catch::Approx(6.0));
+
+    // Ctrl+L: the loop brace takes it, looping on.
+    view.selectTime({4.0, 6.0}, {f.keys}, {}, f.keys);
+    REQUIRE(actions.perform("transport.loop"));
+    CHECK(f.session->isLooping());
+    CHECK(f.session->loopRange().first == Catch::Approx(4.0));
+    CHECK(f.session->loopRange().second == Catch::Approx(6.0));
+
+    // Song-wide: Insert time moves every track; Delete time closes it again.
+    view.selectTime({2.0, 4.0}, {f.keys}, {}, f.keys);
+    REQUIRE(actions.perform("song.insertTime"));
+    CHECK(f.session->undoDescription() == "Insert time");
+    CHECK(spans(f.drums).back().second == Catch::Approx(10.0));
+    view.selectTime({2.0, 4.0}, {f.keys}, {}, f.keys);
+    REQUIRE(actions.perform("song.deleteTime"));
+    CHECK(spans(f.drums).back().second == Catch::Approx(8.0));
+}
+
+TEST_CASE("time selection: a title strip inside it drags the stretch, later and a track down; Ctrl copies it "
+          "(time-selection.md §10); the song row's overview selects every row (§5)",
+          "[integration]")
+{
+    TimeFixture f;
+    auto& view = f.shell->arrangement();
+    view.setAllTrackHeights(64.0);
+    f.settle();
+    view.selectTime({2.0, 4.0}, {f.drums}, {}, f.drums);
+    f.settle();
+    // Grab the Drums clip's title strip at 3 s, drop two seconds later on the Bass row.
+    drag(view, at(view, 3.0, 0, 5.0f), at(view, 5.0, 1, 5.0f));
+    CHECK(f.session->undoDescription() == "Move");
+    REQUIRE(view.selection().hasTime());
+    CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.bass});
+    CHECK(view.selection().time->start == Catch::Approx(4.0).margin(0.13));
+
+    // The song row's overview: a drag selects time on every track and lane.
+    const auto lane = view.songLaneArea().toFloat();
+    const float overview = lane.getBottom() - 6.0f;
+    const auto x = [&](double s) { return lane.getX() + static_cast<float>(view.timeline().xForTime(s)); };
+    drag(view, {x(1.0), overview}, {x(3.0), overview});
+    REQUIRE(view.selection().hasTime());
+    CHECK(view.selection().rowTracks == std::set<std::uint64_t>{f.drums, f.bass, f.keys});
+    CHECK(view.selection().rowLanes == std::set<std::uint64_t>{f.lane});
 }

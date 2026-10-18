@@ -111,6 +111,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     registerModulatorActions();
     registerMidiActions();
     registerAudioActions();
+    registerTimeActions(); // last: it amends actions registered before it
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
     browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };
@@ -2523,6 +2524,8 @@ void Shell::paste()
     switch (held_)
     {
     case Held::None:
+    case Held::Stretch: // edit.paste takes these (ShellTime.cpp)
+    case Held::Time:
         return;
     case Held::Notes:
         if (!detail_.showsPianoRoll())

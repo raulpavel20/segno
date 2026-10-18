@@ -43,6 +43,9 @@ public:
     /// Adds a condition to an action already added: it runs only while `condition` holds too, and
     /// `why` says why when it doesn't (a view where it means nothing: a Drum Kit's pads).
     void require(std::string_view id, std::function<bool()> condition, std::function<juce::String()> why);
+    /// Changes an action already added (its perform, isEnabled, label...): another selection it
+    /// acts on, routed by one place (the time selection, time-selection.md §17).
+    void amend(std::string_view id, const std::function<void(Action&)>& change);
 
     /// Performs `id` if it exists and is enabled. Returns true if it ran, or if it couldn't and
     /// said why (onRefused).

@@ -15,7 +15,6 @@ juce::KeyPress key(int code, int mods = 0)
 }
 
 constexpr int kAlt = juce::ModifierKeys::altModifier;
-constexpr double kEpsilon = 1e-6;
 constexpr double kNewSectionBars = 8.0; // a section's length where nothing says otherwise
 } // namespace
 
@@ -155,29 +154,19 @@ void Shell::registerSongActions()
              return model::nextSectionStart(session_.snapshot()->sections, session_.position()).has_value();
          }});
     // Its clips: everything in its time, those across its edges too (then clip commands apply).
-    actions_.add({.id = "song.selectClips",
-                  .name = "Select clips in section",
+    // The selected sections' stretch as a time selection on every track and lane (time-selection.md
+    // §6): what Select clips in section was a bridge to (arranger.md A11).
+    actions_.add({.id = "song.selectSectionTime",
+                  .name = "Select section's time",
                   .category = "Song",
                   .perform =
                       [this, span]
                   {
-                      const auto run = span();
-                      if (!run)
-                          return;
-                      const auto snapshot = session_.snapshot();
-                      std::set<std::uint64_t> clips;
-                      for (const auto& t : snapshot->tracks)
-                          for (const auto& c : t.clips)
-                              if (c.start < run->second - kEpsilon && c.end() > run->first + kEpsilon)
-                                  clips.insert(c.id);
-                      if (clips.empty())
+                      if (const auto run = span())
                       {
-                          showWarning("There are no clips in that section");
-                          return;
+                          lastArea_ = Area::Arrangement;
+                          arrangement_.selectTimeOnEveryRow({run->first, run->second});
                       }
-                      arrangement_.setSelection(
-                          model::withClips(*snapshot, std::move(clips), std::nullopt, std::nullopt));
-                      lastArea_ = Area::Arrangement;
                   },
                   .isEnabled = selected});
     actions_.add({.id = "song.duplicateSection",
@@ -247,7 +236,7 @@ void Shell::sectionMenu(juce::PopupMenu& menu, std::uint64_t section)
     menu.addSubMenu("Colour", sectionColourMenu());
     menu.addSeparator();
     actions_.addMenuItem(menu, "song.loopSection");
-    actions_.addMenuItem(menu, "song.selectClips");
+    actions_.addMenuItem(menu, "song.selectSectionTime");
     menu.addSeparator();
     actions_.addMenuItem(menu, "edit.duplicate");
     actions_.addMenuItem(menu, "song.insertSection");

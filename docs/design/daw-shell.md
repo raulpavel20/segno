@@ -184,7 +184,7 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
   - the grabbed clip snaps and the rest of the selection follows by the same amount;
   - nothing moves before time zero or off the track list;
   - trims stay within the source file and leave at least 10 ms; a looped clip's edges go anywhere, its content staying where it is ([ADR 0048](../decisions/0048-clips-loop.md), [clip-loops.md](clip-loops.md) §5).
-- **Selection:** click; Shift or Ctrl toggles; a drag on empty lanes box-selects (Shift adds); the selected track follows the click. One selection serves both views and the context panels; the full rules are in [selection.md](selection.md).
+- **Selection:** click; Shift or Ctrl toggles; ~~a drag on empty lanes box-selects (Shift adds)~~ a drag on empty space or on a clip's body selects time, and a clip moves by its title strip ([time-selection.md](time-selection.md) §5, ADR 0073); the selected track follows the click. One selection serves both views and the context panels; the full rules are in [selection.md](selection.md).
 - **During a drag**, clips are drawn at their new place from the model's result. On release the Session applies it as one undo step, and the preview stays until the new snapshot arrives (no flicker).
 - **Commands:** delete, duplicate (copies placed right after the selection), split at the playhead (the selected clips, or the selected track's clips under the playhead), select all.
 

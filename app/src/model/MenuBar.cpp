@@ -82,8 +82,12 @@ std::vector<Menu> menuBar(MenuPlatform platform)
         {"Edit",
          'e',
          {action("edit.undo"), action("edit.redo"), separator(), action("edit.cut"), action("edit.copy"),
-          action("edit.paste"), separator(), action("edit.delete"), action("edit.duplicate"), action("edit.split"),
-          separator(), action("edit.rename"), action("edit.selectAll")}});
+          action("edit.paste"), separator(), action("edit.delete"), action("edit.duplicate"),
+          action("edit.split"), separator(), action("edit.rename"), action("edit.selectAll"),
+          action("edit.selectNone"),
+          // A time selection (time-selection.md §6).
+          action("edit.selectLoop"),
+          submenu("Time selection", {action("edit.timeEndLater"), action("edit.timeEndEarlier")})}});
 
     menus.push_back(
         {"Track",
@@ -98,11 +102,12 @@ std::vector<Menu> menuBar(MenuPlatform platform)
          'c',
          {action("clip.newMidi"), separator(), action("clip.bounce"), action("clip.bounceToTrack"),
           action("clip.cancelBounces"), action("clip.makeWavetable"), separator(), action("clip.mute"),
-          action("clip.loop"), action("clip.crossfade"), submenu("Colour", {list("clipColour")}), separator(),
-          submenu("Takes",
-                  {action("view.takes"), action("take.previous"), action("take.next"), separator(),
-                   action("take.useWhole"), action("take.rename"), action("take.copyToTrack"),
-                   action("take.moveToTrack"), action("take.spread"), separator(), action("take.keepOnly")})}});
+          action("clip.loop"), action("clip.crossfade"), action("clip.crop"),
+          submenu("Colour", {list("clipColour")}), separator(),
+          submenu("Takes", {action("view.takes"), action("take.previous"), action("take.next"), separator(),
+                            action("take.useWhole"), action("take.rename"), action("take.copyToTrack"),
+                            action("take.moveToTrack"), action("take.spread"), separator(),
+                            action("take.keepOnly")})}});
 
     // The piano roll's (ADR 0058, piano-roll.md §13): what acts on notes, related commands one level
     // down so the menu stays short enough to open over the piano roll. The clip view's Notes button
@@ -188,9 +193,12 @@ std::vector<Menu> menuBar(MenuPlatform platform)
          'g', // Alt+S solos; Notes has the n
          {action("song.key"), action("song.noKey"), separator(), action("song.addSection"),
           action("song.insertSection"), separator(), action("song.loopSection"),
-          action("song.previousSection"), action("song.nextSection"), separator(), action("song.selectClips"),
-          action("song.duplicateSection"), action("song.deleteSection"), action("song.removeSectionMark"),
-          separator(), submenu("Section colour", {list("sectionColour")}),
+          action("song.previousSection"), action("song.nextSection"), separator(),
+          action("song.selectSectionTime"), action("song.duplicateSection"), action("song.deleteSection"),
+          action("song.removeSectionMark"), separator(), submenu("Section colour", {list("sectionColour")}),
+          // The whole song's time, sections and all (time-selection.md §9).
+          separator(), action("song.insertTime"), action("song.deleteTime"), action("song.cutTime"),
+          action("song.copyTime"), action("song.pasteTime"), action("song.duplicateTime"),
           // What's left to chance, as it played or rolling again (ADR 0062).
           separator(), action("song.keepAllRolls")}});
 

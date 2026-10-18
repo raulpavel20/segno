@@ -80,7 +80,7 @@ The same gestures as clips and notes (daw-shell.md, the piano roll). They're one
 |---|---|
 | Double-click an empty spot | Add a point there (time snapped to the grid; Alt: free) |
 | Click a point; Shift or Ctrl + click | Select; toggle |
-| Drag on an empty spot | Box-select points (Shift adds) |
+| Drag on an empty spot | ~~Box-select points (Shift adds)~~ In the arrangement, a time selection across the rows it crosses, the lane's points in it selected with it ([time-selection.md](time-selection.md) §11); the clip view's controller lanes keep the box until its step 2 |
 | Drag a point (or the selection) | Move in time (snapped; Alt: free) and value (Shift: fine). Points never pass their neighbours |
 | Drag a segment (the line between two points) | Move both its points up or down together |
 | Alt + drag a segment | Bend it (−100 % … +100 %); Alt + double-click straightens it. A lane that edits as steps says it holds each value instead |

@@ -218,6 +218,15 @@ private:
     /// The audio editor's commands (audio-editor.md §13): the Audio menu's actions, the bar's Audio
     /// button and the waveform's right-click menu (ShellAudio.cpp).
     void registerAudioActions();
+    // The time selection (ADR 0073, docs/design/time-selection.md; ShellTime.cpp): its own actions,
+    // and the existing ones amended to act on it when it's what was used last.
+    void registerTimeActions();
+    [[nodiscard]] bool timeActive() const; // a time selection, in the arrangement used last
+    /// A command on the stretch on its rows (§8): refused with a toast saying why, else carried
+    /// out, the selection following the result.
+    void timeCommand(engine::Session::StretchCommand command);
+    /// A time selection's right-click menu (§8).
+    void timeMenu(juce::PopupMenu& menu);
     [[nodiscard]] juce::PopupMenu audioContextMenu();
     /// The audio clips a clip command acts on: the editor's, when it was used last; else the
     /// arrangement's selected audio clips.
@@ -232,9 +241,14 @@ private:
         Clips,
         Notes,
         Points,
-        Sections
+        Sections,
+        Stretch, // a time selection's stretch on its rows (time-selection.md §8)
+        Time     // the whole song's (Copy time, Cut time: §9)
     };
     Held held_ = Held::None;
+    engine::Session::StretchClipboard heldStretch_;
+    model::TimeSelection heldStretchFrom_; // what was copied: its rows, to select what's pasted
+    engine::Session::SectionClipboard heldTime_;
     engine::Session::ClipClipboard heldClips_;
     engine::Session::SectionClipboard heldSections_; // with their music (arranger.md §9)
     std::vector<model::Note> heldNotes_;

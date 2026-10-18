@@ -235,6 +235,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Plugin scanning | `scan_plugins` |
 | Settings (M3 C1, ADR 0045) | `get_settings`, `set_settings` (never the assistants' own or the shortcuts) |
 | The browser (M3 C2, ADR 0046) | `search`, `browse`, `preview`, `collect_files`; loading through `add_module` (with `preset`), `insert_audio_file`, `insert_midi_file`, `load_sample` (a sample or a multisample) |
+| A stretch of time on some rows, and the whole song's time (M3 P10, ADR 0073) | `edit_range` (delete, duplicate, split, crop, mute, reverse, fade, new_midi_clip over `from` .. `to` on track and lane rows, or `["all"]`), `copy_range` (to `at`, `onto` a track, `move`), `edit_time` (insert, delete, duplicate, copy, song-wide with the sections' marks); assistants name the stretch, never the selection |
 | The song's sections (M3 C3, ADR 0049) | `list_sections`, `add_section`, `set_section`, `move_section`, `copy_section` (before or after a section, or `at` a point), `insert_section`, `delete_section` (section ids are `s:`); `get_project` lists the sections |
 | The song's key (M3 P3, ADR 0057) | `set_key`, `list_scales`, `detect_key`; `get_project` has the key (root, scale, name, notes; ASCII # and b) or null |
 | Projects, undo | Project tools |

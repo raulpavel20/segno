@@ -123,7 +123,7 @@ Every track as a thin line, so the song's shape shows at a glance: where the dru
 | Song ▸ Insert empty section | An empty section after the selected one (as long as it, or 8 bars), the rest of the song moving later to make room |
 | Double-click the name, or F2 | Rename where it is |
 | Drag an edge | Moves the mark only (the cursor shows a resize arrow). The neighbour's edge is a limit, not pushed |
-| Drag the body | Moves the section **with its music** to another place in the song (§9) |
+| Drag the body | Moves the section **with its music** to another place in the song (§9). Since time selection ([time-selection.md](time-selection.md) §5, 2026-10-18), its body is its title band, as a clip moves by its title strip: below it, the overview selects time on every track and lane |
 | Ctrl+drag the body | Copies it there, with its music |
 | Ctrl+C, then Ctrl+V | Copies it with its music, then pastes it at the playhead (§9). Ctrl+X cuts it: copied, then deleted with its music. Edit ▸ Cut, Copy, Paste and its right-click menu have them too |
 | Double-click the body | Loops it: the loop brace set to the section, loop on (§11) |

@@ -621,16 +621,22 @@ TEST_CASE("the arrangement's selection: the channel follows the clicked clip, to
     CHECK(view.selection() == Selection{.channel = t2, .clips = {b}});
     CHECK(told == 3);
 
-    // A box over a and b: the topmost clip's track, told once when it ends.
+    // A drag across empty space: a time selection on the rows it crossed (time-selection.md §5),
+    // its channel the row it started on, told once when it ends.
     told = 0;
     drag(view, laneAt(view, 1.5, 0), laneAt(view, 0.2, 2));
-    CHECK(view.selection() == Selection{.channel = t0, .clips = {a, b}});
+    CHECK(view.selection().hasTime());
+    CHECK(view.selection().rowTracks == std::set<std::uint64_t>{t0, t1, t2});
+    CHECK(view.selection().channel == t0);
+    CHECK(view.selection().clips.empty());
     CHECK(told == 1);
 
-    // A clip dragged to another track takes the channel along.
+    // A clip dragged by its title strip to another track takes the channel along.
+    const auto titleOf = [&](double seconds, int row)
+    { return laneAt(view, seconds, row) - juce::Point<float>(0.0f, kRowHeight * 0.5f - 6.0f); };
     click(view, laneAt(view, 4.5, 2));
     told = 0;
-    drag(view, laneAt(view, 4.5, 2), laneAt(view, 4.5, 1));
+    drag(view, titleOf(4.5, 2), titleOf(4.5, 1));
     CHECK(view.selection().channel == t1);
     CHECK(told == 1);
     f.session->updateSnapshotNow();
@@ -683,7 +689,7 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "clip.loop",
         // The song's sections (arranger.md §12): Delete, Ctrl+D and F2 act on a selected section,
         // a double-click loops it; the rest are rare.
-        "song.addSection", "song.insertSection", "song.loopSection", "song.selectClips",
+        "song.addSection", "song.insertSection", "song.loopSection", "song.selectSectionTime",
         "song.duplicateSection", "song.deleteSection", "song.removeSectionMark",
         // The song's key (key-and-scale.md §13): the field is on screen; set once per song.
         "song.key", "song.noKey",
@@ -738,7 +744,10 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // Transients by hand (§7.4): rarely needed; also on the marker strip's right-click.
         "audio.addTransient", "audio.removeTransients",
         // Follow key and Slice… (§8.3, §9): Follow beside the key in the inspector, Slice on the bar.
-        "audio.followKey", "audio.slice"};
+        "audio.followKey", "audio.slice",
+        // Time selection (time-selection.md §6, §9): Select loop (Live's Ctrl+Shift+L adds a lane
+        // here) and Cut time (Live's Ctrl+Shift+X crossfades here); both on a selection's menus.
+        "edit.selectLoop", "song.cutTime"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -798,8 +807,9 @@ TEST_CASE("dragging a clip moves it, snapped, onto another track in one undo ste
     const auto laneX = static_cast<float>(fd::app::ArrangementView::headerWidth());
     const auto top = static_cast<float>(fd::app::ArrangementView::defaultRowsTop());
 
-    // Grab the clip in the middle of its body (0.5 s), drag right ~1.3 s and down one track.
-    const juce::Point<float> down(laneX + static_cast<float>(tl.xForTime(0.5)), top + 30.0f);
+    // Grab the clip by its title strip at 0.5 s (its body selects time: time-selection.md §5), drag
+    // right ~1.3 s and down one track.
+    const juce::Point<float> down(laneX + static_cast<float>(tl.xForTime(0.5)), top + 6.0f);
     const auto to = down + juce::Point<float>(static_cast<float>(1.3 * tl.pixelsPerSecond()), 64.0f);
     view.mouseDown(mouseEvent(view, down, down, false));
     CHECK(view.selectedClips() == std::set<std::uint64_t>{clip});
@@ -4652,7 +4662,8 @@ TEST_CASE(
     CHECK(view.songRowHeight() == fd::ui::Theme::current().shell.songRowHeight);
     const auto& tl = view.timeline();
     const auto xAt = [&](double seconds) { return lane.getX() + static_cast<float>(tl.xForTime(seconds)); };
-    const float body = lane.getBottom() - 8.0f, title = lane.getY() + 6.0f;
+    // A section's body is its title band (time-selection.md §5: below it, the overview selects time).
+    const float body = lane.getY() + 12.0f, title = lane.getY() + 6.0f;
     const auto sections = [&s]
     {
         s.updateSnapshotNow();
@@ -4756,7 +4767,7 @@ TEST_CASE(
     const auto lane = view.songLaneArea().toFloat();
     const auto& tl = view.timeline();
     const auto xAt = [&](double seconds) { return lane.getX() + static_cast<float>(tl.xForTime(seconds)); };
-    const float body = lane.getBottom() - 8.0f;
+    const float body = lane.getY() + 12.0f; // the title band: below it, the overview selects time
     // Pressed, then dragged eight seconds later: a ghost where it lands, before it's let go.
     view.mouseDown(mouseEvent(view, {xAt(1.0), body}, {xAt(1.0), body}, false));
     view.mouseDrag(mouseEvent(view, {xAt(9.0), body}, {xAt(1.0), body}, true));
@@ -4792,7 +4803,7 @@ TEST_CASE("the song row: a section copied and pasted at the playhead, cut and pa
     const auto lane = view.songLaneArea().toFloat();
     const auto xAt = [&](double seconds)
     { return lane.getX() + static_cast<float>(view.timeline().xForTime(seconds)); };
-    const float body = lane.getBottom() - 8.0f;
+    const float body = lane.getY() + 12.0f; // the title band: below it, the overview selects time
     const auto order = [&s]
     {
         s.updateSnapshotNow();

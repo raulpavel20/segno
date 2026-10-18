@@ -1020,8 +1020,8 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     // A time selection (time-selection.md §7), over the clips and curves on its rows.
     paintTimeSelection(g, area, visible);
 
-    // Box selection (of clips, or of a lane's points).
-    if (drag_ == Drag::Box || (drag_ == Drag::Lane && laneGesture_.boxing() && dragMoved_))
+    // A lane's box of points.
+    if (drag_ == Drag::Lane && laneGesture_.boxing() && dragMoved_)
         time::paintBoxSelection(g, juce::Rectangle<float>(dragStart_, lastDrag_));
 
     // Empty project hint.
@@ -1956,6 +1956,9 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
                 rowMenu(-1);
             return;
         }
+        // Ctrl+click with a time selection: the row in or out of it (time-selection.md §6).
+        if (e.mods.isCommandDown() && !e.mods.isPopupMenu() && toggleTimeRow(row->track))
+            return;
         const auto* channel = rowChannel(row->track);
         // A header selects its channel alone, or its lane or take (selection.md §2, automation.md
         // §9, recording.md §10).
@@ -1997,6 +2000,18 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     auto row = layout_.hit(pos.y - lanes.getY());
     const auto* rowChannelInfo = row ? rowChannel(row->track) : nullptr;
     const auto rowTrack = rowChannelInfo != nullptr ? std::optional(rowChannelInfo->id) : std::nullopt;
+    // Inside the time selection, on one of its rows (time-selection.md §6, §8, §10).
+    const double pressTime = timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX()));
+    const bool inTime = row && selection_.hasTime() && rowInTime(rows_[static_cast<size_t>(row->track)]) &&
+                        pressTime >= selection_.time->start && pressTime <= selection_.time->end;
+    if (e.mods.isPopupMenu() && inTime && onTimeMenu)
+    {
+        // Its commands (§8).
+        juce::PopupMenu menu;
+        onTimeMenu(menu);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
+        return;
+    }
     if (e.mods.isPopupMenu())
     {
         // A right-click: the row's menu, as on its header (a clip keeps its own handling); below
@@ -2053,6 +2068,29 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     }
     if (row && rowLane(row->track) != nullptr)
     {
+        const auto* lane = rowLane(row->track);
+        if (e.mods.isCommandDown() && inTime && toggleTimeRow(row->track))
+            return;
+        if (e.mods.isShiftDown() && selection_.hasTime())
+        {
+            beginTimeDrag(e, row->track, false, false); // extends it (§6)
+            return;
+        }
+        const auto hover = LaneGesture::hover(gestureLane(row->track), e.position);
+        if (e.getNumberOfClicks() == 1 && !hover.point && !hover.segment && !e.mods.isCommandDown())
+        {
+            // An empty spot: a drag selects time across the rows (§11); a click selects the lane.
+            setQuietly(model::withLane(*snapshot_, lane->id));
+            beginTimeDrag(e, row->track, false, false);
+            return;
+        }
+        // A point inside the time selection: the lane's points in its stretch are selected with
+        // it, so a drag moves them all (§11).
+        if (hover.point && inTime)
+            if (const auto inside =
+                    model::pointsIn(lane->points, selection_.time->start, selection_.time->end);
+                inside.contains(*hover.point))
+                setQuietly(model::withLane(*snapshot_, lane->id, inside));
         laneMouseDown(e, row->track);
         return;
     }
@@ -2116,11 +2154,31 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         rowTracks.push_back(r.holdsClips() ? r.track : -1);
     const auto hit = model::hitClip(*snapshot_, layout_, rowTracks, timeline_, e.position.x - static_cast<float>(lanes.getX()),
                                     e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab);
+    const auto title = hit ? clipTitleArea(hit->clip) : std::nullopt;
+    const bool onTitle = title && title->contains(pos);
+    if (row && e.getNumberOfClicks() == 1 && selection_.hasTime())
+    {
+        // A title strip inside the stretch drags the stretch (§10; Ctrl copies it, and a Ctrl+click
+        // without a drag takes the row out); elsewhere Ctrl+click toggles the row, Shift extends.
+        if (onTitle && inTime && hit->zone == model::ClipHit::Zone::Body)
+        {
+            stretchDrag_ = StretchDrag{.stretch = timeSelection(), .track = hit->track, .clip = hit->clip};
+            drag_ = Drag::Stretch;
+            return;
+        }
+        if (e.mods.isCommandDown() && inTime && toggleTimeRow(row->track))
+            return;
+        if (e.mods.isShiftDown())
+        {
+            beginTimeDrag(e, row->track, false, false);
+            return;
+        }
+    }
     if (e.getNumberOfClicks() >= 2 && row)
     {
         // Double-click: open a clip in the clip view, or make a MIDI clip on an empty spot.
         drag_ = Drag::None;
-        if (const auto title = hit ? clipTitleArea(hit->clip) : std::nullopt; title && title->contains(pos))
+        if (onTitle)
         {
             renameClips(hit->clip, {}); // on its title strip: its name (§4)
             return;
@@ -2157,23 +2215,29 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             setSelection(std::move(next));
         if (!kept)
             return; // Shift-click removed it
+        const auto loop = loopGestureAt(e.position, *hit);
+        if (!onTitle && !additive && hit->zone == model::ClipHit::Zone::Body && !loop)
+        {
+            // Its body: a click selects it, a drag selects time from here (time-selection.md §5).
+            clickedInSelection_.reset();
+            setQuietly(model::withClips(*snapshot_, {hit->clip}, rowTrack, rowTrack));
+            beginTimeDrag(e, row->track, false, true);
+            return;
+        }
         drag_ = Drag::Clip;
         dragStartTrack_ = hit->track;
         clipDrag_ = {.kind = hit->zone == model::ClipHit::Zone::StartEdge ? model::DragKind::TrimStart
                              : hit->zone == model::ClipHit::Zone::EndEdge  ? model::DragKind::TrimEnd
                                                                            : model::DragKind::Move,
                      .anchor = hit->clip};
-        if (const auto loop = loopGestureAt(e.position, *hit))
+        if (loop)
             clipDrag_ = {.kind = loop->kind, .anchor = loop->clip, .seam = loop->seam};
         return;
     }
-    // Empty lane: box selection (Shift adds to the selection), told at mouseUp since a box changes
-    // the selection on every move.
-    drag_ = Drag::Box;
-    boxBase_ = additive ? selection_.clips : std::set<std::uint64_t>{};
-    boxChannel_ = rowTrack ? rowTrack : selection_.channel;
-    if (!additive)
-        setQuietly({.channel = boxChannel_});
+    // Empty space: a drag selects time across the rows it crosses (time-selection.md §5); a click
+    // selects the track. Told at mouseUp, once it's one or the other.
+    setQuietly({.channel = rowTrack ? rowTrack : selection_.channel});
+    beginTimeDrag(e, row ? row->track : rowAtY(e.position.y), false, false);
 }
 
 void ArrangementView::mouseDrag(const juce::MouseEvent& e)
@@ -2246,6 +2310,16 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         laneMouseDrag(e);
         return;
     }
+    if (drag_ == Drag::Time)
+    {
+        timeDragTo(e);
+        return;
+    }
+    if (drag_ == Drag::Stretch)
+    {
+        stretchDragTo(e);
+        return;
+    }
     if (drag_ == Drag::Loop)
     {
         const auto snapFn = snapFunction(e.mods.isAltDown());
@@ -2269,16 +2343,6 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         if (clipDrag_.kind == model::DragKind::Move)
             clipDrag_.deltaTracks = trackAt(e.position.y) - dragStartTrack_;
         preview_ = model::dragClips(*snapshot_, selection_.clips, clipDrag_, snapFunction(e.mods.isAltDown()));
-        repaint();
-    }
-    else if (drag_ == Drag::Box)
-    {
-        const double t0 = timeline_.timeForX(dragStart_.x - static_cast<float>(lanes.getX()));
-        const double t1 = timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX()));
-        auto selection = boxBase_;
-        for (auto id : model::clipsInBox(*snapshot_, t0, t1, trackAt(dragStart_.y), trackAt(e.position.y)))
-            selection.insert(id);
-        setQuietly(model::withClips(*snapshot_, std::move(selection), std::nullopt, boxChannel_));
         repaint();
     }
 }
@@ -2323,6 +2387,20 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
     }
     if (drag_ == Drag::Lane)
         laneMouseUp(e);
+    if (drag_ == Drag::Time)
+        endTimeDrag(e);
+    if (drag_ == Drag::Stretch)
+    {
+        if (!dragMoved_ && e.mods.isCommandDown() && stretchDrag_) // a Ctrl+click: the row out (§6)
+        {
+            const auto track = stretchDrag_->track;
+            stretchDrag_.reset();
+            stretchMove_.reset();
+            toggleTimeRow(model::rowOfTrack(rows_, track));
+        }
+        else
+            endStretchDrag();
+    }
     if (drag_ == Drag::Fade)
         fadeMouseUp();
     if (drag_ == Drag::Join && joinDrag_)

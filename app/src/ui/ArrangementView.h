@@ -1,25 +1,25 @@
 #pragma once
 
 #include "engine/Session.h"
-#include "ui/AutomationLane.h"
-#include "ui/ChannelControls.h"
-#include "ui/LaneControls.h"
-#include "model/BraceDrag.h"
 #include "model/ArrangementRows.h"
+#include "model/BraceDrag.h"
 #include "model/Editing.h"
 #include "model/FadeEditing.h"
 #include "model/Selection.h"
 #include "model/Takes.h"
+#include "model/TimeEdits.h"
 #include "model/Timeline.h"
 #include "model/TrackEdits.h"
 #include "model/TrackLayout.h"
+#include "ui/AutomationLane.h"
+#include "ui/ChannelControls.h"
 #include "ui/CrossfadeSums.h"
+#include "ui/LaneControls.h"
 #include "ui/WaveformCache.h"
 #include "ui/WaveformTiles.h"
 #include "ui/time/TimeView.h"
 
 #include <fd_ui/fd_ui.h>
-
 #include <map>
 #include <optional>
 #include <set>
@@ -228,6 +228,23 @@ public:
         bool copy = false;
     };
     void previewStretchMove(std::optional<StretchMove> move);
+    /// The time selection as the commands take it (empty without one).
+    [[nodiscard]] model::TimeSelection timeSelection() const { return model::timeSelectionOf(selection_); }
+    /// Ctrl+A with a time selection (§6): it widens to every track and lane, keeping its stretch.
+    void widenTimeToAllRows();
+    /// Its stretch moved by grid steps (← and →, §10), its content with it. One undo step, "Move".
+    void nudgeTime(int steps);
+    /// Its end moved by grid steps (Shift+← and Shift+→, §6); never before its start.
+    void extendTime(int steps);
+    /// The time selection on the same rows, at `span` (after a command moved it).
+    void moveTimeTo(model::TimeSpan span, int trackShift = 0);
+    /// A stretch of the whole song selected on every track and lane (Edit ▸ Select loop, Song ▸
+    /// Select section's time).
+    void selectTimeOnEveryRow(model::TimeSpan span);
+    /// Shows the time selection's stretch across the lanes (View ▸ Zoom to selection).
+    void zoomToTime();
+    /// A time selection's right-click menu (the shell's: its commands, §8).
+    std::function<void(juce::PopupMenu&)> onTimeMenu;
 
     // Takes (C5b, ADR 0032, docs/design/recording.md §6): under their clip.
     /// Selects a take (with its track), as a click on its strip does.
@@ -591,7 +608,6 @@ private:
         None,
         Ruler,
         Clip,
-        Box,
         Loop,
         Lane,
         Resize,
@@ -600,7 +616,9 @@ private:
         Join,
         Row,
         Section,
-        SongResize
+        SongResize,
+        Time,   // a time selection being made or changed (time-selection.md §5)
+        Stretch // a selected stretch being moved or copied (§10)
     };
     /// A header dragged to reorder its row (§6): moving once past the drag threshold.
     struct RowDrag
@@ -649,10 +667,43 @@ private:
     bool dragMoved_ = false;
     std::vector<model::ClipEdit> preview_; // where dragged clips will land
     std::optional<StretchMove> stretchMove_; // where a dragged stretch would land (time-selection.md §10)
+    /// A time selection being made or changed by a drag (time-selection.md §5, §6): from `anchor` on
+    /// row `anchorRow` to the pointer (`allRows`: from the song row, every track and lane).
+    struct TimeDrag
+    {
+        double anchor = 0.0;
+        int anchorRow = 0;
+        bool allRows = false;
+        std::optional<std::uint64_t> channel;          // the row's channel where it started
+        std::set<std::uint64_t> baseTracks, baseLanes; // Shift: the rows it had, kept
+        bool fromClip = false;                         // pressed on a clip's body: a click selects the clip
+    };
+    std::optional<TimeDrag> timeDrag_;
+    /// A stretch dragged by a title strip inside it (§10): from the press, its track's index.
+    struct StretchDrag
+    {
+        model::TimeSelection stretch;
+        int track = 0;
+        std::uint64_t clip = 0; // the clip pressed (a click selects it)
+    };
+    std::optional<StretchDrag> stretchDrag_;
+    /// The rows' tracks and lanes from row `a` to row `b` (time-selection.md §5): tracks that hold
+    /// clips, and lanes.
+    [[nodiscard]] std::pair<std::set<std::uint64_t>, std::set<std::uint64_t>> rowsBetween(int a, int b) const;
+    /// Every track and lane.
+    [[nodiscard]] std::pair<std::set<std::uint64_t>, std::set<std::uint64_t>> everyRow() const;
+    /// The row at `y` (view coordinates), clamped to the rows; -1 with none.
+    [[nodiscard]] int rowAtY(float y) const;
+    /// Starts a time drag at `e` on row `row`; Shift extends the time selection there is.
+    void beginTimeDrag(const juce::MouseEvent& e, int row, bool allRows, bool fromClip);
+    void timeDragTo(const juce::MouseEvent& e);
+    void endTimeDrag(const juce::MouseEvent& e);
+    void stretchDragTo(const juce::MouseEvent& e);
+    void endStretchDrag();
+    /// A row added to or taken out of the time selection (Ctrl+click, §6). True if it had one.
+    bool toggleTimeRow(int row);
     /// The time selection over its rows, and a dragged stretch at its landing place.
     void paintTimeSelection(juce::Graphics& g, juce::Rectangle<int> area, juce::Rectangle<int> visible);
-    std::set<std::uint64_t> boxBase_;      // selection before a Shift box drag
-    std::optional<std::uint64_t> boxChannel_; // the channel while a box holds no clips
     std::optional<std::uint64_t> clickedInSelection_; // a click without a drag selects just it
 
     // File drag preview: target track index (or -1 = new track) and snapped time.
