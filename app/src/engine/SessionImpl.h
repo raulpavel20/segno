@@ -800,6 +800,9 @@ private:
     /// A module turned on or off: its track's notes end, so none it held while off plays on
     /// (SessionNotes.cpp).
     void endNotesOnPowerChange(const juce::ValueTree& pluginState);
+    /// A module that takes notes (a MIDI effect, an instrument) left a track's chain: the track's
+    /// notes end, so none it started is left hanging (B55, item 2; midi-effects.md §11).
+    void endNotesOnRemoval(const juce::ValueTree& parent, const juce::ValueTree& pluginState);
     void handleAsyncUpdate() override
     {
         applyInputs(); // tracks, inputs or instruments may have changed (undo too)
@@ -908,6 +911,8 @@ private:
     {
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return;
+        if (child.hasType(te::IDs::PLUGIN)) // removed, undone or moved away: what it held ends
+            endNotesOnRemoval(t, child);
         restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) ||
                          child.hasType(soundIds::line) || child.hasType(warpIds::markers);
         morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);

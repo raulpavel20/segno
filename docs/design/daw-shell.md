@@ -242,7 +242,7 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **Tests:** `tests/integration/NoteContinuityTests.cpp` plays each case in real time and checks the instrument falls silent, and that what still plays keeps playing.
 - **Known and accepted** (B55, the product owner, 2026-10-13). Stopping ends every note in each case:
   - a clip moved to another track under the playhead ends its sounding notes on the old track but doesn't restart them on the new one: they sound from their next note, as in other DAWs;
-  - a MIDI effect inserted or removed mid-note can leave that note hanging: made right with our own MIDI effects (M4);
+  - ~~a MIDI effect inserted or removed mid-note can leave that note hanging~~: made right (2026-10-18, [midi-effects.md](midi-effects.md) §20): a module that takes notes leaving a track's chain ends the track's notes, undo included;
   - a MIDI device unplugged with keys held leaves them sounding (it never sends their releases); it must never crash;
   - a sustain pedal held down by a clip that goes stays down: ending it blindly would cut a pedal held on purpose.
 

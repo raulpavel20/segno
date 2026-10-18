@@ -478,3 +478,29 @@ Eight shape what you play; three write a part of their own.
 | MX23 | **Machine learning** | None in the modules: they're explainable algorithms. Local models are in the backlog, driving Segno through MCP from a process of their own (§16); no model bundled ([vision.md](../vision.md)) |
 | MX24 | **Going beyond Live** | [ADR 0074](../decisions/0074-midi-effects-know-the-song.md): this category goes beyond Live, as the Wavetable and Granular do (ADRs 0050, 0065); ADR 0011 holds everywhere else |
 | MX25 | **Where it goes in the plan** | M3 P11, on this branch beside groups, as Granular and the audio editor were; the device suite's MIDI effects (M4, M6) are replaced by this set once approved |
+
+## 20. Step 0a, the spike (2026-10-18)
+
+The spike's checks are kept as tests (`tests/integration/MidiEffectSpikeTests.cpp`), on modules written for it (Up, Roots, Early, Answer, Hold and a probe that marks what reaches an instrument). What it settled for §15:
+
+- **MIDI effects run in tracktion's chain as our modules.** The DAW's adapter hands a MIDI effect's notes on in place of the ones it was given, to the sample, and two of them add up (Up twice: two octaves). The track's audio passes a MIDI effect untouched: it's given no channels, and its bus passes them by.
+- **A tracktion bug, fixed:** a plugin whose parameter moves (automation, a modulator) is processed in pieces of 128 samples, and the notes it passed on in a later piece came out early by the piece's offset. Any plugin passing notes on was affected; a MIDI effect would have played early whenever its knob moved. A one-line patch puts each piece's notes back on the block's time (`cmake/patches/tracktion_engine-sub-block-midi-time.patch`).
+- **The song reaches a module whole** (`fd::SongView`, `ProcessContext::song`, handed over with `AssetHandoff`). A generator played the song's chord roots on the beats where its track has a clip, and nothing outside it: "in clips" (§7) needs no engine hook, only the clips' spans in the view.
+- **Notes read ahead play early, once.** A module played the clip's notes a sixteenth early from the view and left each one out as it arrived on time. Chance on clip notes is decided where they play (ADR 0062), so in step 1 the view decides each note the same way, by the same pure function the clip's filter uses.
+- **Listening to another track needs a patch of its own.** tracktion's sidechain mixes the other track's notes into the module's own, and a Drum Kit's rack passes no notes on at all. The new `tracktion_engine-note-sources.patch`:
+  - a track whose notes a module hears sends them on a bus of their own from before its first plugin that takes notes and isn't a MIDI effect: after its MIDI effects, before its instrument;
+  - before the listening module's block, a node hands it those notes (`ProcessContext::listen`) and passes its own input on unchanged;
+  - heard after the other track's MIDI effects (its Up), to the sample, never mixed with the listener's notes;
+  - a muted track others hear still plays its notes for them, silently, as a sidechain source keeps processing.
+- **Run off the audio thread, a module plays what it played:** the same modules, fresh, fed a clip's notes block by block, gave the same notes to the sample as the render. This is how Keep as notes and the notes drawn in clips will run (§9, §7).
+- **No note left hanging:**
+  - **the song stops:** the adapter hands a MIDI effect an all-notes-off as playback stops, and its ledger (`fd::NoteLedger`) ends what it started;
+  - **a jump:** tracktion's all-notes-off reaches the module the same way;
+  - **turned off:** the Session's existing rule (a MIDI effect turned on or off ends its track's notes);
+  - **removed:** new, the Session ends the track's notes when a module that takes notes leaves its chain, undo included. That closes B55's item 2;
+  - **a loop's lap** ends the notes held from the lap before.
+- **For step 1:**
+  - the plugin adapter's MIDI out (CLAP, VST3, AU's MIDI-effect type, LV2), with the same conformance checks;
+  - tracktion's MIDI buffers can grow, and allocate, the first block a module writes more notes than it was given: checked under the RealtimeSanitizer, and reserved when the graph is prepared if it shows;
+  - the chance decision shared by the clip's filter and the song view;
+  - the patch series: main has added `tracktion_engine-submix-sidechain.patch` since this branch began. Both lines patch `tracktion_EditNodeBuilder.cpp`, so the series is checked on a fresh source at the merge.

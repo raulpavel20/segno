@@ -8,5 +8,5 @@ target_compile_definitions(fd_device PRIVATE $<$<CONFIG:Debug>:FD_DEV_LIBRARY="$
 
 fd_add_test(NAME fd_device_tests
     SOURCES tests/ParamTests.cpp tests/StateTests.cpp tests/EventTests.cpp tests/SampleFifoTests.cpp tests/VoiceManagerTests.cpp
-        tests/AssetHandoffTests.cpp tests/PresetTests.cpp tests/LibraryTests.cpp
+        tests/AssetHandoffTests.cpp tests/PresetTests.cpp tests/LibraryTests.cpp tests/SongViewTests.cpp
     LIBS fd::device)

@@ -1,0 +1,27 @@
+MIDI out of a plugin processed in pieces keeps its time (Segno: docs/design/midi-effects.md §15).
+
+A plugin whose parameters move is processed in pieces of 128 samples (fine-grain automation),
+each piece's MIDI timed from the piece's start. The first piece's output became the block's as
+it was (its start is the block's); later pieces' output was merged without moving it back to
+the block's time, so a note a plugin passed on or played in a later piece came out early, by
+the piece's offset. Each piece's MIDI now goes back to the block's time before it's merged.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_PluginNode.cpp b/modules/tracktion_engine/playback/graph/tracktion_PluginNode.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_PluginNode.cpp	2026-10-18 16:57:33.925026088 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_PluginNode.cpp	2026-10-18 16:57:33.937092757 +0300
+@@ -256,9 +256,15 @@
+ 
+             // Then copy the buffers to the outputs
+             if (subBlockNum == 0)
++            {
+                 outputBuffers.midi.swapWith (midiMessageArray);
++            }
+             else
++            {
++                // Segno: the piece's MIDI is timed from the piece's start: back to the block's.
++                midiMessageArray.addToTimestamps (subBlockTimeRange.getStart().inSeconds());
+                 outputBuffers.midi.mergeFrom (midiMessageArray);
++            }
+ 
+             numSamplesDone += numSamplesThisBlock;
+             numSamplesLeft -= numSamplesThisBlock;

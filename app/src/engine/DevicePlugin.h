@@ -1,5 +1,6 @@
 #pragma once
 
+#include <fd/device/AssetHandoff.h>
 #include <fd/device/Device.h>
 #include <fd/device/Registry.h>
 #include <fd_device_ui/fd_device_ui.h>
@@ -49,6 +50,12 @@ public:
     bool isSynth() override { return isInstrument(); }
     bool takesMidiInput() override { return device_->info().buses.acceptsMidi; }
     bool producesAudioWhenNoAudioInput() override { return isInstrument(); }
+    /// A MIDI effect (ADR 0074): it changes the notes and leaves the track's audio alone.
+    bool isNoteEffect() override { return isMidiEffect(); }
+    /// The track a MIDI effect listens to (midi-effects.md §5.3): its notes reach the module apart
+    /// from the track's own, from before that track's instrument (the note-sources patch).
+    te::EditItemID getNoteSourceID() const override;
+    void setSourceNotes(const te::MidiMessageArray& notes, te::TimeRange block) override;
     double getLatencySeconds() override;
     /// The rate it runs at; 0 before the engine has prepared it.
     [[nodiscard]] double sampleRate() const noexcept { return sampleRate_; }
@@ -77,9 +84,22 @@ public:
     /// The song's key as it hands it to its module (TransportInfo::key, ADR 0057).
     [[nodiscard]] KeyInfo songKey() const noexcept;
 
+    [[nodiscard]] bool isMidiEffect() const noexcept
+    {
+        return device_->info().kind == DeviceKind::MidiEffect;
+    }
+    /// The song as a MIDI effect reads it (midi-effects.md §5): handed over whole whenever it
+    /// changes (message thread); the module takes it at its next block.
+    void setSongView(std::shared_ptr<const SongView> view) { songView_.publish(std::move(view)); }
+    /// Listens to `track`'s notes, or to none (an invalid id); kept in the plugin's state, one undo
+    /// step with `um`. Playback is rebuilt so the notes reach it.
+    void setListenTo(te::EditItemID track, juce::UndoManager* um);
+
 private:
     [[nodiscard]] bool isInstrument() const noexcept { return device_->info().kind == DeviceKind::Instrument; }
     void convertMidi(const te::PluginRenderContext& fc) noexcept;
+    /// A MIDI effect's block: its notes replace the ones it was given (ADR 0074).
+    void processNotes(const te::PluginRenderContext& fc) noexcept;
     void applyExtraFromState(const juce::String& json);
 
     std::unique_ptr<Device> device_;
@@ -88,7 +108,22 @@ private:
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_; // normalised
     std::vector<float> pulled_; // the normalised values last pulled into the ParamStore (audio thread)
     std::vector<float*> channelPtrs_, sidechainPtrs_;
-    EventList events_;
+    EventList events_, outEvents_;
+    /// The listened track's notes for the block, with their time in the edit (seconds), from
+    /// setSourceNotes; handed to the module as each piece of the block is processed.
+    struct HeardNote
+    {
+        double time = 0.0;
+        Event event;
+    };
+    std::vector<HeardNote> heard_; // its capacity, reserved in initialise
+    std::size_t heardCount_ = 0;
+    EventList listen_;
+    AssetHandoff<SongView> songView_;
+    AssetHandoff<SongView>::Ref song_;
+    std::atomic<bool> listening_{false}; // whether it listens to a track: the audio thread's copy
+    bool wasPlaying_ = false;            // audio thread: whether the song played in the last block
+    te::MPESourceID midiSourceID_ = te::createUniqueMPESourceID();
     juce::AudioBuffer<float> instrumentOut_; // instruments render here, then add (ADR 0019)
     te::tempo::Sequence::Position tempoPos_{te::createPosition(edit.tempoSequence)};
     /// The song's key for the audio thread (docs/design/key-and-scale.md §15): packed

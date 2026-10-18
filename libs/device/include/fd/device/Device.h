@@ -4,6 +4,7 @@
 #include "fd/device/Events.h"
 #include "fd/device/Param.h"
 #include "fd/device/ParamStore.h"
+#include "fd/device/SongView.h"
 
 #include <nlohmann/json_fwd.hpp>
 
@@ -70,6 +71,12 @@ struct ProcessContext
     EventList* outEvents = nullptr;
     TransportInfo transport;
     int numSamples = 0;
+    /// The song for a MIDI effect (added 2026-10-18, ADR 0074): its harmony, sections, and this
+    /// track's clips ahead; null where the host has none (a plugin host).
+    const SongView* song = nullptr;
+    /// The notes this block of the track a MIDI effect listens to (added 2026-10-18, ADR 0074,
+    /// midi-effects.md §5.3); null when it listens to none.
+    const EventList* listen = nullptr;
 };
 
 enum class DeviceKind : std::uint8_t

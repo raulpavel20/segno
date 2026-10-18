@@ -1,0 +1,189 @@
+Notes another track's plugins hear (Segno: docs/design/midi-effects.md §5.3, a MIDI effect's Listen).
+
+A plugin may name a track whose notes it hears apart from its own (Plugin::getNoteSourceID).
+That track then sends its notes on a bus of their own from before its first plugin that takes
+notes and isn't a note effect (Plugin::isNoteEffect): after its MIDI effects, before its
+instrument, which may pass no notes on (a Drum Kit's rack). Before the hearing plugin's own
+node, a NoteSourceNode hands it that block's notes (Plugin::setSourceNotes) and passes its input
+on unchanged, so the notes never mix with the track's own. A muted track others hear still
+plays its notes for them, silently, as a sidechain source does. With none named, nothing
+changes.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/model/tracks/tracktion_AudioTrack.cpp b/modules/tracktion_engine/model/tracks/tracktion_AudioTrack.cpp
+--- a/modules/tracktion_engine/model/tracks/tracktion_AudioTrack.cpp	2026-10-18 17:13:23.266673067 +0300
++++ b/modules/tracktion_engine/model/tracks/tracktion_AudioTrack.cpp	2026-10-18 17:13:23.276712612 +0300
+@@ -1310,6 +1310,15 @@
+     return false;
+ }
+ 
++bool AudioTrack::isNoteSource() const
++{
++    for (auto p : edit.getPluginCache().getPlugins())
++        if (p->getNoteSourceID() == itemID)
++            return true;
++
++    return false;
++}
++
+ juce::Array<Track*> AudioTrack::findSidechainSourceTracks() const
+ {
+     juce::Array<Track*> srcTracks;
+diff '--color=auto' -ru a/modules/tracktion_engine/model/tracks/tracktion_AudioTrack.h b/modules/tracktion_engine/model/tracks/tracktion_AudioTrack.h
+--- a/modules/tracktion_engine/model/tracks/tracktion_AudioTrack.h	2026-10-18 17:13:23.264759389 +0300
++++ b/modules/tracktion_engine/model/tracks/tracktion_AudioTrack.h	2026-10-18 17:13:23.276621922 +0300
+@@ -44,7 +44,7 @@
+     juce::String getNameAsTrackNumberWithDescription() const;
+ 
+     bool canContainPlugin (Plugin*) const override;
+-    bool processAudioNodesWhileMuted() const override       { return edit.engine.getEngineBehaviour().shouldProcessMutedTracks() || isSidechainSource(); }
++    bool processAudioNodesWhileMuted() const override       { return edit.engine.getEngineBehaviour().shouldProcessMutedTracks() || isSidechainSource() || isNoteSource(); }
+ 
+     /** Determines if the track's arrange clips or clip slots should be audible. */
+     juce::CachedValue<AtomicWrapper<bool>> playSlotClips;
+@@ -267,6 +267,9 @@
+ 
+     void updateTracksToGhost();
+     bool isSidechainSource() const;
++    /** Segno: whether a plugin hears this track's notes (Plugin::getNoteSourceID): a muted track
++        still plays its notes for it, and makes no sound. */
++    bool isNoteSource() const;
+ 
+     void updateMidiNoteMapCache();
+ 
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-18 16:54:16.093097357 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-18 17:10:09.268702548 +0300
+@@ -52,6 +52,69 @@
+         return static_cast<int> (hash (sidechainMagicNum, sidechainSourceID.getRawID()));
+     }
+ 
++    // Segno: a track's notes, sent to the plugins that hear them (Plugin::getNoteSourceID).
++    int getNoteSourceBusID (EditItemID trackID)
++    {
++        constexpr size_t noteSourceMagicNum = 0x6e6f746573726320;
++        return static_cast<int> (hash (noteSourceMagicNum, trackID.getRawID()));
++    }
++
++    bool isNoteSource (const Track* t)
++    {
++        if (t == nullptr)
++            return false;
++
++        for (auto p : t->edit.getPluginCache().getPlugins())
++            if (p->getNoteSourceID() == t->itemID)
++                return true;
++
++        return false;
++    }
++
++    /** Segno: hands a track's notes to a plugin that hears them (Plugin::setSourceNotes), and passes
++        its own input on unchanged. The notes come in from the track's send; this Node runs before
++        the plugin's, so the plugin has them when it processes the same block. */
++    class NoteSourceNode final : public Node,
++                                 public TracktionEngineNode
++    {
++    public:
++        NoteSourceNode (std::unique_ptr<Node> inputNode, std::unique_ptr<Node> notesNode, Plugin& p, ProcessState& ps)
++            : TracktionEngineNode (ps), input (std::move (inputNode)), notes (std::move (notesNode)), plugin (&p)
++        {
++            setOptimisations ({ ClearBuffers::no, AllocateAudioBuffer::no });
++        }
++
++        NodeProperties getNodeProperties() override
++        {
++            auto props = input->getNodeProperties();
++            props.hasMidi = true;
++            constexpr size_t noteSourceNodeMagicHash = size_t (0x6e6f7465536e6f64);
++
++            if (props.nodeID != 0)
++            {
++                hash_combine (props.nodeID, noteSourceNodeMagicHash);
++                hash_combine (props.nodeID, plugin->itemID.getRawID());
++            }
++
++            return props;
++        }
++
++        std::vector<Node*> getDirectInputNodes() override   { return { input.get(), notes.get() }; }
++        bool isReadyToProcess() override                     { return input->hasProcessed() && notes->hasProcessed(); }
++
++        void process (ProcessContext& pc) override
++        {
++            auto source = input->getProcessedOutput();
++            setAudioOutput (input.get(), source.audio);
++            pc.buffers.midi.copyFrom (source.midi);
++            plugin->setSourceNotes (notes->getProcessedOutput().midi, getEditTimeRange());
++        }
++
++    private:
++        std::unique_ptr<Node> input, notes;
++        Plugin::Ptr plugin;
++    };
++
+     int getRackInputBusID (EditItemID rackID)
+     {
+         constexpr size_t rackInputMagicNum = 0x7261636b496e;
+@@ -1392,6 +1455,11 @@
+ 
+     node = createSidechainInputNodeForPlugin (plugin, std::move (node));
+ 
++    // Segno: a track whose notes this plugin hears (Plugin::getNoteSourceID).
++    if (const auto noteSourceID = plugin.getNoteSourceID(); noteSourceID.isValid())
++        node = makeNode<NoteSourceNode> (std::move (node), makeNode<ReturnNode> (getNoteSourceBusID (noteSourceID)),
++                                         plugin, params.processState);
++
+     // Create the PluginNode
+     auto pluginNode = tracktion::graph::makeNode<PluginNode> (std::move (node),
+                                                               plugin,
+@@ -1540,8 +1608,18 @@
+                                                                  tracktion::graph::PlayHeadState& playHeadState, const CreateNodeParams& params,
+                                                                  ModifierList* modifiersBetween)
+ {
++    // Segno: a track whose notes other plugins hear sends them from before its first plugin that
++    // takes notes and isn't a note effect: its instrument (Plugin::getNoteSourceID).
++    auto* noteSourceTrack = isNoteSource (list.getOwnerTrack()) ? list.getOwnerTrack() : nullptr;
++
+     for (auto p : list)
+     {
++        if (noteSourceTrack != nullptr && p->takesMidiInput() && ! p->isNoteEffect())
++        {
++            node = makeNode<SendNode> (std::move (node), getNoteSourceBusID (noteSourceTrack->itemID));
++            noteSourceTrack = nullptr;
++        }
++
+         node = createModifierNodesBefore (modifiersBetween, p, &list, trackMuteState, std::move (node), playHeadState, params);
+ 
+         if (! params.forRendering && p->isFrozen())
+@@ -1591,6 +1669,9 @@
+         }
+     }
+ 
++    if (noteSourceTrack != nullptr)
++        node = makeNode<SendNode> (std::move (node), getNoteSourceBusID (noteSourceTrack->itemID));
++
+     return createModifierNodesBefore (modifiersBetween, nullptr, &list, trackMuteState, std::move (node), playHeadState, params);
+ }
+ 
+diff '--color=auto' -ru a/modules/tracktion_engine/plugins/tracktion_Plugin.h b/modules/tracktion_engine/plugins/tracktion_Plugin.h
+--- a/modules/tracktion_engine/plugins/tracktion_Plugin.h	2026-10-18 16:54:16.091605605 +0300
++++ b/modules/tracktion_engine/plugins/tracktion_Plugin.h	2026-10-18 16:54:34.981943913 +0300
+@@ -354,6 +354,19 @@
+     virtual bool takesMidiInput()                       { return false; }
+     virtual bool isSynth()                              { return false; }
+ 
++    /** Segno: a plugin that only processes notes (a MIDI effect). A track sends its notes to the
++        plugins that hear it (getNoteSourceID) from before its first plugin that isn't one. */
++    virtual bool isNoteEffect()                         { return false; }
++
++    /** Segno: a track whose notes this plugin hears apart from its own (a MIDI effect's Listen).
++        That track's notes reach setSourceNotes before each block. None by default. */
++    virtual EditItemID getNoteSourceID() const          { return {}; }
++
++    /** Segno: the notes of getNoteSourceID's track for the block about to be processed, their
++        timestamps in seconds from the block's start, and where the block is in the edit. Called on
++        the audio thread just before the plugin processes that block. */
++    virtual void setSourceNotes (const MidiMessageArray&, TimeRange /*editTimeOfBlock*/) {}
++
+     /** Returns the plugin's processing latency in seconds. */
+     virtual double getLatencySeconds()                  { return 0.0; }
+ 

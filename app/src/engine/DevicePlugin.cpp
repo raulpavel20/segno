@@ -18,6 +18,8 @@ const juce::Identifier kExtraStateId{"fdExtra"};
 // Parameter values in the plugin's state are normalised (ADR 0028). Projects saved before then
 // hold plain values, converted when the module is loaded.
 const juce::Identifier kNormalisedId{"fdNormalised"};
+// The track a MIDI effect listens to (midi-effects.md §5.3), as its item id.
+const juce::Identifier kListenId{"fdListen"};
 
 class DeviceBuiltInType final : public te::PluginManager::BuiltInType
 {
@@ -133,6 +135,7 @@ DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& fac
         applyExtraFromState(state[kExtraStateId].toString());
 
     keyWatch_ = std::make_unique<KeyWatch>(*this);
+    listening_.store(getNoteSourceID().isValid(), std::memory_order_relaxed);
 }
 
 DevicePlugin::~DevicePlugin()
@@ -154,6 +157,10 @@ void DevicePlugin::initialise(const te::PluginInitialisationInfo& info)
     }
     device_->prepare({.sampleRate = info.sampleRate, .maxBlockSize = info.blockSizeSamples});
     events_.reserve(2048);
+    outEvents_.reserve(2048);
+    listen_.reserve(1024);
+    heard_.resize(1024);
+    heardCount_ = 0;
     channelPtrs_.resize(8);
     sidechainPtrs_.resize(2);
     // Instruments render here and are added to the track's audio (ADR 0019).
@@ -169,6 +176,9 @@ void DevicePlugin::reset()
 te::Plugin::BusLayout DevicePlugin::getBusses() const
 {
     const auto& buses = device_->info().buses;
+    // A MIDI effect passes the track's audio by untouched (ADR 0074).
+    if (isMidiEffect())
+        return BusLayout::singleStereoInOut();
     if (buses.inputChannels == 0)
         return BusLayout::singleInOut(te::ChannelConfiguration::none(), te::ChannelConfiguration::stereo());
     auto layout = BusLayout::singleStereoInOut();
@@ -191,7 +201,7 @@ double DevicePlugin::getLatencySeconds()
 
 void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
 {
-    if (fc.destBuffer == nullptr || !isEnabled())
+    if (!isEnabled() || (fc.destBuffer == nullptr && !isMidiEffect()))
         return;
 
     auto& store = device_->params();
@@ -202,6 +212,12 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
             pulled_[i] = n;
             store.set(i, specs[i].fromNormalized(n));
         }
+
+    if (isMidiEffect())
+    {
+        processNotes(fc);
+        return;
+    }
 
     // With a sidechain source, tracktion hands over the main channels and then the source's
     // (ADR 0025); otherwise just the main ones.
@@ -245,6 +261,97 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
         for (int c = 0; c < channels; ++c)
             fc.destBuffer->addFrom(c, fc.bufferStartSample, instrumentOut_, std::min(c, ctx.output.numChannels - 1), 0,
                                    fc.bufferNumSamples);
+}
+
+te::EditItemID DevicePlugin::getNoteSourceID() const
+{
+    return isMidiEffect() ? te::EditItemID::fromVar(state.getProperty(kListenId)) : te::EditItemID();
+}
+
+void DevicePlugin::setListenTo(te::EditItemID track, juce::UndoManager* um)
+{
+    if (track.isValid())
+        state.setProperty(kListenId, track.toVar(), um);
+    else
+        state.removeProperty(kListenId, um);
+    // valueTreePropertyChanged follows (edits, undo and redo): the flag, and playback rebuilt so
+    // the listened track sends its notes.
+}
+
+void DevicePlugin::setSourceNotes(const te::MidiMessageArray& notes, te::TimeRange block)
+{
+    heardCount_ = 0;
+    const double start = block.getStart().inSeconds();
+    for (const auto& m : notes)
+    {
+        if (heardCount_ >= heard_.size())
+            break;
+        if (const auto e = host::toEvent(m, 0))
+            heard_[heardCount_++] = {.time = start + m.getTimeStamp(), .event = *e};
+    }
+}
+
+void DevicePlugin::processNotes(const te::PluginRenderContext& fc) noexcept
+{
+    convertMidi(fc);
+    // The song stopping ends what the module started (its ledger), as a jump does.
+    if (wasPlaying_ && !fc.isPlaying)
+    {
+        events_.push({.sampleOffset = 0, .type = EventType::AllNotesOff});
+        events_.sortByTime();
+    }
+    wasPlaying_ = fc.isPlaying;
+
+    // The song: the newest view handed over, kept until the next.
+    if (auto fresh = songView_.takeNew(); fresh.isSet())
+    {
+        if (song_.isSet())
+            songView_.retire(song_);
+        song_ = fresh;
+    }
+
+    // The listened track's notes in this piece of the block (tracktion may split a block when a
+    // parameter moves); a stopped transport's block has no length, and takes them all.
+    listen_.clear();
+    const double t0 = fc.editTime.getStart().inSeconds(), t1 = fc.editTime.getEnd().inSeconds();
+    const int last = std::max(0, fc.bufferNumSamples - 1);
+    for (std::size_t i = 0; i < heardCount_; ++i)
+        if (const auto& h = heard_[i]; t1 <= t0 || (h.time >= t0 && h.time < t1))
+        {
+            auto e = h.event;
+            e.sampleOffset = juce::jlimit(0, last, juce::roundToInt((h.time - t0) * sampleRate_));
+            listen_.push(e);
+        }
+
+    ProcessContext ctx;
+    ctx.events = &events_;
+    outEvents_.clear();
+    ctx.outEvents = &outEvents_;
+    ctx.numSamples = fc.bufferNumSamples;
+    tempoPos_.set(fc.editTime.getStart());
+    const auto timeSig = tempoPos_.getTimeSignature();
+    ctx.transport = {.tempoBpm = tempoPos_.getTempo(),
+                     .ppqPosition = tempoPos_.getBeats().inBeats(),
+                     .samplePosition = te::toSamples(fc.editTime.getStart(), sampleRate_),
+                     .timeSigNumerator = timeSig.numerator,
+                     .timeSigDenominator = timeSig.denominator,
+                     .playing = fc.isPlaying,
+                     .key = unpackKey(songKey_.load(std::memory_order_relaxed))};
+    ctx.song = song_.get();
+    ctx.listen = listening_.load(std::memory_order_relaxed) ? &listen_ : nullptr;
+    processRealtime(*device_, ctx);
+
+    // Its notes replace the ones it was given; a jump's "all notes off" goes on as it came.
+    auto* midi = fc.bufferForMidiMessages;
+    if (midi == nullptr)
+        return;
+    const bool allNotesOff = midi->isAllNotesOff;
+    midi->clear();
+    midi->isAllNotesOff = allNotesOff;
+    outEvents_.sortByTime();
+    for (const auto& e : outEvents_)
+        midi->addMidiMessage(host::toMidiMessage(e), (e.sampleOffset + fc.bufferStartSample) / sampleRate_,
+                             midiSourceID_);
 }
 
 void DevicePlugin::convertMidi(const te::PluginRenderContext& fc) noexcept
@@ -326,6 +433,11 @@ void DevicePlugin::valueTreePropertyChanged(juce::ValueTree& tree, const juce::I
         applyExtraFromState(state.getProperty(kExtraStateId, "{}").toString());
     if (tree == state && id == te::IDs::sidechainSourceID) // a sidechain source came or went (ADR 0025)
         edit.restartPlayback();
+    if (tree == state && id == kListenId) // what a MIDI effect listens to (midi-effects.md §5.3)
+    {
+        listening_.store(getNoteSourceID().isValid(), std::memory_order_relaxed);
+        edit.restartPlayback();
+    }
     if (tree == state)
         for (size_t i = 0; i < device_->info().params.size(); ++i)
             if (const auto& spec = device_->info().params[i];

@@ -8,6 +8,10 @@ namespace fd::host
 /// Appends the events of a JUCE MidiBuffer to `out` (real-time safe; drops events when full).
 void appendMidi(const juce::MidiBuffer& midi, EventList& out) noexcept;
 
+/// A device event as a MIDI message: what a MIDI effect plays, handed back to the host
+/// (ADR 0074). Real-time safe: short messages don't allocate.
+[[nodiscard]] juce::MidiMessage toMidiMessage(const Event& e) noexcept;
+
 /// What a plugin keeps beside its device's state: the editor's view (ADR 0022) and whether the
 /// device listens to the host's sidechain input (ADR 0025). Never part of presets.
 struct PluginExtras
