@@ -544,7 +544,7 @@ Model behind the drawing, under `[fast]` tests (`app/tests/GroupsTests.cpp`): `m
 
 **Next, once approved:** step 1, selecting several tracks (§8).
 
-## 21. Step 1, selecting several tracks, built (2026-10-18; for the product owner's hands-on check)
+## 21. Step 1, selecting several tracks, built (2026-10-18; signed off by the product owner the same day)
 
 **Built** (§8):
 - **Choosing:** in the headers and the mixer's strips, a click selects one; Ctrl+click adds or takes out; Shift+click takes the run of tracks and groups from the one selected last, lanes skipped. The one clicked last is the channel, so the chain below shows its modules. A return or the master is selected alone. With a time selection, Ctrl+click on a header still takes its row in or out of it (time-selection.md §6).
