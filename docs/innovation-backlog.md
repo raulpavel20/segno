@@ -55,6 +55,19 @@ To schedule an idea, it needs:
 | **Modular hybrid synth** (combine VA, wavetable, FM, sample and granular engines) | One instrument for complex sound design | 💡 |
 | **Large distortion model library** (dozens of models per stage) | Saturn-style depth | 💡 |
 
+## MIDI effects
+
+Proposed with the MIDI effects ([midi-effects.md](design/midi-effects.md), [ADR 0074](decisions/0074-midi-effects-know-the-song.md), for review); these are beyond that proposal.
+
+| Idea | Why | Status |
+|---|---|---|
+| **Local models as generators:** the Anticipatory Music Transformer (Apache-2.0) or Composer's Assistant 2 (MIT, trained on public-domain MIDI) continuing, filling or accompanying, run as a process that drives Segno through MCP | Ideas in the song's own context, offline, with no model bundled | 💡 ([midi-effects.md](design/midi-effects.md) §16) |
+| **Chords read from audio clips** for the song's harmony | A recorded guitar or a sample guides the MIDI effects too (Logic 12's Chord ID) | 💡 |
+| **Energy drawn along the song row** rather than one value a section | Builds and breakdowns within a section | 💡 |
+| **Pitch's Parallel fit:** a part keeps its shape over new chords | Needs the chords a part was written against | 💡 |
+| **A CLAP extension for the song's key, chords and sections** | No plugin format carries them in practice; our plugins would follow in any host that adopts it | 💡 |
+| **A reharmonising walk** (P, L, R moves, voice-led) as a performable MIDI effect | Surprising but smooth chord changes | 💡 |
+
 ## Browser and content
 
 | Idea | Why | Status |

@@ -1,0 +1,395 @@
+{
+    "device": "arpeggiator",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Classic up",
+            "tags": [
+                "Arpeggio",
+                "Pluck"
+            ],
+            "description": "Up through the notes held in sixteenths, short and even.",
+            "params": {
+                "style": "Up",
+                "rate": "1/16",
+                "gate": 50
+            }
+        },
+        {
+            "name": "Up and down",
+            "tags": [
+                "Arpeggio",
+                "Pluck"
+            ],
+            "description": "Up then back down in sixteenths, over two octaves.",
+            "params": {
+                "style": "Up-down",
+                "rate": "1/16",
+                "gate": 60,
+                "steps": 2,
+                "distance": 12
+            }
+        },
+        {
+            "name": "Falling eighths",
+            "tags": [
+                "Arpeggio",
+                "Keys"
+            ],
+            "description": "Down through the notes held in eighths, nearly legato.",
+            "params": {
+                "style": "Down",
+                "rate": "1/8",
+                "gate": 90
+            }
+        },
+        {
+            "name": "Converge",
+            "tags": [
+                "Arpeggio",
+                "Lead"
+            ],
+            "description": "From the outside notes in: lowest, highest, then closer.",
+            "params": {
+                "style": "Converge",
+                "rate": "1/16",
+                "gate": 55
+            }
+        },
+        {
+            "name": "As played",
+            "tags": [
+                "Arpeggio",
+                "Lead"
+            ],
+            "description": "The notes in the order you pressed them, an octave higher every other round.",
+            "params": {
+                "style": "Played",
+                "rate": "1/16",
+                "gate": 60,
+                "steps": 2,
+                "distance": 12
+            }
+        },
+        {
+            "name": "Random notes",
+            "tags": [
+                "Arpeggio",
+                "Random"
+            ],
+            "description": "A note held at random each sixteenth, new each time the song plays.",
+            "params": {
+                "style": "Random",
+                "rate": "1/16",
+                "gate": 50,
+                "retrigger": "Off"
+            }
+        },
+        {
+            "name": "Shuffled figure",
+            "tags": [
+                "Arpeggio",
+                "Random"
+            ],
+            "description": "The notes held in a shuffled order that repeats each bar: random, yet a figure.",
+            "params": {
+                "style": "Shuffled",
+                "rate": "1/16",
+                "gate": 55,
+                "retrigger": "1 bar"
+            }
+        },
+        {
+            "name": "Chord stabs",
+            "tags": [
+                "Arpeggio",
+                "Chords"
+            ],
+            "description": "The whole chord held, short, every eighth.",
+            "params": {
+                "style": "Chord",
+                "rate": "1/8",
+                "gate": 30
+            }
+        },
+        {
+            "name": "Trance gate",
+            "tags": [
+                "Arpeggio",
+                "Pad"
+            ],
+            "description": "The chord held, chopped in sixteenths by a gate lane of long and short steps.",
+            "params": {
+                "style": "Chord",
+                "rate": "1/16",
+                "gate": 50
+            },
+            "extra": {
+                "lane.gate": [
+                    190,
+                    60,
+                    190,
+                    60,
+                    120,
+                    60,
+                    190,
+                    60,
+                    190,
+                    60,
+                    120,
+                    190,
+                    60,
+                    190,
+                    60,
+                    120
+                ]
+            }
+        },
+        {
+            "name": "Five against sixteen",
+            "tags": [
+                "Arpeggio",
+                "Pluck"
+            ],
+            "description":
+                "An accent every five sixteenths over a sixteen-step line: it lines up again every five bars.",
+            "params": {
+                "style": "Up-down",
+                "rate": "1/16",
+                "gate": 50,
+                "steps": 2,
+                "distance": 12,
+                "velocity.length": 5
+            },
+            "extra": {
+                "lane.velocity": [
+                    140,
+                    65,
+                    85,
+                    65,
+                    85,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100
+                ]
+            }
+        },
+        {
+            "name": "Ratchet rolls",
+            "tags": [
+                "Arpeggio",
+                "FX"
+            ],
+            "description": "Now and then a step rolls into two or three quick hits.",
+            "params": {
+                "style": "Up",
+                "rate": "1/8",
+                "gate": 70
+            },
+            "extra": {
+                "lane.ratchet": [
+                    1,
+                    1,
+                    1,
+                    3,
+                    1,
+                    1,
+                    2,
+                    1,
+                    1,
+                    1,
+                    1,
+                    3,
+                    1,
+                    2,
+                    1,
+                    2
+                ]
+            }
+        },
+        {
+            "name": "Two octaves in key",
+            "tags": [
+                "Arpeggio",
+                "Pluck"
+            ],
+            "description":
+                "Up through the notes held, then again a key's octave higher: seven steps of the key.",
+            "params": {
+                "style": "Up",
+                "rate": "1/16",
+                "gate": 40,
+                "steps": 2,
+                "distance": 7,
+                "inkey": true
+            }
+        },
+        {
+            "name": "Thinned by chance",
+            "tags": [
+                "Arpeggio",
+                "Random"
+            ],
+            "description": "Sixteenths with some steps left out by chance, a new pattern each time it plays.",
+            "params": {
+                "style": "Up-down",
+                "rate": "1/16",
+                "gate": 55,
+                "retrigger": "Off"
+            },
+            "extra": {
+                "lane.chance": [
+                    100,
+                    70,
+                    100,
+                    50,
+                    100,
+                    70,
+                    40,
+                    100,
+                    100,
+                    60,
+                    100,
+                    50,
+                    90,
+                    70,
+                    40,
+                    80
+                ]
+            }
+        },
+        {
+            "name": "Triplet pulse",
+            "tags": [
+                "Arpeggio",
+                "Keys"
+            ],
+            "description": "Up and down in eighth-note triplets, rolling over the beat.",
+            "params": {
+                "style": "Up-down",
+                "rate": "1/8T",
+                "gate": 70
+            }
+        },
+        {
+            "name": "Swung sixteenths",
+            "tags": [
+                "Arpeggio",
+                "Pluck"
+            ],
+            "description": "Sixteenths with every second one late: a shuffle.",
+            "params": {
+                "style": "Up",
+                "rate": "1/16",
+                "gate": 50,
+                "swing": 40
+            }
+        },
+        {
+            "name": "Octave jumps",
+            "tags": [
+                "Arpeggio",
+                "Lead"
+            ],
+            "description": "An octave lane leaps up and down under the line.",
+            "params": {
+                "style": "Up",
+                "rate": "1/16",
+                "gate": 50,
+                "octave.length": 8
+            },
+            "extra": {
+                "lane.octave": [
+                    0,
+                    1,
+                    0,
+                    -1,
+                    0,
+                    1,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "name": "Free flutter",
+            "tags": [
+                "Arpeggio",
+                "FX"
+            ],
+            "description": "Twelve notes a second, off the song's grid: a flutter, not a rhythm.",
+            "params": {
+                "style": "Up-down",
+                "sync": false,
+                "hz": 12,
+                "gate": 60
+            }
+        },
+        {
+            "name": "Song chords pluck",
+            "tags": [
+                "Arpeggio",
+                "Pluck"
+            ],
+            "description":
+                "With no notes held it plays the song's chords up from C3 in sixteenths: a part with no clip.",
+            "params": {
+                "style": "Up",
+                "rate": "1/16",
+                "gate": 40,
+                "song.chords": true,
+                "from": 60,
+                "retrigger": "1 bar"
+            }
+        },
+        {
+            "name": "Song chords bell",
+            "tags": [
+                "Arpeggio",
+                "Keys"
+            ],
+            "description":
+                "The song's chords up and down from C4 in eighths, each note ringing into the next.",
+            "params": {
+                "style": "Up-down",
+                "rate": "1/8",
+                "gate": 150,
+                "song.chords": true,
+                "from": 72,
+                "retrigger": "1 bar"
+            }
+        },
+        {
+            "name": "Song chords bass",
+            "tags": [
+                "Arpeggio",
+                "Bass"
+            ],
+            "description": "The song's chords from C1 in eighths, root first: a walking bass with no clip.",
+            "params": {
+                "style": "Up",
+                "rate": "1/8",
+                "gate": 80,
+                "song.chords": true,
+                "from": 36,
+                "retrigger": "1 bar"
+            }
+        }
+    ]
+}

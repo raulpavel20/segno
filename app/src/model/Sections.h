@@ -30,6 +30,10 @@ inline constexpr std::array<std::string_view, 9> kUsualSectionNames{
 /// A new section's name: the first letter A … Z no section has, then "Section 27" and on.
 [[nodiscard]] std::string newSectionName(const std::vector<SectionInfo>& sections);
 
+/// A name without a copy's number ("Chorus 2" → "Chorus"): sections of one name are one part of
+/// the form (midi-effects.md §5.2).
+[[nodiscard]] std::string sectionBaseName(const std::string& name);
+
 /// A copy's name: its source's with the next free number ("Chorus" → "Chorus 2", "Chorus 2" →
 /// "Chorus 3" when "Chorus 3" is free).
 [[nodiscard]] std::string copyName(const std::vector<SectionInfo>& sections, const std::string& name);

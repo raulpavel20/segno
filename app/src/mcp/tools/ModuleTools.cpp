@@ -74,8 +74,9 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"add_module", "Add a module",
-         "Adds a module (an instrument or effect) to a chain: a track's, a group's (no instruments: no notes "
-         "reach a group), a return track's or the master's; "
+         "Adds a module (an instrument; a MIDI effect, which goes before the track's instrument wherever "
+         "it's asked for; or an effect) to a chain: a track's, a group's (no instruments or MIDI effects: no "
+         "notes reach a group), a return track's or the master's; "
          "one of "
          "ours or a scanned plugin. One of ours starts from your default for it, if you set one, or from a "
          "preset "
@@ -188,10 +189,10 @@ void addModuleTools(Registry& registry, ToolEnv& env)
             }
             else
                 id = env.session.addDevice(t.id, key, args.value("position", -1));
-            if (id == 0 && t.isGroup() && env.session.playsNotes(key))
+            if (id == 0 && t.isGroup() && env.session.usesNotes(key))
                 throw Problem{t.name +
-                              " is a group: no notes reach it, so it takes no instrument. Put it on a "
-                              "track in the group."};
+                              " is a group: no notes reach it, so it takes no instrument or MIDI effect. Put "
+                              "it on a track in the group."};
             if (id == 0)
                 throw Problem{"The module couldn't be created (" + key + ")."};
             if (preset != nullptr)
@@ -650,6 +651,42 @@ void addModuleTools(Registry& registry, ToolEnv& env)
             return ToolResult::ok({{"module", formatId(IdKind::Module, slot.id)},
                                    {"source", source ? Json(formatId(IdKind::Track, *source)) : Json(nullptr)}},
                                   slot.name + " now listens to " + name + ".");
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"set_module_listen", "Set what a MIDI effect listens to",
+         "Sets the track a MIDI effect of ours hears (midi-effects.md §5.3): its notes after its own MIDI "
+         "effects, even when it's muted; a module that follows harmony with Follow on Track follows its "
+         "chords. Or null for none. get_module lists the tracks it can hear (never its own, nor one that "
+         "hears it: a loop). One undo step.",
+         object({{"module", id(IdKind::Module, "The MIDI effect")},
+                 {"track", {{"type", {"string", "null"}}, {"description", "A track, or null for none"}}}},
+                {"module", "track"}),
+         result({{"track", {{"type", {"string", "null"}}, {"description", "The track it hears, or null"}}}},
+                {"track"}),
+         changes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto [slot, owner] = module(env, args["module"]);
+            if (!slot.midiEffect || slot.kind != model::DeviceSlot::Kind::Native)
+                throw Problem{
+                    "This module isn't one of our MIDI effects (list_module_types, kind midi-effect)."};
+            std::optional<std::uint64_t> source;
+            std::string name = "nothing";
+            if (!args["track"].is_null())
+            {
+                const auto t = track(env, args["track"]);
+                source = t.id;
+                name = t.name;
+            }
+            if (!env.session.setSidechainSource(slot.id, source))
+                throw Problem{"It can't hear that track: it's the module's own track, or that track already "
+                              "hears this one (a loop)."};
+            return ToolResult::ok(
+                {{"module", formatId(IdKind::Module, slot.id)},
+                 {"track", source ? Json(formatId(IdKind::Track, *source)) : Json(nullptr)}},
+                slot.name + " now hears " + name + ".");
         }));
 
     registry.tools.push_back(make(

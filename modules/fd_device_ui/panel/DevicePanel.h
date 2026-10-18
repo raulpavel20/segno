@@ -86,6 +86,9 @@ public:
     void setFolded(bool folded, bool byUser = false);
     /// Collapses or expands every section.
     void setAllSectionsCollapsed(bool collapsed, bool byUser = false);
+    /// Everything the refresh tick does, now, shown or not: controls, dimming, the sections that
+    /// come and go (snapshots and tests draw panels that aren't on screen).
+    void refreshNow();
 
     [[nodiscard]] std::vector<PanelSection*> sections() const;
     [[nodiscard]] PanelSection* findSection(std::string_view id) const;

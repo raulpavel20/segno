@@ -8,6 +8,9 @@
 #include "panel/PanelSection.cpp"
 #include "panel/ParamBinding.cpp"
 #include "panel/Displays.cpp"
+#include "panel/NoteDisplay.cpp"
+#include "panel/NoteTapFeed.cpp"
+#include "panel/MidiParts.cpp"
 #include "panel/Modulation.cpp"
 #include "panel/CurveEditor.cpp"
 // clang-format on

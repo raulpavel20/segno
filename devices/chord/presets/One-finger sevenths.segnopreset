@@ -1,0 +1,40 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Chords",
+    "Keys"
+  ],
+  "description": "Each note of the key plays its seventh chord in the key, voiced smoothly around C3.",
+  "author": "Segno",
+  "state": {
+    "device": "chord",
+    "extra": {},
+    "params": {
+      "around": 60.0,
+      "change": 0.0,
+      "chord": 0.0,
+      "curve": 0.0,
+      "direction": 0.0,
+      "follow": 0.0,
+      "inkey": 0.0,
+      "key": 0.0,
+      "kind": 1.0,
+      "level": 100.0,
+      "mode": 2.0,
+      "place": 2.0,
+      "root": 0.0,
+      "scale": 0.0,
+      "shift1": 4.0,
+      "shift2": 7.0,
+      "shift3": 0.0,
+      "shift4": 0.0,
+      "shift5": 0.0,
+      "shift6": 0.0,
+      "split": 48.0,
+      "strum": 0.0,
+      "swell": 0.0,
+      "voicing": 0.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -77,6 +77,12 @@ int PanelSection::preferredWidth() const noexcept
     return collapsed_ ? grid.collapsedWidth : grid.sectionWidth(columns_);
 }
 
+void PanelSection::setCollapsedByDefault()
+{
+    collapsedByDefault_ = true;
+    collapsed_ = true;
+}
+
 void PanelSection::setCollapsed(bool collapsed, bool byUser)
 {
     if (collapsed == collapsed_)

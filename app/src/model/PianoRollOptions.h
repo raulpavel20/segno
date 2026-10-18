@@ -61,6 +61,7 @@ struct PianoRollOptions
     std::set<std::uint64_t> wholeRoll;
     bool others = true; // Others (§8): the other tracks' notes, faint
     std::set<std::uint64_t> othersHidden; // tracks Others leaves out, chosen one by one (§8)
+    bool played = false; // Played notes (midi-effects.md §7): what the track's MIDI effects play
     BottomLane lane;                      // the bottom lane (§11)
     std::map<std::string, ToolValues> tools; // each tool's last settings, Quantise's too (§23, §25)
     /// The Tools pane (§25): open, and on which tab.

@@ -41,6 +41,9 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Tuner | `tuner` | `Ftun` | `org.segnoaudio.tuner` | M3 (approved 2026-10-15) |
 | Wavetable | `wavetable` | `Fwav` | `org.segnoaudio.wavetable` | M3 P1 (approved 2026-10-13) |
 | Granular | `granular` | `Fgrn` | `org.segnoaudio.granular` | M3 P8 (approved 2026-10-16) |
+| Pitch | `pitch` | `Fpit` | `org.segnoaudio.pitch` | M3 P11 (approved 2026-10-18) |
+| Chord | `chord` | `Fcrd` | `org.segnoaudio.chord` | M3 P11 (approved 2026-10-18) |
+| Arpeggiator | `arpeggiator` | `Farp` | `org.segnoaudio.arpeggiator` | M3 P11 (approved 2026-10-18) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.
@@ -91,3 +94,10 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | More colours | `harmonic-major`, `dorian-sharp-4`, `phrygian-dominant`, `lydian-augmented`, `lydian-dominant`, `super-locrian`, `hungarian-minor`, `double-harmonic`, `spanish-8-tone` |
 | Symmetric | `whole-tone`, `diminished-half-whole`, `diminished-whole-half`, `messiaen-3`, `messiaen-4`, `messiaen-5`, `messiaen-6`, `messiaen-7` |
 | Japanese and Indonesian | `hirajoshi`, `in-sen`, `iwato`, `kumoi`, `pelog-selisir`, `pelog-tembung` |
+
+## MIDI effects' HARMONY ([midi-effects.md](design/midi-effects.md) §5.1, ADR 0074; approved 2026-10-18, permanent)
+
+- Every MIDI effect that follows harmony has the same six parameters after its own: `follow`, `key`, `root`, `scale`, `chord`, `split` (devices/midi-shared/Harmony.h), and the panel section `harmony`.
+- `scale` is an index into a list of scale IDs frozen with it: the catalogue's 36 at approval, in its order then (`harmony::scaleIds()`). A new scale is appended to that list, never inserted.
+- A MIDI effect's Listen is kept in its plugin state as `fdListen`, the listened track's item id.
+

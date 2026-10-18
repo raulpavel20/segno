@@ -130,17 +130,23 @@ Bass and Poli (Max for Live instruments in Live) are covered by Subtractive pres
 
 Delivered **natively in our DAW first**. Many hosts, including Live, have limited support for MIDI-effect plugins, so the plugin builds are best-effort.
 
-| Working name | Scope | Covers (Live) | Tier | Milestone |
+**Revised** ([midi-effects.md](../design/midi-effects.md), [ADR 0074](../decisions/0074-midi-effects-know-the-song.md), approved by the product owner 2026-10-18): eleven modules that know the song, as M3 P11, replacing the table that stood here (Live's nine across M4 and M6).
+
+| Working name | Scope | Covers (Live) | Beyond Live | Step |
 |---|---|---|---|---|
-| **Arpeggiator** | Patterns, rate/sync, gate, steps, transposition, retrigger | Arpeggiator | 1 | M4 |
-| **Chord** | Add up to 6 intervals | Chord | 1 | M4 |
-| **Scale** | Snap to scale; follows the project-wide key and scale | Scale | 1 | M4 |
-| Note Echo | MIDI delay with pitch and velocity feedback | Note Echo | 2 | M6 |
-| Note Length | Fixed or gated lengths, trigger on note-off | Note Length | 2 | M6 |
-| Pitch | Transpose, range limits | Pitch | 2 | M6 |
-| Velocity | Curves, ranges, randomisation | Velocity | 2 | M6 |
-| Random | Probability-based pitch within a scale | Random | 2 | M6 |
-| CC Control | Automatable CC senders | CC Control | 2 | M6 |
+| **Arpeggiator** | Patterns, rate, gate, octaves in steps of the key, retrigger (notes, bars, sections), hold; step lanes | Arpeggiator; Step Arp | Lanes of their own lengths; the song's chord with no notes held | 1 |
+| **Chord** | Up to 6 intervals in semitones or steps of the key; the song's chord on any note, voice-led; keys to chords; learn; strum | Chord | The song's chord; keys to chords | 1 |
+| **Pitch** | Transpose (semitones, steps of the key), Fit (key, chord, chord tones on strong beats), Mirror, Range, Random | Pitch, Scale, Random | Fit to the song's chords; mirror in the key | 1 |
+| **Rhythm** | Beats in up to 8 lanes on a kit's pads by name: Euclidean, ranked density, conditions, styles, fills and drop-outs, Listen, Learn | Rotating Rhythm Generator, Rhythmic Steps | A generator that knows the song | 2 |
+| **Bassline** | The song's harmony as a bass part: patterns, its own rhythm or another track's, approach and anticipation | – | A generator that knows the song | 2 |
+| **Melody** | A step sequencer that also writes: chord tones on strong beats, phrases, Change, Climb, Learn, Answer and Counter | Melodic Steps, SQ Sequencer | A generator that knows the song | 2 |
+| **Velocity** | Drawn curve, drive and compand, ranges, random, accents by the meter | Velocity | Accents by the meter | 3 |
+| **Note Length** | Fixed, share, legato, on release | Note Length | – | 3 |
+| **Note Echo** | Echo with pitch in steps of the key; rolls with pace; canon voices | Note Echo | Steps of the key; canon | 3 |
+| **Groove** | Swing, grooves, another track's feel, humanising that drifts | – | A live groove on the track | 3 |
+| **Controllers** | Eight knobs sending controllers | CC Control | – | 3 |
+
+Envelope MIDI, Shaper MIDI and Expression Control are modulators; MPE Control comes with M5's MPE, Microtuner with tunings (1.x).
 
 ## Racks, modulators and MIDI tools (DAW features)
 

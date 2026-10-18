@@ -20,4 +20,18 @@ void Session::Impl::endNotesOnPowerChange(const juce::ValueTree& pluginState)
         for (int channel = 1; channel <= 16; ++channel)
             track->injectLiveMidiMessage(juce::MidiMessage::allNotesOff(channel), {});
 }
+
+void Session::Impl::endNotesOnRemoval(const juce::ValueTree& parent, const juce::ValueTree& pluginState)
+{
+    if (edit == nullptr || !parent.hasType(te::IDs::TRACK))
+        return;
+    // Still in the plugin cache while it's being taken out.
+    const auto plugin = edit->getPluginCache().getPluginFor(pluginState);
+    if (plugin == nullptr || !plugin->takesMidiInput())
+        return;
+    for (auto* track : te::getAudioTracks(*edit))
+        if (track->state == parent)
+            for (int channel = 1; channel <= 16; ++channel)
+                track->injectLiveMidiMessage(juce::MidiMessage::allNotesOff(channel), {});
+}
 } // namespace fd::engine

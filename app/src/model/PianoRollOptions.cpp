@@ -79,6 +79,7 @@ nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& o)
 {
     return {{"wholeRoll", o.wholeRoll},
             {"others", o.others},
+            {"played", o.played},
             {"othersHidden", o.othersHidden},
             {"lane", toWord(o.lane.kind, laneWords)},
             {"laneController", o.lane.controller},
@@ -108,6 +109,7 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
             if (id.is_number_unsigned())
                 o.wholeRoll.insert(id.get<std::uint64_t>());
     o.others = flag("others", o.others);
+    o.played = flag("played", o.played);
     if (const auto it = json.find("othersHidden"); it != json.end() && it->is_array())
         for (const auto& id : *it)
             if (id.is_number_unsigned())

@@ -128,17 +128,25 @@ TEST_CASE("every module panel is laid out on the module grid", "[ui]")
                 for (auto* s : p.panel->shownSections())
                 {
                     INFO("collapsed alone: " << s->id());
+                    const bool was = s->isCollapsed(); // some sections start collapsed
                     s->setCollapsed(true);
                     p.layout();
                     lint(p);
-                    s->setCollapsed(false);
+                    s->setCollapsed(was);
                 }
+                p.layout();
                 {
                     INFO("all collapsed");
+                    std::vector<bool> before; // as they were: some sections start collapsed
+                    for (auto* s : p.panel->sections())
+                        before.push_back(s->isCollapsed());
                     p.panel->setAllSectionsCollapsed(true);
                     p.layout();
                     lint(p);
                     p.panel->setAllSectionsCollapsed(false);
+                    for (std::size_t i = 0; i < before.size(); ++i)
+                        p.panel->sections()[i]->setCollapsed(before[i]);
+                    p.layout();
                 }
                 {
                     INFO("folded");

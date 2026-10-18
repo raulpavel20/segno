@@ -120,14 +120,15 @@ std::string stepName(engine::Session& session, const Ref& ref)
 
 /// A module (with a preset) on a channel: an instrument in place of the channel's own, anything
 /// else at `index` (-1: the end).
-/// Whether it makes notes or clips, which no group has (groups.md §11): an instrument, with its
-/// preset or in a rack; a sample, multisample, table or MIDI file.
+/// Whether it makes notes or clips, or works on notes, which no group has (groups.md §11): an
+/// instrument or a MIDI effect, with its preset; an instrument in a rack; a sample, multisample,
+/// table or MIDI file.
 bool needsTrack(engine::Session& session, const Ref& ref)
 {
     if (isModule(ref.kind))
     {
         const auto device = deviceOf(session, ref.key);
-        return device && device->instrument;
+        return device && (device->instrument || device->midiEffect);
     }
     if (ref.kind == Kind::Rack)
     {

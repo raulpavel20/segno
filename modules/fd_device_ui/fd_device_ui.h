@@ -21,6 +21,9 @@ END_JUCE_MODULE_DECLARATION
 
 #include <fd/device/Device.h>
 #include <fd/device/Presets.h>
+#include <fd/music/Chords.h>
+#include <fd/music/Following.h>
+#include <fd/music/Key.h>
 #include <fd/dsp/DrawnCurve.h>
 #include <fd/dsp/Modulation.h>
 #include <fd/dsp/Spectrum.h>
@@ -29,6 +32,7 @@ END_JUCE_MODULE_DECLARATION
 
 #include <nlohmann/json.hpp>
 
+#include <map>
 #include <optional>
 #include <set>
 
@@ -41,6 +45,9 @@ namespace fd::ui { class ModulationModel; class ModuleEditor; }
 #include "panel/ModuleEditor.h"
 #include "panel/Modulation.h"
 #include "panel/Displays.h"
+#include "panel/NoteDisplay.h"
+#include "panel/NoteTapFeed.h"
+#include "panel/MidiParts.h"
 #include "panel/CurveEditor.h"
 #include "panel/SynthParts.h"
 #include "panel/PanelRegistry.h"

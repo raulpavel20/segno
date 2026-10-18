@@ -278,6 +278,22 @@ Glyph glyph(Icon icon)
         p.lineTo(11.0f, 4.5f);
         g.solid.addRoundedRectangle(3.0f, 7.0f, 10.0f, 7.5f, 1.5f);
         break;
+    case Icon::MidiEffect:
+    {
+        // A MIDI socket: its round shell, five pins in an arc, the key's notch at the bottom.
+        p.addEllipse(1.5f, 1.5f, 13.0f, 13.0f);
+        constexpr float cx = 8.0f, cy = 8.6f, r = 3.7f, d = 1.9f;
+        for (const float a : {180.0f, 135.0f, 90.0f, 45.0f, 0.0f})
+        {
+            const float rad = juce::degreesToRadians(a);
+            g.solid.addEllipse(cx + r * std::cos(rad) - d / 2, cy - r * std::sin(rad) - d / 2, d, d);
+        }
+        p.startNewSubPath(7.0f, 14.4f);
+        p.lineTo(7.0f, 13.1f);
+        p.lineTo(9.0f, 13.1f);
+        p.lineTo(9.0f, 14.4f);
+        break;
+    }
     case Icon::Modulator:
         // One cycle of a wave, and a dot where it is now (at its crest).
         p.startNewSubPath(1.5f, 8.0f);

@@ -8,11 +8,11 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
 # fd_app_model: JUCE-free view models of the DAW (ADR 0018), tested as [fast].
 add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp src/model/NoteTools.cpp src/model/PianoRollOptions.cpp
-    src/model/Chance.cpp src/model/Controllers.cpp src/model/NoteToolkit.cpp
+    src/model/Chance.cpp src/model/Controllers.cpp src/model/NoteToolkit.cpp src/model/MidiEffects.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp src/model/ModuleFacts.cpp src/model/RoundTrip.cpp src/model/MidiMap.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Groups.cpp src/model/RowTree.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
     src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/AudioSound.cpp src/model/AudioToolkit.cpp src/model/Warp.cpp src/model/AudioAnalysis.cpp src/model/Export.cpp
-    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/TimeEdits.cpp src/model/SongKey.cpp src/model/Modulators.cpp src/model/DrumKit.cpp)
+    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/TimeEdits.cpp src/model/SongKey.cpp src/model/Modulators.cpp src/model/DrumKit.cpp src/model/SongHarmony.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile fd::music fd::device fd::dsp nlohmann_json::nlohmann_json PRIVATE fd::warnings)
 # The DAW's own modules' factory presets, from presets/<type>/: the modulators' (modulators.md §14,
@@ -25,7 +25,7 @@ if(FD_BUILD_TESTS)
         tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
         tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp tests/BrowserModelTests.cpp tests/ClipLoopsTests.cpp tests/MusicalTimeTests.cpp tests/BraceDragTests.cpp tests/SectionsTests.cpp
         tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp tests/ModulatorPresetsTests.cpp tests/DrumKitModelTests.cpp
-        tests/ModuleFactsTests.cpp tests/RoundTripTests.cpp tests/MidiMapTests.cpp
+        tests/ModuleFactsTests.cpp tests/RoundTripTests.cpp tests/MidiMapTests.cpp tests/MidiEffectsModelTests.cpp
         tests/AudioSoundTests.cpp tests/WarpTests.cpp tests/AudioAnalysisTests.cpp
         LIBS fd_app_model)
 endif()
@@ -73,6 +73,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionKits.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SongKey.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionNotes.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionMidiEffects.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionPresets.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSettings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionBrowser.cpp"
@@ -164,6 +165,7 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/TrackTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/SectionTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/KeyTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/MidiEffectTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/RackTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/KitTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ModulatorTools.cpp"
@@ -223,6 +225,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellTime.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellGroups.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellModulators.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMidiEffects.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMidi.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MidiMapView.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MidiMappingList.cpp"

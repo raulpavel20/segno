@@ -61,6 +61,8 @@ public:
     /// remembered for the clip as In key is, in the same place.
     void setPads(bool on);
     void setOthers(bool on);
+    /// Played notes (midi-effects.md §7): what the track's MIDI effects play in the clip, outlined.
+    void setPlayedShown(bool on);
     /// Others leaves out a track's notes, or shows them again (§8).
     void setOthersHidden(std::uint64_t track, bool hidden);
     /// Others' menu: each other track with notes, shown or not (§8).
@@ -393,6 +395,7 @@ private:
     void paintRows(juce::Graphics& g);
     void paintGhosts(juce::Graphics& g);
     void paintNotes(juce::Graphics& g);
+    void paintPlayed(juce::Graphics& g);
     void paintVelocities(juce::Graphics& g);
     void paintKeys(juce::Graphics& g);
     void paintPadKeys(juce::Graphics& g); // the pads' names (§23.2)

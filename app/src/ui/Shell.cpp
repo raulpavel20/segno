@@ -115,6 +115,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     registerSongActions();
     registerNotesActions();
     registerModulatorActions();
+    registerMidiEffectActions();
     registerMidiActions();
     registerAudioActions();
     registerGroupActions();
@@ -173,6 +174,10 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return transport_->midiLoopMenu();
         if (list == "trackColour")
             return trackColourMenu();
+        if (list == "trackHarmony")
+            return trackHarmonyMenu();
+        if (list == "chordChange")
+            return chordChangeMenu();
         if (list == "clipColour")
             return clipColourMenu();
         if (list == "sectionColour")
@@ -1774,6 +1779,12 @@ void Shell::registerActions()
     actions_.add({.id = "view.lanes", .name = "Show automation lanes", .category = "View", .keys = {key('l', kCmd | kAlt)},
                   .perform = [this] { arrangement_.setLanesVisible(!arrangement_.lanesVisible()); },
                   .isEnabled = arrangeShown, .isToggled = [this] { return arrangement_.lanesVisible(); }});
+    actions_.add({.id = "view.songChords",
+                  .name = "Show song chords",
+                  .category = "View",
+                  .perform = [this] { arrangement_.setSongChordsShown(!arrangement_.songChordsShown()); },
+                  .isEnabled = arrangeShown,
+                  .isToggled = [this] { return arrangement_.songChordsShown(); }});
     actions_.add({.id = "view.returns",
                   .name = "Show returns",
                   .category = "View",
@@ -2307,7 +2318,8 @@ std::string Shell::viewState() const
         {"rowHeights", arrangement_.rowHeights()},
         // Each view folds on its own (groups.md §6.4).
         {"foldedGroups", arrangement_.foldedGroups()},
-        {"mixerFoldedGroups", mixer_.foldedGroups()}}
+        {"mixerFoldedGroups", mixer_.foldedGroups()},
+        {"songChords", arrangement_.songChordsShown()}}
         .dump();
 }
 
@@ -2347,6 +2359,7 @@ void Shell::applyViewState(const std::string& json)
     mixer_.setOptions(get("mixerModules", true), get("mixerSends", true), get("mixerNarrow", false));
     mixer_.setScrollX(get("mixerScroll", 0));
     arrangement_.setRowHeights(get("rowHeights", std::map<std::string, double>{}));
+    arrangement_.setSongChordsShown(get("songChords", false));
     resized();
 }
 

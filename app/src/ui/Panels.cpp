@@ -923,6 +923,20 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             onSelectChannel(group_->id);
     };
     body_.addChildComponent(groupLink_);
+    // A track's Harmony (midi-effects.md §5.1), as Track ▸ Harmony.
+    trackHarmony_.addItem("Auto", 1);
+    trackHarmony_.addItem("On", 2);
+    trackHarmony_.addItem("Off", 3);
+    trackHarmony_.setTooltip(
+        "Whether its notes make the song's harmony, which MIDI effects follow: Auto when it "
+        "plays chords (never a Drum Kit)");
+    trackHarmony_.onChange = [this]
+    {
+        if (channel_ && trackHarmony_.getSelectedId() > 0)
+            session_.setTrackHarmony(channel_->id,
+                                     static_cast<model::HarmonyUse>(trackHarmony_.getSelectedId() - 1));
+    };
+    body_.addChildComponent(trackHarmony_);
     clipColour_.onChosen = [this](int c)
     {
         if (clip_)
@@ -1419,6 +1433,10 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
             channelName_.setText(juce::String::fromUTF8(channel_->name.c_str()), false);
         channelColour_.setColour(channel_->colour);
     }
+    const bool harmonyShown = has(model::InspectorSection::Track) && channel_ && channel_->holdsClips();
+    trackHarmony_.setVisible(harmonyShown);
+    if (harmonyShown)
+        trackHarmony_.setSelectedId(static_cast<int>(channel_->harmony) + 1, juce::dontSendNotification);
     const bool clipShown = has(model::InspectorSection::Clip) && clip_;
     clipName_.setVisible(clipShown);
     clipColour_.setVisible(clipShown);
@@ -1817,6 +1835,7 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                 {"Instrument", channel_->instrument.empty()
                                    ? juce::String("None")
                                    : juce::String::fromUTF8(channel_->instrument.c_str())},
+                {"Harmony", {}, false, "harmony"}, // the choice (midi-effects.md §5.1)
                 {"Clips", juce::String(static_cast<int>(channel_->clips.size())), true}};
             if (group_) // the group it's in, a click selecting it (groups.md §10)
                 rows.push_back({"Group", {}});
@@ -2058,6 +2077,9 @@ int InspectorPanel::layoutSections(int width)
                     content
                         .translated(0, static_cast<int>(properties(S::Track).size() - 1) * t.shell.rowHeight)
                         .reduced(0, t.shell.propertyFieldInset));
+            if (const int row = rowOf(S::Track, "harmony"); sections_[i] == S::Track && row >= 0)
+                trackHarmony_.setBounds(
+                    content.translated(0, row * t.shell.rowHeight).reduced(0, t.shell.propertyFieldInset));
         }
         else if (sections_[i] == S::Take) // the Name row and the last
         {

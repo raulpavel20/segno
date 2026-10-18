@@ -18,3 +18,8 @@ add_subdirectory(loudness-meter)
 add_subdirectory(tuner)
 add_subdirectory(wavetable)
 add_subdirectory(granular)
+# MIDI effects (ADR 0074): what they share, then the modules.
+add_subdirectory(midi-shared)
+add_subdirectory(arpeggiator) # A to Z, as the browser lists them (midi-effects.md §13)
+add_subdirectory(chord)
+add_subdirectory(pitch)

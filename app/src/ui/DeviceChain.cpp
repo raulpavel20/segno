@@ -1,6 +1,7 @@
 #include "ui/DeviceChain.h"
 
 #include "model/DrumKit.h"
+#include "model/MidiEffects.h"
 #include "model/Racks.h"
 #include "ui/BrowserDrops.h"
 #include "ui/MacroEditor.h"
@@ -710,7 +711,10 @@ void DeviceChain::showAddMenu(juce::Component& target, std::function<void(const 
             }
     };
     section("Instruments", [](const auto& d) { return d.native && d.instrument; });
-    section("Audio effects", [](const auto& d) { return d.native && !d.instrument && !d.modulator; });
+    // Before the instrument, wherever the menu was opened (midi-effects.md §11).
+    section("MIDI effects", [](const auto& d) { return d.native && d.midiEffect; });
+    section("Audio effects",
+            [](const auto& d) { return d.native && !d.instrument && !d.modulator && !d.midiEffect; });
     if (modulators) // the track's chain (not a rack's, for now): modulators.md §14
         section("Modulators", [](const auto& d) { return d.modulator; });
     if (extra)
@@ -837,7 +841,8 @@ MacroPanel* DeviceChain::macroPanelOf(std::uint64_t id)
     return s != nullptr ? dynamic_cast<MacroPanel*>(s->view.get()) : nullptr;
 }
 
-DeviceChain::Drop DeviceChain::dropAt(juce::Point<int> p, std::optional<std::uint64_t> dragged) const
+DeviceChain::Drop DeviceChain::dropAt(juce::Point<int> p, std::optional<std::uint64_t> dragged,
+                                      bool midiEffect) const
 {
     // Inside a rack's frame, past its panel's middle: into its chain shown (racks.md §5).
     for (const auto& r : racks_)
@@ -878,6 +883,16 @@ DeviceChain::Drop DeviceChain::dropAt(juce::Point<int> p, std::optional<std::uin
         if (p.x >= bounds.getCentreX())
             ++index;
     }
+    if (midiEffect)
+    {
+        std::vector<model::ChainRole> roles;
+        for (const auto& s : slots_)
+            if (s.rack == 0)
+                roles.push_back(s.info.midiEffect   ? model::ChainRole::MidiEffect
+                                : s.info.instrument ? model::ChainRole::Player
+                                                    : model::ChainRole::Other);
+        index = model::placeInChain(roles, index, model::ChainRole::MidiEffect);
+    }
     return {0, 0, index};
 }
 
@@ -915,6 +930,16 @@ void DeviceChain::mouseDown(const juce::MouseEvent& e)
             content_->repaint();
             showModulatorMenu(slot.info.id);
         }
+        else if (slot.info.midiEffect && slot.info.kind == model::DeviceSlot::Kind::Native && slot.rack == 0)
+        {
+            // A MIDI effect's own (midi-effects.md §13): what the menu bar's Module ▸ has for it.
+            selected_ = slot.info.id;
+            content_->repaint();
+            juce::PopupMenu menu;
+            actions_.addMenuItem(menu, "module.keepAsNotes");
+            menu.showMenuAsync(
+                juce::PopupMenu::Options().withTargetComponent(slot.view.get()).withMousePosition());
+        }
         return;
     }
     // Shift: the selection runs along the track's chain to here (Group into rack takes them).
@@ -945,8 +970,8 @@ void DeviceChain::mouseDrag(const juce::MouseEvent& e)
     if (dragSlot_ < 0 || (!dragging_ && e.getDistanceFromDragStart() < 4))
         return;
     dragging_ = true;
-    drop_ = dropAt(e.getEventRelativeTo(content_.get()).getPosition(),
-                   slots_[static_cast<size_t>(dragSlot_)].info.id);
+    const auto& dragged = slots_[static_cast<size_t>(dragSlot_)].info;
+    drop_ = dropAt(e.getEventRelativeTo(content_.get()).getPosition(), dragged.id, dragged.midiEffect);
     content_->repaint();
 }
 
@@ -1034,6 +1059,16 @@ std::optional<model::ModulatorKind> modulatorOf(const std::string& item)
         return std::nullopt;
     return model::modulatorKind(std::string_view(ref->key).substr(3));
 }
+
+/// A browser item that adds a MIDI effect of ours (its module or one of its presets).
+bool isMidiEffect(const std::optional<std::string>& item)
+{
+    const auto ref = item ? browser::parse(*item) : std::nullopt;
+    if (!ref || (ref->kind != model::BrowserKind::Module && ref->kind != model::BrowserKind::Preset))
+        return false;
+    const auto* info = engine::Session::nativeInfo(ref->key);
+    return info != nullptr && info->kind == DeviceKind::MidiEffect;
+}
 } // namespace
 
 void DeviceChain::itemDragMove(const SourceDetails& details)
@@ -1042,7 +1077,7 @@ void DeviceChain::itemDragMove(const SourceDetails& details)
     const auto inContent = content_->getLocalPoint(this, details.localPosition);
     browserDrag_ = true;
     browserOn_.reset();
-    drop_ = dropAt(inContent, std::nullopt);
+    drop_ = dropAt(inContent, std::nullopt, isMidiEffect(item));
     // Over a kit's pad: onto it, lit as it lands (drum-kit.md §6).
     const auto pad = item && browser::fitsPad(*item) ? padAt(inContent) : std::nullopt;
     if (padDrop_ != pad)
@@ -1583,6 +1618,23 @@ const model::ModulatorInfo* DeviceChain::selectedModulator() const
             if (s.info.id == *selected_)
                 return s.info.modulator.get();
     return nullptr;
+}
+
+void DeviceChain::addModule(const std::string& key)
+{
+    if (!track_)
+        return;
+    // After the selected module along the track's chain, else at its end; a MIDI effect before the
+    // instrument (midi-effects.md §11), wherever that is.
+    int index = -1;
+    if (selected_)
+        if (const auto place = session_.placeOf(*selected_); place && place->rack == 0)
+            index = place->index + 1;
+    if (const auto id = session_.addDevice(*track_, key, index))
+    {
+        selected_ = id;
+        picked_.clear();
+    }
 }
 
 void DeviceChain::addModulator(model::ModulatorKind kind)

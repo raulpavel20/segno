@@ -75,6 +75,16 @@ std::string newSectionName(const std::vector<SectionInfo>& sections)
             return name;
 }
 
+std::string sectionBaseName(const std::string& name)
+{
+    if (const auto space = name.find_last_of(' ');
+        space != std::string::npos && space > 0 && space + 1 < name.size() &&
+        std::all_of(name.begin() + static_cast<long>(space) + 1, name.end(),
+                    [](char c) { return c >= '0' && c <= '9'; }))
+        return name.substr(0, space);
+    return name;
+}
+
 std::string copyName(const std::vector<SectionInfo>& sections, const std::string& name)
 {
     // "Chorus 2": the base is "Chorus" and the copies count on from 2.

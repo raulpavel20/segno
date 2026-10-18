@@ -1,0 +1,222 @@
+{
+    "device": "chord",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Power fifth",
+            "tags": [
+                "Guitar",
+                "Heavy"
+            ],
+            "description": "Each note with its fifth and its octave: the power chord.",
+            "params": {
+                "mode": "Add",
+                "shift1": 7,
+                "shift2": 12
+            }
+        },
+        {
+            "name": "Major triad",
+            "tags": [
+                "Chords",
+                "Keys"
+            ],
+            "description": "A major triad on each note, the notes added a little softer than the one played.",
+            "params": {
+                "mode": "Add",
+                "shift1": 4,
+                "shift2": 7,
+                "level": 80
+            }
+        },
+        {
+            "name": "Minor triad",
+            "tags": [
+                "Chords",
+                "Keys"
+            ],
+            "description": "A minor triad on each note, the notes added a little softer than the one played.",
+            "params": {
+                "mode": "Add",
+                "shift1": 3,
+                "shift2": 7,
+                "level": 80
+            }
+        },
+        {
+            "name": "Triads in key",
+            "tags": [
+                "Chords",
+                "Keys"
+            ],
+            "description":
+                "Two thirds of the key stacked on each note: major or minor as the key has it there.",
+            "params": {
+                "mode": "Add",
+                "inkey": true,
+                "shift1": 2,
+                "shift2": 4
+            }
+        },
+        {
+            "name": "Stacked fourths",
+            "tags": [
+                "Chords",
+                "Keys"
+            ],
+            "description": "Two fourths over each note: open, modern, neither major nor minor.",
+            "params": {
+                "mode": "Add",
+                "shift1": 5,
+                "shift2": 10
+            }
+        },
+        {
+            "name": "Octaves",
+            "tags": [
+                "Bass",
+                "Lead"
+            ],
+            "description": "Each note doubled an octave above and below.",
+            "params": {
+                "mode": "Add",
+                "shift1": 12,
+                "shift2": -12,
+                "level": 85
+            }
+        },
+        {
+            "name": "Sus 2",
+            "tags": [
+                "Chords",
+                "Pad"
+            ],
+            "description": "The second and fifth over each note: an open chord that never decides.",
+            "params": {
+                "mode": "Add",
+                "shift1": 2,
+                "shift2": 7,
+                "level": 85
+            }
+        },
+        {
+            "name": "Lush 9th in key",
+            "tags": [
+                "Chords",
+                "Pad"
+            ],
+            "description": "Thirds of the key stacked up to the ninth on each note, the top notes softer.",
+            "params": {
+                "mode": "Add",
+                "inkey": true,
+                "shift1": 2,
+                "shift2": 4,
+                "shift3": 6,
+                "shift4": 8,
+                "level": 70
+            }
+        },
+        {
+            "name": "Stabs on the chords",
+            "tags": [
+                "Chords",
+                "Keys"
+            ],
+            "description":
+                "Any note plays the song's chord, close and led smoothly from the last: a rhythm becomes chord stabs.",
+            "params": {
+                "mode": "Song",
+                "voicing": "Close",
+                "place": "Smooth"
+            }
+        },
+        {
+            "name": "Pad voicing",
+            "tags": [
+                "Chords",
+                "Pad"
+            ],
+            "description":
+                "The song's chord with its seventh, spread over two octaves around the note played.",
+            "params": {
+                "mode": "Song",
+                "kind": "7th",
+                "voicing": "Spread",
+                "place": "Smooth"
+            }
+        },
+        {
+            "name": "Guitar strum",
+            "tags": [
+                "Chords",
+                "Guitar"
+            ],
+            "description":
+                "The song's chord strummed down over 40 ms, speeding up a little, softer at the end.",
+            "params": {
+                "mode": "Song",
+                "voicing": "Open",
+                "strum": 40,
+                "curve": 20,
+                "swell": -15,
+                "direction": "Down"
+            }
+        },
+        {
+            "name": "Piano comp",
+            "tags": [
+                "Chords",
+                "Keys"
+            ],
+            "description": "The song's chord with its seventh, drop 2 voiced as a pianist comps.",
+            "params": {
+                "mode": "Song",
+                "kind": "7th",
+                "voicing": "Drop 2",
+                "place": "Smooth"
+            }
+        },
+        {
+            "name": "One-finger triads",
+            "tags": [
+                "Chords",
+                "Keys"
+            ],
+            "description":
+                "Each note of the key plays its chord in the key, around C3: progressions with one finger.",
+            "params": {
+                "mode": "Keys",
+                "kind": "Triad",
+                "voicing": "Close"
+            }
+        },
+        {
+            "name": "One-finger sevenths",
+            "tags": [
+                "Chords",
+                "Keys"
+            ],
+            "description":
+                "Each note of the key plays its seventh chord in the key, voiced smoothly around C3.",
+            "params": {
+                "mode": "Keys",
+                "kind": "7th",
+                "voicing": "Close"
+            }
+        },
+        {
+            "name": "Neo-soul ninths",
+            "tags": [
+                "Chords",
+                "Pad"
+            ],
+            "description": "Each note of the key plays its ninth chord, spread wide around C3.",
+            "params": {
+                "mode": "Keys",
+                "kind": "9th",
+                "voicing": "Spread",
+                "around": 62
+            }
+        }
+    ]
+}

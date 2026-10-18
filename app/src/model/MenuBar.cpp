@@ -89,16 +89,17 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           action("edit.selectLoop"),
           submenu("Time selection", {action("edit.timeEndLater"), action("edit.timeEndEarlier")})}});
 
-    menus.push_back(
-        {"Track",
-         't',
-         {action("track.add"), action("track.addReturn"), separator(),
-          // Groups (groups.md §12).
-          action("track.group"), action("track.ungroup"), action("track.removeFromGroup"),
-          action("track.fold"), separator(), action("track.duplicate"), action("track.delete"),
-          submenu("Colour", {list("trackColour"), separator(), action("track.colourMembers")}), separator(),
-          action("track.arm"), action("track.mute"), action("track.solo"), separator(),
-          action("automation.addLane"), action("automation.assign"), action("automation.showLastTouched")}});
+    menus.push_back({"Track",
+                     't',
+                     {action("track.add"), action("track.addReturn"), separator(),
+                      // Groups (groups.md §12).
+                      action("track.group"), action("track.ungroup"), action("track.removeFromGroup"),
+                      action("track.fold"), separator(), action("track.duplicate"), action("track.delete"),
+                      submenu("Colour", {list("trackColour"), separator(), action("track.colourMembers")}),
+                      // Whether its notes make the song's harmony (midi-effects.md §5.1).
+                      submenu("Harmony", {list("trackHarmony")}), separator(), action("track.arm"),
+                      action("track.mute"), action("track.solo"), separator(), action("automation.addLane"),
+                      action("automation.assign"), action("automation.showLastTouched")}});
 
     menus.push_back(
         {"Clip",
@@ -188,7 +189,9 @@ std::vector<Menu> menuBar(MenuPlatform platform)
     menus.push_back(
         {"Song",
          'g', // Alt+S solos; Notes has the n
-         {action("song.key"), action("song.noKey"), separator(), action("song.addSection"),
+         {action("song.key"), action("song.noKey"),
+          // How often the harmony MIDI effects follow may change (midi-effects.md §5.1).
+          submenu("Chords change", {list("chordChange")}), separator(), action("song.addSection"),
           action("song.insertSection"), separator(), action("song.loopSection"),
           action("song.previousSection"), action("song.nextSection"), separator(),
           action("song.selectSectionTime"), action("song.duplicateSection"), action("song.deleteSection"),
@@ -223,6 +226,11 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           action("module.removeSnapshot"), action("module.morph"), action("module.vary"),
           action("module.varyMore"), separator(), action("module.saveRack"), action("module.saveRackAs"),
           action("module.racksFolder"), separator(),
+          // MIDI effects (midi-effects.md §13): before the instrument, wherever the selection is.
+          submenu("Add MIDI effect",
+                  {action("module.addMidiEffect.arpeggiator"), action("module.addMidiEffect.chord"),
+                   action("module.addMidiEffect.pitch")}),
+          action("module.keepAsNotes"),
           // Modulators (modulators.md §15): one added, the selected one's roll and routes.
           submenu("Add modulator",
                   {action("module.addModulator.lfo"), action("module.addModulator.random"),
@@ -244,12 +252,13 @@ std::vector<Menu> menuBar(MenuPlatform platform)
          {action("view.mixer"), separator(), action("view.browser"), action("browser.search"),
           action("browser.preview"), action("view.inspector"), action("view.detail"),
           action("view.detailMode"), separator(), action("view.lanes"), action("view.returns"),
-          action("view.foldGroups"), action("view.unfoldGroups"), action("module.fold"),
-          action("module.expand"), action("module.nextPage"), action("module.previousPage"), separator(),
+          action("view.songChords"), action("view.foldGroups"), action("view.unfoldGroups"),
+          action("module.fold"), action("module.expand"), action("module.nextPage"),
+          action("module.previousPage"), separator(),
           // The clip view's options (piano-roll.md §13).
           action("view.clipInKey"),
           submenu("Other tracks' notes", {action("view.clipOthers"), separator(), list("otherTracks")}),
-          submenu("Clip view lane", {list("clipLane")}),
+          action("view.clipPlayed"), submenu("Clip view lane", {list("clipLane")}),
           // The audio editor's rows (audio-editor.md §4): its level column, by menu.
           submenu("Waveform height", {action("view.waveformTaller"), action("view.waveformShorter"),
                                       action("view.waveformReset")}),

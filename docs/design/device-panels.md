@@ -168,7 +168,9 @@ For a module whose editing needs more room than six rows: the Wavetable's table 
 | DAW | the module's plugin tree, property `fdPanel` (JSON) | Saved with the project; never an undo step, never an unsaved change, never a snapshot rebuild |
 | Plugin | top-level `"view"` key in the plugin state | Written only when not empty, so state without it is byte-identical; presets and `fd-render` ignore it |
 
-Format: `{"collapsed": ["color", "shape"], "folded": true, "page": "modulation"}`. Ids are sorted, and default values are omitted (the first page is the default). Unknown ids are ignored. Page ids, like section ids, are stored and never renamed.
+Format: `{"collapsed": ["color", "shape"], "folded": true, "page": "modulation"}`. Ids are sorted, and default values are omitted (the first page is the default). Unknown ids are ignored.
+
+A section can start collapsed (`PanelSection::setCollapsedByDefault`, added 2026-10-18: a MIDI effect's HARMONY, which holds the fallbacks, [midi-effects.md](midi-effects.md) §12). The view state keeps what differs from each section's default: such a section, expanded, is listed under `"expanded"`. Page ids, like section ids, are stored and never renamed.
 
 ## Keyboard
 

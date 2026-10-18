@@ -111,13 +111,13 @@ void addReadTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"list_module_types", "List module types",
-         "Every module that can be added to a chain: our instruments, effects and modulators (which move "
-         "other "
-         "parameters on their track: route_modulator), and scanned third-party plugins. Use a type with "
-         "add_module; read segno://module-type/{type} for its parameters.",
+         "Every module that can be added to a chain: our instruments, MIDI effects (notes in, notes out, "
+         "before the instrument), effects and modulators (which move other parameters on their track: "
+         "route_modulator), and scanned third-party plugins. Use a type with add_module; read "
+         "segno://module-type/{type} for its parameters.",
          object({{"kind",
-                  {{"enum", {"instrument", "effect", "modulator"}},
-                   {"description", "Only instruments, effects or modulators"}}}}),
+                  {{"enum", {"instrument", "midi-effect", "effect", "modulator"}},
+                   {"description", "Only instruments, MIDI effects, effects or modulators"}}}}),
          result({{"types", arrayOf(result({{"type", string("")}, {"name", string("")}, {"kind", string("")}}),
                                    "", std::nullopt)}},
                 {"types"}),

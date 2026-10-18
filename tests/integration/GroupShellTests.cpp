@@ -332,6 +332,16 @@ TEST_CASE(
     view.onHeaderMenu(trackMenu, g.bass);
     CHECK(itemsOf(trackMenu).contains("Group tracks"));
     CHECK_FALSE(itemsOf(trackMenu).contains("Remove from group"));
+    // No notes reach a group: no Harmony in its menu (a track's has it), and Module ▸ Add MIDI
+    // effect is dimmed while its chain shows (midi-effects.md §5.1, §13).
+    CHECK(itemsOf(trackMenu).contains(juce::String::fromUTF8("Harmony ▸ On")));
+    CHECK_FALSE(itemsOf(groupMenu).joinIntoString("|").contains("Harmony"));
+    g.sync();
+    CHECK(g.shell->actions().isEnabled("module.addMidiEffect.pitch"));
+    view.selectTrack(g.drums);
+    g.sync();
+    REQUIRE(g.shell->detail().chain().track() == std::optional(g.drums));
+    CHECK_FALSE(g.shell->actions().isEnabled("module.addMidiEffect.pitch"));
 
     // Live MIDI follows Bass, with an instrument; selecting Drums leaves it there.
     REQUIRE(g.session->addDevice(g.bass, "fd:sampler") != 0);
@@ -367,10 +377,10 @@ TEST_CASE(
     CHECK(g.shell->lastWarning() == "Deleted Drums and its 3 tracks");
 }
 
-TEST_CASE(
-    "groups in the shell: from the browser, a sample or an instrument on a group's row makes a track in "
-    "it; an effect goes on its chain; an instrument in its chain is refused",
-    "[integration]")
+TEST_CASE("groups in the shell: from the browser, a sample, an instrument or a MIDI effect on a group's row "
+          "makes a track in it; an effect goes on its chain; an instrument or a MIDI effect in its chain is "
+          "refused",
+          "[integration]")
 {
     Grouped g;
     namespace browser = fd::app::browser;
@@ -393,10 +403,18 @@ TEST_CASE(
     REQUIRE(r.done);
     CHECK(r.track == 0);
     CHECK(g.info(g.drums)->devices.size() == 1);
-    r = browser::inChain(*g.session, "module:fd:sampler", g.drums, -1, std::nullopt);
-    CHECK_FALSE(r.done);
-    CHECK(r.refused.isNotEmpty());
+    r = browser::onChannel(*g.session, "module:fd:arpeggiator", g.drums, 0.0);
+    REQUIRE(r.done);
+    REQUIRE(r.track != 0);
+    CHECK(g.info(r.track)->group == g.drums);
     CHECK(g.info(g.drums)->devices.size() == 1);
+    for (const auto* item : {"module:fd:sampler", "module:fd:arpeggiator"})
+    {
+        r = browser::inChain(*g.session, item, g.drums, -1, std::nullopt);
+        CHECK_FALSE(r.done);
+        CHECK(r.refused.isNotEmpty());
+        CHECK(g.info(g.drums)->devices.size() == 1);
+    }
 }
 
 TEST_CASE("groups in the shell: screenshots of real groups for review", "[integration]")

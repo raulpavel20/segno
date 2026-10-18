@@ -6,6 +6,7 @@
 #include "model/Controllers.h"
 #include "model/Fades.h"
 #include "model/KeyMap.h"
+#include "model/MidiEffects.h"
 #include "model/MidiMap.h"
 #include "model/Modulators.h"
 #include "model/Recording.h"
@@ -61,6 +62,9 @@ struct ClipInfo
 
     // MIDI clips: the notes in time order (noteOrder) and the song beat of their zero.
     std::vector<Note> notes;
+    /// What its track's MIDI effects play in it, in the same beats as `notes` (midi-effects.md
+    /// §7): drawn faint behind its notes, and alone in a clip a generator plays in.
+    std::vector<Note> played;
     double contentStartBeat = 0.0;
     /// Its controller lanes (piano-roll.md §11), by controller; only those with events.
     std::vector<ControllerLane> controllers;
@@ -349,6 +353,8 @@ struct TrackInfo
     std::vector<TakeStackInfo> stacks; // tracks only: its clips' takes (ADR 0032), by start
     std::uint64_t audition = 0;        // the take heard in place of its clip (ADR 0038); 0: none
     std::uint64_t group = 0;           // tracks and groups: the group it's in (ADR 0072); 0: none
+    /// Whether its notes make the song's harmony (midi-effects.md §5.1): tracks only.
+    HarmonyUse harmony = HarmonyUse::Auto;
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
     [[nodiscard]] bool isGroup() const noexcept { return role == Role::Group; }
@@ -391,6 +397,19 @@ struct SectionInfo
     friend bool operator==(const SectionInfo&, const SectionInfo&) = default;
 };
 
+/// A chord of the song's harmony, read from its notes (midi-effects.md §5.1, ADR 0074): what the
+/// MIDI effects follow, named in the song's key along the song row (View ▸ Song chords).
+struct SongChordInfo
+{
+    double start = 0.0, end = 0.0; // seconds on the timeline
+    std::string name;              // spelled in the key: "Am7", "D9/F♯"
+    double startBeat = 0.0, endBeat = 0.0; // the same, in beats: what MIDI effects read
+    int root = -1;                         // 0 = C … 11 = B
+    std::uint16_t notes = 0;               // its pitch classes, bit n for pitch class n
+    int bass = -1;                         // the lowest note sounding in it (a MIDI pitch)
+    friend bool operator==(const SongChordInfo&, const SongChordInfo&) = default;
+};
+
 struct Snapshot
 {
     /// The tracks, which hold clips, in order.
@@ -405,6 +424,10 @@ struct Snapshot
     TempoMap tempo;
     /// The song's key (ADR 0057): none until one is chosen.
     KeyMap keys;
+    /// The song's harmony, read from the notes of the tracks that make it (midi-effects.md §5.1).
+    std::vector<SongChordInfo> songChords;
+    /// How often the song's chords may change (Song ▸ Chords change).
+    ChordChange chordChange = ChordChange::Beat;
     bool edgeFades = true; // the project's edge fades (fades.md §2)
     /// The MIDI mappings (midi-learn.md): the project's whose targets are there, then the app's
     /// (the transport's).

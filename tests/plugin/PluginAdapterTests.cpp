@@ -3,6 +3,7 @@
 
 #include "Compressor.h"
 #include "DeviceAudioProcessor.h"
+#include "Pitch.h"
 #include "Utility.h"
 #include "WavetableSynth.h"
 
@@ -415,6 +416,35 @@ TEST_CASE("plugin: an editor's note reaches the device at the next block, beside
     for (int i = 0; i < 100; ++i)
         processor.playNote(48, i % 2 == 0 ? 0.5f : 0.0f);
     loudness();
+    processor.releaseResources();
+}
+
+TEST_CASE("plugin: a MIDI effect's notes replace the host's, with no audio bus", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    fd::plugin::DeviceAudioProcessor processor(fd::devices::pitchFactory(), nullptr);
+    CHECK(processor.isMidiEffect());
+    CHECK(processor.getTotalNumOutputChannels() == 0);
+    const auto& spec = fd::devices::pitchFactory().info().params[fd::devices::Pitch::Semitones];
+    processor.getParameters()[fd::devices::Pitch::Semitones]->setValueNotifyingHost(spec.toNormalized(12.0f));
+    processor.prepareToPlay(48000.0, 256);
+    juce::AudioBuffer<float> buffer(0, 256);
+    juce::MidiBuffer midi;
+    midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 10);
+    midi.addEvent(juce::MidiMessage::controllerEvent(1, 1, 64), 20);
+    midi.addEvent(juce::MidiMessage::noteOff(1, 60), 100);
+    processor.processBlock(buffer, midi);
+    std::vector<std::pair<int, juce::MidiMessage>> out;
+    for (const auto m : midi)
+        out.emplace_back(m.samplePosition, m.getMessage());
+    REQUIRE(out.size() == 3);
+    CHECK(out[0].first == 10);
+    CHECK(out[0].second.isNoteOn());
+    CHECK(out[0].second.getNoteNumber() == 72);
+    CHECK(out[1].second.isController());
+    CHECK(out[2].first == 100);
+    CHECK(out[2].second.isNoteOff());
+    CHECK(out[2].second.getNoteNumber() == 72);
     processor.releaseResources();
 }
 

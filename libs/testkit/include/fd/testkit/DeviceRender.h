@@ -37,10 +37,22 @@ struct RenderOptions
     /// The song's tempo and time signature the device sees, and where it starts: it plays from
     /// `ppqPosition`, which moves on with the samples (samplePosition and playing are set per block).
     TransportInfo transport{};
+    /// Changes a block's transport after it's set (a stop, a jump), with the block's start sample.
+    std::function<void(TransportInfo&, std::int64_t blockStart)> transportAt{};
+    /// The events the device writes (a MIDI effect's notes, ADR 0074), at their samples; none kept
+    /// when null.
+    std::vector<TimedEvent>* eventsOut = nullptr;
+    /// The song a MIDI effect reads (its harmony, sections and clips); none when null.
+    const SongView* song = nullptr;
+    /// The notes of the track a MIDI effect listens to, sorted by samplePosition.
+    std::vector<TimedEvent> listen{};
 };
 
 /// Offline render through Device::process (via fd::processRealtime). Prepares the device first
 /// (which resets it) unless skipPrepare is set. Output has the device's output channel count.
 AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions& options = {});
+
+/// A MIDI effect's notes for `numSamples` (no audio): the events it writes, at their samples.
+std::vector<TimedEvent> renderNotes(Device& device, int numSamples, RenderOptions options = {});
 
 } // namespace fd::testkit

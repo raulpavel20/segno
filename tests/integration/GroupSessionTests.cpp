@@ -295,11 +295,15 @@ TEST_CASE(
     CHECK(g.info(drums).mix.solo);
     CHECK_FALSE(g.info(g.kick).mix.solo);
 
-    // Effects and modulators, not instruments.
+    // Effects and modulators, not instruments or MIDI effects.
     CHECK_FALSE(s.playsNotes("fd:compressor"));
     CHECK(s.playsNotes("fd:drum-kit"));
+    CHECK_FALSE(s.playsNotes("fd:pitch"));
+    CHECK(s.usesNotes("fd:pitch"));
+    CHECK_FALSE(s.usesNotes("fd:compressor"));
     CHECK(s.addDevice(drums, "fd:compressor") != 0);
     CHECK(s.addDevice(drums, "fd:drum-kit") == 0);
+    CHECK(s.addDevice(drums, "fd:pitch") == 0);
     CHECK(s.addModulator(drums, fd::model::ModulatorKind::Lfo) != 0);
 
     // A compressor on Kick can't listen to Drums (it's in it); one on Bass can.

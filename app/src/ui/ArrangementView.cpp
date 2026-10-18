@@ -368,6 +368,14 @@ void ArrangementView::setLanesVisible(bool visible)
     syncRows();
 }
 
+void ArrangementView::setSongChordsShown(bool shown)
+{
+    if (shown == showSongChords_)
+        return;
+    showSongChords_ = shown;
+    syncRows(); // the song row is taller by the chords' band
+}
+
 void ArrangementView::syncLayout()
 {
     rows_ = model::arrangementRows(*snapshot_, showMixRows_, showLanes_, folded_);
@@ -1812,28 +1820,34 @@ void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip,
     // A preview of the notes across the clip's own pitch range (the piano roll edits them), clear of
     // the body's edges by twice the clip gap.
     body = body.reduced(0.0f, static_cast<float>(2 * ui::Theme::current().shell.clipGap));
-    if (clip.notes.empty() || body.getHeight() < 4.0f)
+    if ((clip.notes.empty() && clip.played.empty()) || body.getHeight() < 4.0f)
         return;
     int lo = 127, hi = 0;
-    for (const auto& n : clip.notes)
-    {
-        lo = std::min(lo, n.pitch);
-        hi = std::max(hi, n.pitch);
-    }
+    for (const auto* list : {&clip.notes, &clip.played})
+        for (const auto& n : *list)
+        {
+            lo = std::min(lo, n.pitch);
+            hi = std::max(hi, n.pitch);
+        }
     const int span = std::max(12, hi - lo + 1);
     lo = std::max(0, (lo + hi) / 2 - span / 2);
     const float row = body.getHeight() / static_cast<float>(span);
-    g.setColour(content);
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(body.getSmallestIntegerContainer());
     const double contentStart = clip.start - clip.offset; // follows the clip while it is dragged
     const auto& tempo = snapshot_->tempo;
-    for (const auto& n : clip.notes)
+    // What the track's MIDI effects play in it, faint, behind its own notes (midi-effects.md §7).
+    for (const auto* list : {&clip.played, &clip.notes})
     {
-        const float x0 = laneX(contentStart + tempo.secondsForBeats(n.start));
-        const float x1 = laneX(contentStart + tempo.secondsForBeats(n.start + n.length));
-        const float y = body.getBottom() - static_cast<float>(n.pitch - lo + 1) * row;
-        g.fillRect(juce::Rectangle<float>(x0, y, std::max(1.0f, x1 - x0 - 1.0f), std::max(1.0f, row - 1.0f)));
+        g.setColour(list == &clip.played ? ui::Theme::current().ghost(content) : content);
+        for (const auto& n : *list)
+        {
+            const float x0 = laneX(contentStart + tempo.secondsForBeats(n.start));
+            const float x1 = laneX(contentStart + tempo.secondsForBeats(n.start + n.length));
+            const float y = body.getBottom() - static_cast<float>(n.pitch - lo + 1) * row;
+            g.fillRect(
+                juce::Rectangle<float>(x0, y, std::max(1.0f, x1 - x0 - 1.0f), std::max(1.0f, row - 1.0f)));
+        }
     }
 }
 

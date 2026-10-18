@@ -7,8 +7,9 @@ set(FD_MANUFACTURER_CODE "Sgno")
 set(FD_ID_PREFIX "org.segnoaudio")
 set(FD_LV2_PREFIX "https://segnoaudio.org/plugins")
 
-# fd_add_device_plugin(ID <device-id> NAME <display> CODE <4cc> KIND effect|instrument
+# fd_add_device_plugin(ID <device-id> NAME <display> CODE <4cc> KIND effect|instrument|midi
 #                      VST3_CATEGORIES ... CLAP_FEATURES ...)
+# KIND midi: a MIDI effect (ADR 0074), notes in and out, no audio and no standalone.
 function(fd_add_device_plugin)
     cmake_parse_arguments(ARG "" "ID;NAME;CODE;KIND" "VST3_CATEGORIES;CLAP_FEATURES" ${ARGN})
     string(REPLACE "-" "_" cid "${ARG_ID}")
@@ -20,9 +21,17 @@ function(fd_add_device_plugin)
     endif()
     set(is_synth FALSE)
     set(au_type kAudioUnitType_Effect)
+    set(midi_in FALSE)
+    set(midi_effect FALSE)
     if(ARG_KIND STREQUAL "instrument")
         set(is_synth TRUE)
+        set(midi_in TRUE)
         set(au_type kAudioUnitType_MusicDevice)
+    elseif(ARG_KIND STREQUAL "midi")
+        set(midi_in TRUE)
+        set(midi_effect TRUE)
+        set(au_type kAudioUnitType_MIDIProcessor)
+        list(REMOVE_ITEM formats Standalone)
     endif()
 
     # The name hosts show, and a file-safe one for the bundles: "&" breaks the build's own
@@ -38,9 +47,9 @@ function(fd_add_device_plugin)
         PLUGIN_CODE "${ARG_CODE}"
         FORMATS ${formats}
         IS_SYNTH ${is_synth}
-        NEEDS_MIDI_INPUT ${is_synth}
-        NEEDS_MIDI_OUTPUT FALSE
-        IS_MIDI_EFFECT FALSE
+        NEEDS_MIDI_INPUT ${midi_in}
+        NEEDS_MIDI_OUTPUT ${midi_effect}
+        IS_MIDI_EFFECT ${midi_effect}
         EDITOR_WANTS_KEYBOARD_FOCUS TRUE
         VST3_CATEGORIES ${ARG_VST3_CATEGORIES}
         AU_MAIN_TYPE ${au_type}
@@ -163,3 +172,17 @@ fd_add_device_plugin(ID wavetable NAME "Wavetable" CODE Fwav KIND instrument
 fd_add_device_plugin(ID granular NAME "Granular" CODE Fgrn KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer granular stereo)
+
+# MIDI effects (ADR 0074). In a plugin host they follow their own key and chord, or the chords
+# played below the split: a host has no song to read.
+fd_add_device_plugin(ID pitch NAME "Pitch" CODE Fpit KIND midi
+    VST3_CATEGORIES Fx Tools
+    CLAP_FEATURES note-effect utility)
+
+fd_add_device_plugin(ID chord NAME "Chord" CODE Fcrd KIND midi
+    VST3_CATEGORIES Fx Tools
+    CLAP_FEATURES note-effect)
+
+fd_add_device_plugin(ID arpeggiator NAME "Arpeggiator" CODE Farp KIND midi
+    VST3_CATEGORIES Fx Tools
+    CLAP_FEATURES note-effect)

@@ -36,6 +36,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addSectionTools(registry, env);
     addTimeTools(registry, env);
     addKeyTools(registry, env);
+    addMidiEffectTools(registry, env);
     addRackTools(registry, env);
     addKitTools(registry, env);
     addModulatorTools(registry, env);
@@ -697,7 +698,9 @@ Json trackJson(ToolEnv& env, const model::TrackInfo& t, bool notes)
              {"clips", std::move(clips)},
              {"chain", std::move(chain)},
              {"mix", mixJson(env, t)},
-             {"input", t.holdsClips() ? inputJson(t.input) : Json(nullptr)}};
+             {"input", t.holdsClips() ? inputJson(t.input) : Json(nullptr)},
+             // Whether its notes make the song's harmony (midi-effects.md §5.1): set_track_harmony.
+             {"harmony", t.holdsClips() ? Json(std::string(model::idOf(t.harmony))) : Json(nullptr)}};
     // Groups (groups.md §13): the group each track or group is in, and what a group holds.
     if (t.role == model::TrackInfo::Role::Track || t.role == model::TrackInfo::Role::Group)
         out["group"] = t.group != 0 ? Json(formatId(IdKind::Track, t.group)) : Json(nullptr);
@@ -874,6 +877,15 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
             {"source", slot.sidechainSource ? Json(formatId(IdKind::Track, *slot.sidechainSource)) : Json(nullptr)},
             {"possibleSources", std::move(choices)}};
     }
+    if (slot.midiEffect && slot.kind == model::DeviceSlot::Kind::Native) // midi-effects.md §5.3: Listen
+    {
+        Json choices = Json::array();
+        for (auto source : env.session.sidechainSources(slot.id))
+            choices.push_back(formatId(IdKind::Track, source));
+        j["listen"] = {{"track", slot.sidechainSource ? Json(formatId(IdKind::Track, *slot.sidechainSource))
+                                                      : Json(nullptr)},
+                       {"possibleTracks", std::move(choices)}};
+    }
     Json parameters = Json::array();
     // In a rack: the macro that sets a parameter (racks.md §4).
     const auto* holder = model::rackHolding(t.devices, slot.id);
@@ -957,12 +969,12 @@ Json moduleTypesJson(ToolEnv& env, const std::string& kind)
     for (const auto& d : env.session.availableDevices())
     {
         // The modulators come after, with what each is for.
-        if (d.modulator || (kind == "instrument" && !d.instrument) || (kind == "effect" && d.instrument) ||
-            kind == "modulator")
+        const std::string itsKind = d.instrument ? "instrument" : d.midiEffect ? "midi-effect" : "effect";
+        if (d.modulator || (!kind.empty() && kind != itsKind))
             continue;
         Json entry{{"type", d.native ? d.key.substr(3) : d.key},
                    {"name", d.name},
-                   {"kind", d.instrument ? "instrument" : "effect"},
+                   {"kind", itsKind},
                    {"native", d.native},
                    {"category", d.category}};
         if (d.native)

@@ -95,7 +95,7 @@ private:
     juce::String name_;
     std::vector<juce::RangedAudioParameter*> params_; // owned by AudioProcessor
     std::vector<size_t> latencyParams_;               // ParamFlags::ChangesLatency (ADR 0020)
-    EventList events_;
+    EventList events_, outEvents_;
     // Notes from the editor, waiting for the audio thread (one writer, one reader).
     static constexpr int kQueuedNotes = 32;
     juce::AbstractFifo noteFifo_{kQueuedNotes};
@@ -140,6 +140,7 @@ private:
     ui::LookAndFeel lnf_;
     std::unique_ptr<Binding> binding_;
     std::unique_ptr<Sidechain> sidechain_;
+    std::unique_ptr<ui::TapFeed> notes_; // a MIDI effect's note display (no song in a plugin host)
     std::unique_ptr<ui::DeviceUiContext> context_;
     std::unique_ptr<ui::DevicePanel> panel_;
     juce::Viewport viewport_;

@@ -323,5 +323,7 @@ void Shell::headerMenu(juce::PopupMenu& menu, std::uint64_t channel)
             add("track.removeFromGroup");
     }
     menu.addSubMenu("Colour", trackColourMenu());
+    if (const auto harmony = trackHarmonyMenu(); harmony.getNumItems() > 0) // a track's, not a return's
+        menu.addSubMenu("Harmony", harmony);
 }
 } // namespace fd::app

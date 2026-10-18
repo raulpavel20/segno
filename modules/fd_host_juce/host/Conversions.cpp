@@ -54,6 +54,35 @@ std::optional<Event> toEvent(const juce::MidiMessage& m, int sampleOffset) noexc
     return e;
 }
 
+juce::MidiMessage toMidiMessage(const Event& e) noexcept
+{
+    const int channel = (e.channel & 15) + 1;
+    const auto seven = [](float v) { return juce::jlimit(0, 127, juce::roundToInt(v * 127.0f)); };
+    switch (e.type)
+    {
+    case EventType::NoteOn:
+        // A note-on at velocity 0 would be read as a note-off: the quietest note-on is 1.
+        return juce::MidiMessage::noteOn(channel, e.key,
+                                         static_cast<juce::uint8>(std::max(1, seven(e.value))));
+    case EventType::NoteOff:
+        return juce::MidiMessage::noteOff(channel, e.key, static_cast<juce::uint8>(seven(e.value)));
+    case EventType::Controller:
+        return juce::MidiMessage::controllerEvent(channel, e.key, seven(e.value));
+    case EventType::PitchBend:
+        return juce::MidiMessage::pitchWheel(
+            channel, juce::jlimit(0, 16383, 8192 + juce::roundToInt(e.value * 8192.0f)));
+    case EventType::ChannelPressure:
+        return juce::MidiMessage::channelPressureChange(channel, seven(e.value));
+    case EventType::PolyPressure:
+        return juce::MidiMessage::aftertouchChange(channel, e.key, seven(e.value));
+    case EventType::AllNotesOff:
+        return juce::MidiMessage::allNotesOff(channel);
+    case EventType::AllSoundOff:
+        return juce::MidiMessage::allSoundOff(channel);
+    }
+    return juce::MidiMessage::allNotesOff(channel);
+}
+
 void appendMidi(const juce::MidiBuffer& midi, EventList& out) noexcept
 {
     for (const auto meta : midi)

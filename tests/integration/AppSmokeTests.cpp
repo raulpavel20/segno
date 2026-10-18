@@ -672,8 +672,10 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     CHECK(actions.conflicts().empty());
     // ui-principles §1: a shortcut for every action but the rare ones the menus hold alone.
     const std::set<std::string> menuOnly{
-        "take.useWhole", "take.rename", "take.copyToTrack", "take.moveToTrack", "take.keepOnly",
-        "app.systemTitleBar", "app.about", "track.duplicate", "track.delete",
+        // What MIDI effects follow and play, shown (midi-effects.md §13): view options, seldom changed.
+        "view.songChords", "view.clipPlayed", "take.useWhole", "take.rename", "take.copyToTrack",
+        "take.moveToTrack", "take.keepOnly", "app.systemTitleBar", "app.about", "track.duplicate",
+        "track.delete",
         // Reduced latency when monitoring (recording.md §22.1): a setting, also in Settings.
         "project.reducedLatency",
         // MIDI map mode (midi-learn.md §3): Ctrl+M is the metronome's; Settings > Keys can give it one.
@@ -712,9 +714,11 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "module.morph",
         // Modulators (modulators.md §15): no new shortcuts; the chain's + and the browser add
         // them, Keep is on the panel, Remove routes in the handle's and header's right-click.
-        "module.addModulator.lfo", "module.addModulator.random", "module.addModulator.envelope",
-        "module.addModulator.follower", "module.addModulator.steps", "module.keepRoll", "module.removeRoutes",
-        "song.keepAllRolls",
+        // MIDI effects added (midi-effects.md §13): from the menu, the browser and the chain's +.
+        "module.addMidiEffect.arpeggiator", "module.addMidiEffect.chord", "module.addMidiEffect.pitch",
+        "module.keepAsNotes", "module.addModulator.lfo", "module.addModulator.random",
+        "module.addModulator.envelope", "module.addModulator.follower", "module.addModulator.steps",
+        "module.keepRoll", "module.removeRoutes", "song.keepAllRolls",
         // The piano roll's tools (piano-roll.md §13): in the Notes menu, which the clip view's
         // Notes button opens where you work, and the most used on the notes' right-click menu.
         "notes.fitToKey", "notes.makeChords", "notes.changeChord", "notes.voiceSmooth", "notes.voiceClose",

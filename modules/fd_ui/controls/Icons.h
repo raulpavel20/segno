@@ -71,7 +71,8 @@ enum class Icon
     FoldClosed, // pointing right: they're folded away
     // Something that moves where it's dragged (a clip by its title strip, a section by its title
     // band, a point, a marker, a modulation handle): its cursor (HandCursor).
-    Hand // an open hand
+    Hand,      // an open hand
+    MidiEffect // MIDI effects (the browser, midi-effects.md §13): a MIDI socket and its five pins
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

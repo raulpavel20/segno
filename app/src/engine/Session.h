@@ -57,9 +57,11 @@ struct AvailableDevice
 {
     std::string key;      // "fd:eq" or "ext:<plugin identifier>"
     std::string name;
-    std::string category; // "Instruments", "Audio effects", "Modulators", or the plugin's manufacturer
+    std::string
+        category; // "Instruments", "MIDI effects", "Audio effects", "Modulators", or the plugin's maker
     bool native = true;
     bool instrument = false;
+    bool midiEffect = false; // notes in, notes out (midi-effects.md): before the instrument
     bool modulator = false; // "fd:mod-lfo": it moves parameters on its track (modulators.md, ADR 0061)
 };
 
@@ -199,10 +201,13 @@ public:
     [[nodiscard]] static const DeviceInfo* nativeInfo(std::string_view key);
     /// Adds `key` (see AvailableDevice) to the track's chain at `index` (-1 = the end); a
     /// modulator's key adds it (addModulator). Returns the device id, 0 if it couldn't be created
-    /// (an instrument on a group: no notes reach one, groups.md §4).
+    /// (an instrument or a MIDI effect on a group: no notes reach one, groups.md §4).
     std::uint64_t addDevice(std::uint64_t trackId, const std::string& key, int index = -1);
-    /// Whether `key` is an instrument (or a Drum Kit): what a group's chain takes none of.
+    /// Whether `key` is an instrument (or a Drum Kit).
     [[nodiscard]] bool playsNotes(const std::string& key) const;
+    /// Whether `key` plays notes or works on them (an instrument or a MIDI effect): what a group's
+    /// chain takes none of.
+    [[nodiscard]] bool usesNotes(const std::string& key) const;
     void removeDevice(std::uint64_t deviceId);
     /// Moves a device to `index` within its chain.
     void moveDevice(std::uint64_t deviceId, int index);
@@ -1566,6 +1571,23 @@ public:
     /// §8.2). Empty with too few notes to judge and no audio clip with a key.
     [[nodiscard]] std::vector<music::KeyCandidate> detectKeys(const std::vector<std::uint64_t>& clips = {},
                                                               int count = 3) const;
+
+    // ---- what MIDI effects follow (M3 P11, ADR 0074, docs/design/midi-effects.md §5) ----------
+
+    /// Whether a track's notes make the song's harmony (Track ▸ Harmony). One undo step, "Harmony:
+    /// On"; false for a return or the master, or when it's already so.
+    bool setTrackHarmony(std::uint64_t track, model::HarmonyUse use);
+    /// How often the song's chords may change (Song ▸ Chords change). One undo step; false when
+    /// it's already so.
+    bool setChordChange(model::ChordChange change);
+    /// Keep as notes (midi-effects.md §9.1): the MIDI clips `clips` of the track holding the MIDI
+    /// effect `upTo` (none given: all its MIDI clips) get the notes its MIDI effects play, up to and
+    /// including `upTo`, with the rolls heard. Each clip's notes before are kept as a take, "Before
+    /// MIDI effects", and what was kept as another; a looped clip's laps become notes. The MIDI
+    /// effects kept are turned off. One undo step, "Keep as notes". False, changing nothing, when
+    /// there's nothing to keep, or a plugin's MIDI effect is among them (`why` says so).
+    bool keepAsNotes(std::uint64_t upTo, const std::vector<std::uint64_t>& clips = {},
+                     std::string* why = nullptr);
 
     // ---- tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md) --------------------
 

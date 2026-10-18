@@ -3,6 +3,7 @@
 #include "engine/ClipChance.h"
 #include "engine/ClipFades.h"
 #include "engine/ClipNotes.h"
+#include "engine/DevicePlugin.h"
 #include "engine/FileAnalyser.h"
 #include "engine/FileIndexer.h"
 #include "engine/MidiMapper.h"
@@ -13,6 +14,7 @@
 #include "engine/RoundTrip.h"
 #include "engine/Session.h"
 #include "engine/WarpPlayer.h"
+#include "model/MidiEffects.h"
 #include "model/RowTree.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
@@ -197,6 +199,39 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A track's or clip's colour (an index into the clip palette, `paletteSize` long) and a
     /// track's role ("return" on a return track, ADR 0026).
     static inline const juce::Identifier colourPropertyId{"fdColour"}, rolePropertyId{"fdRole"};
+    // What MIDI effects follow (midi-effects.md §5.1): a track's Harmony, the song's chord change.
+    static inline const juce::Identifier harmonyPropertyId{"fdHarmony"},
+        chordChangePropertyId{"fdChordChange"};
+    [[nodiscard]] static model::HarmonyUse harmonyOf(const te::Track& track);
+    [[nodiscard]] model::ChordChange chordChange() const;
+    /// Hands each MIDI effect its track's song view (§5), when it changed: built from `song`.
+    void publishSongViews(const model::Snapshot& song);
+    std::map<std::uint64_t, std::shared_ptr<const SongView>> songViews; // by track, as last handed over
+    /// The tracks a MIDI effect can listen to (§5.3): any but its own, and none whose notes already
+    /// depend on its track (one that listens to it, or to one that does, and so on).
+    [[nodiscard]] std::vector<std::uint64_t> listenSources(DevicePlugin& effect) const;
+    /// Its Listen: a track of listenSources, or none. One undo step, "Set Listen".
+    bool setListen(DevicePlugin& effect, std::optional<std::uint64_t> track);
+    /// What a track's MIDI effects play in each of its MIDI clips (ClipInfo::played, §7), run offline
+    /// with the rolls heard; a clip runs again only when it, the song or the effects changed.
+    void fillPlayed(model::Snapshot& song);
+    struct PlayedRun
+    {
+        std::size_t key = 0;
+        std::vector<model::Note> notes;
+    };
+    std::map<std::uint64_t, PlayedRun> playedCache; // by clip
+    /// The MIDI effects' settings and rolls, by track, as the last snapshot ran them: a change
+    /// (a knob moved, a new pass) makes a new snapshot, which plays them again.
+    std::map<std::uint64_t, std::size_t> playedSignatures;
+    [[nodiscard]] std::size_t effectsSignature(te::AudioTrack& track) const;
+    struct PlayedCheck final : juce::Timer
+    {
+        explicit PlayedCheck(Impl& i) : impl(i) {}
+        void timerCallback() override;
+        Impl& impl;
+    };
+    PlayedCheck playedCheck{*this};
     static constexpr int paletteSize = model::kPaletteSize;
     static constexpr int maxReturns = 32; // tracktion's aux buses
     /// The lowest aux bus no return listens to yet (maxReturns: none free).
@@ -655,6 +690,14 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// An instrument, or a rack with one at the start of a chain (racks.md §3). tracktion's racks
     /// say they're synths whatever they hold.
     [[nodiscard]] static bool playsNotes(te::Plugin& plugin);
+    /// A MIDI effect, ours or a plugin (midi-effects.md §11).
+    [[nodiscard]] static bool isNoteEffect(te::Plugin& plugin);
+    /// What each module along a chain does with notes, for where a MIDI effect goes; `leaving`
+    /// left out (a module moving).
+    [[nodiscard]] static std::vector<model::ChainRole> roles(const std::vector<te::Plugin*>& chain,
+                                                             const te::Plugin* leaving = nullptr);
+    [[nodiscard]] static std::vector<model::ChainRole> roles(const std::vector<ChainItem>& items,
+                                                             const te::Plugin* leaving = nullptr);
     /// A new rack type named `name`, its eight macros made, and its first chain.
     te::RackType::Ptr makeRack(const juce::String& name);
     /// A new chain at the end of a rack: its mixer, passing what comes in.
@@ -824,6 +867,9 @@ private:
     /// A module turned on or off: its track's notes end, so none it held while off plays on
     /// (SessionNotes.cpp).
     void endNotesOnPowerChange(const juce::ValueTree& pluginState);
+    /// A module that takes notes (a MIDI effect, an instrument) left a track's chain: the track's
+    /// notes end, so none it started is left hanging (B55, item 2; midi-effects.md §11).
+    void endNotesOnRemoval(const juce::ValueTree& parent, const juce::ValueTree& pluginState);
     void handleAsyncUpdate() override
     {
         applyInputs(); // tracks, inputs or instruments may have changed (undo too)
@@ -907,9 +953,12 @@ private:
             return;
         }
         // Device parameters and state change constantly; only a device's power state, its
-        // sidechain source (ADR 0025) and the mixer's own plugins (volume, pan, sends) show.
+        // sidechain source (ADR 0025), a MIDI effect's Listen (midi-effects.md §5.3) and the mixer's
+        // own plugins (volume, pan, sends) show.
         for (auto p = t; p.isValid(); p = p.getParent())
-            if (p.hasType(te::IDs::PLUGIN) && !(p == t && (id == te::IDs::enabled || id == te::IDs::sidechainSourceID)))
+            if (p.hasType(te::IDs::PLUGIN) &&
+                !(p == t && (id == te::IDs::enabled || id == te::IDs::sidechainSourceID ||
+                             id == DevicePlugin::listenId)))
             {
                 const auto type = p[te::IDs::type].toString();
                 if (type == te::VolumeAndPanPlugin::xmlTypeName || type == te::AuxSendPlugin::xmlTypeName)
@@ -932,6 +981,8 @@ private:
     {
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return;
+        if (child.hasType(te::IDs::PLUGIN)) // removed, undone or moved away: what it held ends
+            endNotesOnRemoval(t, child);
         restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) ||
                          child.hasType(soundIds::line) || child.hasType(warpIds::markers);
         morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);

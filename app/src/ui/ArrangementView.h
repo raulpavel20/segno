@@ -189,6 +189,10 @@ public:
     void setLanesVisible(bool visible);
     [[nodiscard]] bool lanesVisible() const noexcept { return showLanes_; }
     [[nodiscard]] bool hasLaneSelection() const noexcept { return selection_.lane.has_value(); }
+    /// The song's chords under the song row's overview (View ▸ Song chords, midi-effects.md §5.1):
+    /// what the MIDI effects follow, read-only. View state.
+    void setSongChordsShown(bool shown);
+    [[nodiscard]] bool songChordsShown() const noexcept { return showSongChords_; }
     [[nodiscard]] bool hasPointSelection() const noexcept { return selection_.lane && !selection_.points.empty(); }
     /// Point commands on the selected lane, each one undo step.
     void deletePoints();
@@ -571,6 +575,7 @@ private:
     std::optional<std::uint64_t> sectionAnchor_; // Shift extends a run from here
     /// A clip's notes or waveform in `content` (clipContent of its colour, or a role).
     void paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body, juce::Colour content);
+    void paintSongChords(juce::Graphics& g, juce::Rectangle<int> band);
     void paintWaveform(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
                        juce::Rectangle<int> visible, juce::Colour content);
 
@@ -578,6 +583,7 @@ private:
     std::shared_ptr<const model::Snapshot> snapshot_;
     bool showMixRows_ = true;
     bool showLanes_ = true;
+    bool showSongChords_ = false;
 
     /// One channel's controls in its header: mute, solo, volume, pan and the meter (and for a
     /// track its arm button).

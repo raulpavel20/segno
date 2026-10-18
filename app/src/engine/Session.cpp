@@ -9,6 +9,7 @@
 #include "model/ModuleFacts.h"
 #include "model/NoteEditing.h"
 #include "model/Racks.h"
+#include "model/SongHarmony.h"
 #include "model/TrackEdits.h"
 
 #include <atomic>
@@ -215,6 +216,27 @@ public:
                     {});
         };
         context_.segnoFolder = [&session] { return session.segnoFolder(); };
+        // A MIDI effect's note display (midi-effects.md §12): what it played, and the song it was
+        // handed; the name of the track it hears.
+        if (plugin.device().analysis().notes() != nullptr)
+        {
+            const auto id = plugin.itemID.getRawID();
+            notes_ = std::make_unique<ui::TapFeed>(
+                plugin.device(),
+                ui::TapFeed::Song{.view = [&plugin] { return plugin.songView(); },
+                                  .listened =
+                                      [&session, id]
+                                  {
+                                      const auto snapshot = session.snapshot();
+                                      for (const auto& t : snapshot->tracks)
+                                          if (const auto* d = model::findDevice(t.devices, id);
+                                              d != nullptr && d->sidechainSource)
+                                              if (const auto* heard = snapshot->channel(*d->sidechainSource))
+                                                  return juce::String::fromUTF8(heard->name.c_str());
+                                      return juce::String("Track");
+                                  }});
+            context_.notes = notes_.get();
+        }
     }
     ui::DeviceUiContext& context() override { return context_; }
     std::string_view deviceId() const override { return native_.device().info().id; }
@@ -225,6 +247,7 @@ private:
     SessionDeviceBinding binding_;
     SessionSidechain sidechain_;
     std::unique_ptr<PresetHost> presets_;
+    std::unique_ptr<ui::TapFeed> notes_;
     ui::DeviceUiContext context_;
 };
 
@@ -585,6 +608,9 @@ void Session::Impl::rebuildSnapshot()
             slot.takesSidechain = takesSidechain(*p);
             if (slot.takesSidechain && p->getSidechainSourceID().isValid())
                 slot.sidechainSource = p->getSidechainSourceID().getRawID();
+            // A MIDI effect's Listen (midi-effects.md §5.3): the track whose notes it hears.
+            if (slot.midiEffect && native->getNoteSourceID().isValid())
+                slot.sidechainSource = native->getNoteSourceID().getRawID();
             if (const auto* granular = dynamic_cast<const devices::Granular*>(&native->device()))
                 slot.rollKept = granular->rollKept();
         }
@@ -674,6 +700,7 @@ void Session::Impl::rebuildSnapshot()
         auto* t = static_cast<te::AudioTrack*>(channel);
         info.kind = kindOf(*t);
         info.role = isReturn(*t) ? model::TrackInfo::Role::Return : model::TrackInfo::Role::Track;
+        info.harmony = harmonyOf(*t);
         for (auto* c : t->getClips())
         {
             if (c->state.hasProperty(auditionId)) // an audition's copy: not the project (ADR 0038)
@@ -750,6 +777,12 @@ void Session::Impl::rebuildSnapshot()
         std::sort(s->sections.begin(), s->sections.end(),
                   [](const auto& a, const auto& b) { return a.start < b.start; });
     }
+    // The song's harmony, read from its notes, as the MIDI effects follow it (midi-effects.md §5.1),
+    // and what each MIDI effect reads of the song.
+    s->chordChange = chordChange();
+    s->songChords = model::songHarmony(*s);
+    publishSongViews(*s);
+    fillPlayed(*s);
     auto& master = s->master;
     master.id = masterId();
     master.role = model::TrackInfo::Role::Master;
@@ -943,8 +976,10 @@ te::Plugin* Session::Impl::insertDevice(te::PluginList& list, const std::string&
         return nullptr;
 
     // Chain index -> plugin list index: before the device at `index`, or before the mixer
-    // plugins at the end.
+    // plugins at the end. A MIDI effect goes before the instrument (midi-effects.md §11).
     const auto devices = chain(list);
+    if (isNoteEffect(*plugin))
+        index = model::placeInChain(roles(devices), index, model::ChainRole::MidiEffect);
     int at = list.size();
     if (index >= 0 && index < static_cast<int>(devices.size()))
         at = list.indexOf(devices[static_cast<size_t>(index)]);
@@ -1729,8 +1764,14 @@ std::vector<AvailableDevice> Session::availableDevices() const
     for (const auto* f : fd::allDevices())
     {
         const bool instrument = f->info().kind == DeviceKind::Instrument;
-        out.push_back({"fd:" + std::string(f->info().id), std::string(f->info().name),
-                       instrument ? "Instruments" : "Audio effects", true, instrument});
+        const bool midiEffect = f->info().kind == DeviceKind::MidiEffect;
+        out.push_back({.key = "fd:" + std::string(f->info().id),
+                       .name = std::string(f->info().name),
+                       .category = instrument   ? "Instruments"
+                                   : midiEffect ? "MIDI effects"
+                                                : "Audio effects",
+                       .instrument = instrument,
+                       .midiEffect = midiEffect});
     }
     // The Drum Kit, after our instruments (drum-kit.md, ADR 0064): a rack underneath, the DAW's.
     out.push_back({.key = "fd:drum-kit", .name = "Drum Kit", .category = "Instruments", .instrument = true});
@@ -1775,13 +1816,19 @@ bool Session::playsNotes(const std::string& key) const
     return false;
 }
 
+bool Session::usesNotes(const std::string& key) const
+{
+    const auto* info = key.starts_with("fd:") ? nativeInfo(key) : nullptr;
+    return playsNotes(key) || (info != nullptr && info->kind == DeviceKind::MidiEffect);
+}
+
 std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, int index)
 {
     if (key.starts_with("fd:"))
         if (const auto kind = model::modulatorKind(std::string_view(key).substr(3)))
             return addModulator(trackId, *kind, index);
-    // No notes reach a group: it takes no instrument (groups.md §4, §11).
-    if (impl_->group(trackId) != nullptr && playsNotes(key))
+    // No notes reach a group: it takes no instrument and no MIDI effect (groups.md §4, §11).
+    if (impl_->group(trackId) != nullptr && usesNotes(key))
         return 0;
     if (key == "fd:drum-kit")
         return addDrumKit(trackId, index); // drum-kit.md §4
@@ -1801,6 +1848,8 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
         order.erase(std::remove_if(order.begin(), order.end(),
                                    [plugin](const auto& item) { return item.plugin == plugin; }),
                     order.end());
+        if (Impl::isNoteEffect(*plugin))
+            index = model::placeInChain(Impl::roles(order), index, model::ChainRole::MidiEffect);
         const auto at = index < 0 ? order.size() : std::min(order.size(), static_cast<size_t>(index));
         order.insert(order.begin() + static_cast<std::ptrdiff_t>(at), Impl::ChainItem{plugin, nullptr});
         impl_->arrangeChain(*track, order);
@@ -1927,6 +1976,8 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
                 const auto was = static_cast<int>(from - order.begin());
                 order.erase(from);
                 index = std::clamp(index, 0, static_cast<int>(order.size()));
+                if (item.plugin != nullptr && Impl::isNoteEffect(*item.plugin)) // before the instrument
+                    index = model::placeInChain(Impl::roles(order), index, model::ChainRole::MidiEffect);
                 if (index == was)
                     return;
                 order.insert(order.begin() + index, item);
@@ -1951,6 +2002,8 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
         return;
     const auto devices = Impl::chain(*list);
     index = std::clamp(index, 0, static_cast<int>(devices.size()) - 1);
+    if (Impl::isNoteEffect(*p)) // before the instrument (midi-effects.md §11)
+        index = model::placeInChain(Impl::roles(devices, p), index, model::ChainRole::MidiEffect);
     auto* target = devices[static_cast<size_t>(index)];
     if (target == p)
         return;
@@ -1961,6 +2014,9 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
 
 std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) const
 {
+    if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId));
+        native != nullptr && native->isMidiEffect())
+        return impl_->listenSources(*native);
     auto* p = impl_->plugin(deviceId);
     auto* m = p == nullptr ? impl_->modulator(deviceId) : nullptr;
     te::Track* owner = p != nullptr ? p->getOwnerTrack() : m != nullptr ? impl_->trackOf(*m) : nullptr;
@@ -2026,6 +2082,9 @@ bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint
             m->state.removeProperty(Modulator::listenId, &impl_->edit->getUndoManager());
         return true;
     }
+    if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId));
+        native != nullptr && native->isMidiEffect())
+        return impl_->setListen(*native, trackId);
     auto* p = impl_->plugin(deviceId);
     if (p == nullptr || !takesSidechain(*p))
         return false;

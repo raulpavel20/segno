@@ -221,6 +221,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 |---|---|
 | Add track | Ctrl+T |
 | Add return track | Ctrl+Alt+T |
+| Harmony ▸ Auto: when it plays chords, On, Off | (*new*, [midi-effects.md](midi-effects.md) §5.1: whether the selected track's notes make the song's harmony, ticked as it is; also its header's right-click and the inspector's TRACK) |
 | — | |
 | Group tracks | Ctrl+G (shared with Module ▸ Group into rack: the key goes to whichever acts on what was used last, [groups.md](groups.md) §12) |
 | Ungroup tracks | Ctrl+Shift+G (shared with Ungroup rack, as above) |
@@ -315,6 +316,7 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 |---|---|---|
 | Key… | | *new* (`song.key`, M3 P3, [key-and-scale.md](key-and-scale.md) §13): the Key popover under the top bar's key field |
 | No key | | *new* (`song.noKey`): the song has no key; dimmed while it has none |
+| Chords change ▸ | | *new* ([midi-effects.md](midi-effects.md) §5.1): Every bar, Every half bar, Every beat (the default), Any time: how often the harmony MIDI effects follow may change; a shorter chord joins the one before it |
 | — | | |
 | Add section | | The loop if it's on, else from the playhead to the next section (or 8 bars) |
 | Insert empty section | | After the selected ones, as long as the last of them |
@@ -369,6 +371,8 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 | Rename pad… | | *new* (`module.renamePad`, [drum-kit.md](drum-kit.md) §12): the selected Drum Kit's selected pad, in place on the pad; also a double-click on its name and its right-click. Dimmed for an empty pad |
 | Copy pad / Paste pad | | *new* (`module.copyPad`, `module.pastePad`): the pad's sound and settings, pasted over the selected pad (any kit); also the pad's right-click; Ctrl+drag between pads copies too |
 | Clear pad | | *new* (`module.clearPad`): its modules and settings go; also its right-click |
+| Add MIDI effect ▸ | | *new* (`module.addMidiEffect.<id>`, [midi-effects.md](midi-effects.md) §13): Arpeggiator, Chord, Pitch, A to Z; after the selected module or at the chain's end, and a MIDI effect always lands before the track's instrument (§11). Also the browser's MIDI effects part and the chain's + |
+| Keep as notes | | *new* (`module.keepAsNotes`, [midi-effects.md](midi-effects.md) §9.1): the selected MIDI effect's track's clips (those selected, across the time selection, or all) get what its MIDI effects play up to it; the notes before kept as a take; also the MIDI effect's right-click |
 
 Load sample… also loads onto a Drum Kit's selected pad when the kit is selected (drum-kit.md §12). A Drum Kit has a rack's macros (Edit macros), and none of a rack's other items: they're dimmed for it.
 
@@ -406,6 +410,7 @@ Load sample… also loads onto a Drum Kit's selected pad when the kit is selecte
 | — | | |
 | Show automation lanes | Ctrl+Alt+L | |
 | Show returns and master | Ctrl+Alt+R | |
+| Show song chords | | `view.songChords` ([midi-effects.md](midi-effects.md) §5.1): the chords the song's notes make, named along the song row under the sections; ticked while shown |
 | Fold all groups | | `view.foldGroups` ([groups.md](groups.md) §6.4), in the view shown; also Alt+click on a group's triangle |
 | Unfold all groups | | `view.unfoldGroups`, as above |
 | Fold module | Ctrl+Alt+M | |
@@ -414,6 +419,7 @@ Load sample… also loads onto a Drum Kit's selected pad when the kit is selecte
 | Previous module page | Ctrl+Alt+Page Up | As above |
 | — | | |
 | Other tracks' notes ▸ | | Show other tracks' notes (the clip view's Others, [piano-roll.md](piano-roll.md) §8); — ; each other track with notes, ticked while it's shown (M3 P4b; also the Others option's right-click) |
+| Show played notes | | `view.clipPlayed` ([midi-effects.md](midi-effects.md) §7, MX13): what the track's MIDI effects play, drawn faint in the clip view beside its own notes; off by default, as Others is; ticked while shown |
 | Clip view lane ▸ | | Velocity, Chance, Release velocity; the controllers (the clip's and the usual ones); Other controller ▸ (CC 0–127): what the clip view's bottom lane shows (§11, M3 P4b; also its head's menu). Over an audio clip: Gain, the only lane until pitch (M3 P6a) |
 | Waveform height ▸ | | Taller, Shorter, Reset: the audio editor's rows, as its level column dragged and double-clicked does (M3 P6a, [audio-editor.md](audio-editor.md) §4); dimmed, saying why, while it shows no audio clip |
 | Tools pane ▸ | | Transform tools, Generate tools: the clip view's Tools pane on that tab, ticked while it shows it; chosen again, it closes (the header's Transform and Generate, [piano-roll.md](piano-roll.md) §25) |

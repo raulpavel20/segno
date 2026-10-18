@@ -1,6 +1,7 @@
 // Managing tracks and clips (M2 step C11, ADR 0041, docs/design/tracks-and-clips.md): renaming,
 // colours, deleting with what only made sense with it, moving, duplicating, the clip clipboard.
 
+#include "engine/DevicePlugin.h"
 #include "engine/SessionImpl.h"
 #include "model/TrackEdits.h"
 
@@ -175,7 +176,12 @@ void Session::Impl::deleteChannel(std::uint64_t channelId)
     // The sidechains it feeds go back to Off (ADR 0025); the sends to a return go.
     for (const auto device : plan.sidechains)
         if (auto* p = plugin(device))
-            p->setSidechainSourceID({});
+        {
+            if (auto* native = dynamic_cast<DevicePlugin*>(p); native != nullptr && native->isMidiEffect())
+                native->setListenTo({}, um); // a MIDI effect's Listen (midi-effects.md §5.3)
+            else
+                p->setSidechainSourceID({});
+        }
     if (auto* back = dynamic_cast<te::AudioTrack*>(t); back != nullptr && isReturnTrack)
         for (auto* other : rowTracks())
             if (auto* send = sendIn(other->pluginList, busOf(*back)))

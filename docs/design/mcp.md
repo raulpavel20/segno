@@ -74,7 +74,7 @@ The project, track, clip and module resources send change notifications when the
 | `get_project` | – | As `segno://project` |
 | `get_clip` | `clip` | As `segno://clip/{id}`, notes included |
 | `get_module` | `module` | As `segno://module/{id}` |
-| `list_module_types` | `kind?` (instrument, effect, modulator) | As `segno://modules` |
+| `list_module_types` | `kind?` (instrument, midi-effect, effect, modulator) | As `segno://modules`; MIDI effects added with step 1 of [midi-effects.md](midi-effects.md) (`add_module` puts one before the track's instrument) |
 
 **Transport:**
 
@@ -236,9 +236,10 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Settings (M3 C1, ADR 0045) | `get_settings`, `set_settings` (never the assistants' own or the shortcuts) |
 | The browser (M3 C2, ADR 0046) | `search`, `browse`, `preview`, `collect_files`; loading through `add_module` (with `preset`), `insert_audio_file`, `insert_midi_file`, `load_sample` (a sample or a multisample) |
 | A stretch of time on some rows, and the whole song's time (M3 P10, ADR 0073) | `edit_range` (delete, duplicate, split, crop, mute, reverse, fade, new_midi_clip over `from` .. `to` on track and lane rows, or `["all"]`), `copy_range` (to `at`, `onto` a track, `move`), `edit_time` (insert, delete, duplicate, copy, song-wide with the sections' marks), `edit_clip_time` (insert, delete, duplicate, split inside a MIDI clip); `bounce_clips` gains `from`, `to`, `tracks`; `export_audio`'s `range` a stretch `{from, to}`. Assistants name the stretch, never the selection |
-| Groups (M3 P9, ADR 0072) | `group_tracks` (`tracks`, `name?`, `colour?`), `ungroup_tracks`, `bounce_group`; `move_track` gains `group` (an id, or null for none); `set_track` takes groups and gains `colourMembers`; `delete_tracks`, `duplicate_track`, `set_mix`, `set_send`, `add_module` (no instruments on a group) and `set_module_sidechain` take groups; `export_audio` gains `stems` (`groups`, `tracks`); `get_project` gives each channel's `kind` and `group`, and a group's `members` ([groups.md](groups.md) §13). A clip tool given a group says it holds no clips |
+| Groups (M3 P9, ADR 0072) | `group_tracks` (`tracks`, `name?`, `colour?`), `ungroup_tracks`, `bounce_group`; `move_track` gains `group` (an id, or null for none); `set_track` takes groups and gains `colourMembers`; `delete_tracks`, `duplicate_track`, `set_mix`, `set_send`, `add_module` (no instruments or MIDI effects on a group) and `set_module_sidechain` take groups; `export_audio` gains `stems` (`groups`, `tracks`); `get_project` gives each channel's `kind` and `group`, and a group's `members` ([groups.md](groups.md) §13). A clip tool given a group says it holds no clips |
 | The song's sections (M3 C3, ADR 0049) | `list_sections`, `add_section`, `set_section`, `move_section`, `copy_section` (before or after a section, or `at` a point), `insert_section`, `delete_section` (section ids are `s:`); `get_project` lists the sections |
 | The song's key (M3 P3, ADR 0057) | `set_key`, `list_scales`, `detect_key`; `get_project` has the key (root, scale, name, notes; ASCII # and b) or null |
+| What MIDI effects follow (M3 P11, ADR 0074, [midi-effects.md](midi-effects.md) §14) | `get_song_context` (`start?`, `length?`: the key, the chords with their root and bass, how often they may change, the sections with which time each name plays, each track's Harmony and whether it makes chords now), `set_track_harmony` (`track`, `auto` / `on` / `off`; a track's alone, not a group's or a return's), `set_chords_change` (`every`: `bar`, `half-bar`, `beat`, `any`), `set_module_listen` (`module`, `track` or null: the track a MIDI effect hears, never one making a loop), `keep_as_notes` (`track`, `upTo?`, `clips?` or `start` and `length`); `get_module` has a MIDI effect's `listen` (its track and the tracks it can hear); `get_project`'s tracks have `harmony`; `list_module_types` has the kind `midi-effect` |
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
 

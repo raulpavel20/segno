@@ -35,9 +35,11 @@ AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions
             for (int i = 0; i < total; ++i)
                 out.at(c, i) = in.at(c, i);
 
-    EventList events;
+    EventList events, listen, written;
     events.reserve(1024);
-    size_t nextEvent = 0;
+    listen.reserve(1024);
+    written.reserve(4096);
+    size_t nextEvent = 0, nextHeard = 0;
 
     std::vector<float*> inPtrs(static_cast<size_t>(in.numChannels()));
     std::vector<float*> outPtrs(static_cast<size_t>(out.numChannels()));
@@ -67,6 +69,17 @@ AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions
             ++nextEvent;
         }
 
+        listen.clear();
+        while (nextHeard < options.listen.size() && options.listen[nextHeard].samplePosition < pos + n)
+        {
+            Event e = options.listen[nextHeard].event;
+            e.sampleOffset =
+                static_cast<int>(std::max<std::int64_t>(0, options.listen[nextHeard].samplePosition - pos));
+            listen.push(e);
+            ++nextHeard;
+        }
+        written.clear();
+
         for (int c = 0; c < in.numChannels(); ++c)
             inPtrs[static_cast<size_t>(c)] = (options.inPlace ? out.channel(c) : in.channel(c)) + pos;
         for (int c = 0; c < out.numChannels(); ++c)
@@ -87,10 +100,21 @@ AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions
                                                                         options.sampleRate *
                                                                         options.transport.tempoBpm / 60.0;
         ctx.transport.playing = true;
+        if (options.transportAt)
+            options.transportAt(ctx.transport, pos);
+        ctx.outEvents = &written;
+        ctx.song = options.song;
+        ctx.listen = options.listen.empty() ? nullptr : &listen;
 
         {
             const CountAllocations counting;
             processRealtime(device, ctx);
+        }
+        if (options.eventsOut != nullptr)
+        {
+            written.sortByTime();
+            for (const auto& e : written)
+                options.eventsOut->push_back({pos + e.sampleOffset, e});
         }
         pos += n;
     }
@@ -103,6 +127,13 @@ AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions
                 trimmed.at(c, i) = out.at(c, i);
         return trimmed;
     }
+    return out;
+}
+std::vector<TimedEvent> renderNotes(Device& device, int numSamples, RenderOptions options)
+{
+    std::vector<TimedEvent> out;
+    options.eventsOut = &out;
+    render(device, AudioBuffer(1, numSamples), options);
     return out;
 }
 } // namespace fd::testkit

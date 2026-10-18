@@ -164,6 +164,13 @@ void PianoRoll::setOthers(bool on)
     setOptions(o);
 }
 
+void PianoRoll::setPlayedShown(bool on)
+{
+    auto o = options_;
+    o.played = on;
+    setOptions(o);
+}
+
 void PianoRoll::setOthersHidden(std::uint64_t track, bool hidden)
 {
     auto o = options_;
@@ -1487,6 +1494,7 @@ void PianoRoll::paint(juce::Graphics& g)
     timeline_.gridLines(tempo_, lines_);
     paintRows(g);
     paintGhosts(g);
+    paintPlayed(g);
     paintNotes(g);
     paintVelocities(g);
     paintKeys(g);
@@ -1588,6 +1596,32 @@ void PianoRoll::paintGhosts(juce::Graphics& g)
             continue;
         g.setColour(t.ghost(t.clipColour(ghost.colour)));
         g.fillRoundedRectangle(r, 2.0f);
+    }
+}
+
+void PianoRoll::paintPlayed(juce::Graphics& g)
+{
+    // What the track's MIDI effects make of the clip: outlined in its colour, behind its notes, so
+    // it never reads as a note of its own or as another track's (midi-effects.md §7).
+    if (!options_.played || !clip_ || clip_->played.empty())
+        return;
+    const auto& t = ui::Theme::current();
+    const auto area = gridArea();
+    juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(area);
+    const auto geo = geometry();
+    g.setColour(t.faded(t.clipColour(clip_->colour)));
+    for (const auto& n : clip_->played)
+    {
+        if (folded_ && !std::binary_search(rows_.begin(), rows_.end(), n.pitch))
+            continue;
+        const float x0 = static_cast<float>(area.getX() + geo.xForBeat(n.start));
+        const float x1 = static_cast<float>(area.getX() + geo.xForBeat(n.start + n.length));
+        const auto r = juce::Rectangle<float>(x0, static_cast<float>(area.getY() + geo.yForPitch(n.pitch)),
+                                              std::max(2.0f, x1 - x0), static_cast<float>(rowHeight_))
+                           .reduced(0.5f, 2.5f);
+        if (r.intersects(area.toFloat()))
+            g.drawRoundedRectangle(r, 2.0f, 1.0f);
     }
 }
 

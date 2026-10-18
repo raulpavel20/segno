@@ -1,0 +1,162 @@
+{
+    "device": "pitch",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Follow the chords",
+            "tags": [
+                "Melody"
+            ],
+            "description":
+                "Fits every note to the chord sounding in the song; notes between the beats stay in the key.",
+            "params": {
+                "fit": "Chord",
+                "passing": true
+            }
+        },
+        {
+            "name": "Chord tones only",
+            "tags": [
+                "Melody",
+                "Bass"
+            ],
+            "description": "Every note lands on a note of the chord sounding, on the beat or not.",
+            "params": {
+                "fit": "Chord",
+                "passing": false
+            }
+        },
+        {
+            "name": "In key",
+            "tags": [
+                "Melody",
+                "Fix"
+            ],
+            "description": "Moves any note outside the song's key to its nearest note in it.",
+            "params": {
+                "fit": "Key"
+            }
+        },
+        {
+            "name": "Octave up",
+            "tags": [
+                "Lead"
+            ],
+            "description": "Everything an octave higher.",
+            "params": {
+                "semitones": 12
+            }
+        },
+        {
+            "name": "Octave down",
+            "tags": [
+                "Bass"
+            ],
+            "description": "Everything an octave lower.",
+            "params": {
+                "semitones": -12
+            }
+        },
+        {
+            "name": "Up a third in key",
+            "tags": [
+                "Melody"
+            ],
+            "description": "Two steps of the key up: a harmony a third above, major or minor where it lands.",
+            "params": {
+                "steps": 2
+            }
+        },
+        {
+            "name": "Down a sixth in key",
+            "tags": [
+                "Melody"
+            ],
+            "description": "Five steps of the key down: the line a sixth below, staying in the key.",
+            "params": {
+                "steps": -5
+            }
+        },
+        {
+            "name": "Mirror",
+            "tags": [
+                "Melody",
+                "FX"
+            ],
+            "description": "The melody upside down around C3, by steps of the key: up becomes down.",
+            "params": {
+                "mirror": true,
+                "axis": 60
+            }
+        },
+        {
+            "name": "Mirror and follow",
+            "tags": [
+                "Melody",
+                "FX"
+            ],
+            "description": "The melody upside down, then fitted to the song's chords.",
+            "params": {
+                "mirror": true,
+                "axis": 60,
+                "fit": "Chord",
+                "passing": true
+            }
+        },
+        {
+            "name": "Humanised melody",
+            "tags": [
+                "Melody",
+                "Random",
+                "Subtle"
+            ],
+            "description":
+                "Now and then a note moves a step of the key, so a repeated line never plays quite the same.",
+            "params": {
+                "chance": 15,
+                "spread": 1,
+                "way": "Both",
+                "fit": "Key"
+            }
+        },
+        {
+            "name": "Wild runs",
+            "tags": [
+                "Random",
+                "FX"
+            ],
+            "description":
+                "Most notes jump up to four steps of the key either way: a run that keeps changing.",
+            "params": {
+                "chance": 60,
+                "spread": 4,
+                "way": "Both",
+                "fit": "Key"
+            }
+        },
+        {
+            "name": "Bass range",
+            "tags": [
+                "Bass"
+            ],
+            "description": "Folds every note into C0 to C2, where a bass line sits.",
+            "params": {
+                "lowest": 24,
+                "highest": 48,
+                "outside": "Fold"
+            }
+        },
+        {
+            "name": "Lead range",
+            "tags": [
+                "Lead"
+            ],
+            "description": "Folds every note into C3 to C5, where a lead sings.",
+            "params": {
+                "lowest": 60,
+                "highest": 84,
+                "outside": "Fold"
+            }
+        }
+    ]
+}

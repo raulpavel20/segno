@@ -3646,6 +3646,13 @@ TEST_CASE("mcp tools: groups made, listed, moved into and out of, coloured, mixe
     daw.call("add_module", {{"track", drums}, {"type", "compressor"}});
     CHECK(daw.fails("add_module", {{"track", drums}, {"type", "sampler"}}).find("no notes") !=
           std::string::npos);
+    CHECK(daw.fails("add_module", {{"track", drums}, {"type", "arpeggiator"}}).find("MIDI effect") !=
+          std::string::npos);
+    // Nor does it make the song's harmony (midi-effects.md §5.1): a track's notes do.
+    CHECK(daw.fails("set_track_harmony", {{"track", drums}, {"harmony", "on"}}).find("is a group") !=
+          std::string::npos);
+    for (const auto& t : daw.call("get_song_context")["tracks"])
+        CHECK(t["track"] != drums);
     const auto comp =
         daw.call("add_module", {{"track", t2}, {"type", "compressor"}})["id"].get<std::string>();
     daw.call("set_module_sidechain", {{"module", comp}, {"source", drums}});
@@ -3687,4 +3694,113 @@ TEST_CASE("mcp tools: groups made, listed, moved into and out of, coloured, mixe
         CHECK(t["id"] != drums);
         CHECK(t["id"] != t0);
     }
+}
+
+TEST_CASE("mcp tools: MIDI effects are listed as such, and added before the instrument", "[integration][mcp]")
+{
+    Daw daw;
+    const auto types = daw.call("list_module_types", {{"kind", "midi-effect"}})["types"];
+    std::vector<std::string> names;
+    for (const auto& t : types)
+    {
+        CHECK(t["kind"] == "midi-effect");
+        names.push_back(t["type"].get<std::string>());
+    }
+    CHECK(names == std::vector<std::string>{"arpeggiator", "chord", "pitch"});
+    for (const auto& t : daw.call("list_module_types", {{"kind", "effect"}})["types"])
+        CHECK(t["type"] != "pitch");
+
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto synth = daw.call("add_module", {{"track", t0}, {"type", "subtractive-synth"}})["id"];
+    const auto pitch = daw.call("add_module", {{"track", t0}, {"type", "pitch"}, {"position", 1}})["id"];
+    const auto modules = daw.project()["tracks"][0]["chain"];
+    REQUIRE(modules.size() == 2);
+    CHECK(modules[0]["id"] == pitch);
+    CHECK(modules[1]["id"] == synth);
+}
+
+TEST_CASE("mcp tools: what MIDI effects follow, read and set (midi-effects.md §14)", "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    daw.call("set_key", {{"root", "A"}, {"scale", "minor"}});
+    // Am for a bar, then F: a track of chords.
+    Json notes = Json::array();
+    for (const int p : {57, 60, 64})
+        notes.push_back({{"pitch", p}, {"start", 0}, {"length", 4}});
+    for (const int p : {53, 57, 60})
+        notes.push_back({{"pitch", p}, {"start", 4}, {"length", 4}});
+    daw.call("create_midi_clip", {{"track", t0}, {"start", 0}, {"length", 8}, {"notes", notes}});
+
+    auto context = daw.call("get_song_context");
+    CHECK(context["key"]["name"] == "A minor");
+    CHECK(context["chordsChange"] == "beat");
+    REQUIRE(context["chords"].size() == 2);
+    CHECK(context["chords"][0]["name"] == "Am");
+    CHECK(context["chords"][0]["root"] == "A");
+    CHECK(context["chords"][0]["bass"] == "A2");
+    CHECK(context["chords"][1]["name"] == "F");
+    REQUIRE(context["tracks"].size() >= 1);
+    CHECK(context["tracks"][0]["harmony"] == "auto");
+    CHECK(context["tracks"][0]["makesChords"] == true);
+    // A span: the second bar only.
+    CHECK(daw.call("get_song_context", {{"start", 5}, {"length", 2}})["chords"].size() == 1);
+
+    // Off: its notes make no chords; one undo step.
+    daw.call("set_track_harmony", {{"track", t0}, {"harmony", "off"}});
+    CHECK(daw.session->undoDescription() == "Assistant: set track harmony");
+    context = daw.call("get_song_context");
+    CHECK(context["chords"].empty());
+    CHECK(context["tracks"][0]["makesChords"] == false);
+    CHECK(daw.project()["tracks"][0]["harmony"] == "off");
+    daw.session->undo();
+    daw.session->updateSnapshotNow();
+    CHECK(daw.call("get_song_context")["chords"].size() == 2);
+
+    // Chords may change once a bar.
+    daw.call("set_chords_change", {{"every", "bar"}});
+    CHECK(daw.call("get_song_context")["chordsChange"] == "bar");
+    CHECK(daw.fails("set_chords_change", {{"every", "fortnight"}}).find("every") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: a MIDI effect's Listen, set and read", "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto t1 = daw.project()["tracks"][1]["id"].get<std::string>();
+    const auto pitch = daw.call("add_module", {{"track", t0}, {"type", "pitch"}})["id"].get<std::string>();
+    auto module = daw.call("get_module", {{"module", pitch}});
+    CHECK(module["listen"]["track"].is_null());
+    bool canHear = false;
+    for (const auto& t : module["listen"]["possibleTracks"])
+        canHear = canHear || t == t1;
+    CHECK(canHear);
+    daw.call("set_module_listen", {{"module", pitch}, {"track", t1}});
+    CHECK(daw.call("get_module", {{"module", pitch}})["listen"]["track"] == t1);
+    CHECK(daw.fails("set_module_listen", {{"module", pitch}, {"track", t0}}).find("own track") !=
+          std::string::npos);
+    daw.call("set_module_listen", {{"module", pitch}, {"track", nullptr}});
+    CHECK(daw.call("get_module", {{"module", pitch}})["listen"]["track"].is_null());
+    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"].get<std::string>();
+    CHECK(daw.fails("set_module_listen", {{"module", eq}, {"track", t1}}).find("MIDI effects") !=
+          std::string::npos);
+}
+
+TEST_CASE("mcp tools: keep what MIDI effects play as notes", "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto clip = daw.call("create_midi_clip",
+                               {{"track", t0},
+                                {"start", 0},
+                                {"length", 4},
+                                {"notes", {{{"pitch", 60}, {"start", 0}, {"length", 1}}}}})["clip"]["id"];
+    const auto pitch = daw.call("add_module", {{"track", t0}, {"type", "pitch"}})["id"].get<std::string>();
+    daw.call("set_parameters", {{"module", pitch}, {"values", {{"semitones", 7}}}});
+    CHECK(daw.call("keep_as_notes", {{"track", t0}})["clips"].size() == 1);
+    CHECK(daw.call("get_clip", {{"clip", clip}})["notes"][0]["pitch"] == 67);
+    CHECK(daw.call("get_module", {{"module", pitch}})["on"] == false);
+    // Nothing of the kind on another track.
+    const auto t1 = daw.project()["tracks"][1]["id"].get<std::string>();
+    CHECK(daw.fails("keep_as_notes", {{"track", t1}}).find("MIDI effect") != std::string::npos);
 }
