@@ -2,6 +2,7 @@
 
 #include <fd_device_ui/fd_device_ui.h>
 #include <nlohmann/json.hpp>
+#include <optional>
 
 namespace fd::devices
 {
@@ -60,14 +61,34 @@ public:
     void setLength(int index, int length) override
     {
         const auto p = firstLength_ + static_cast<std::size_t>(index);
-        ctx_.params.beginGesture(p);
+        const bool alone = gesture_ != p; // outside a drag: a gesture of its own
+        if (alone)
+            ctx_.params.beginGesture(p);
         ctx_.params.setPlain(p, static_cast<float>(length));
-        ctx_.params.endGesture(p);
+        if (alone)
+            ctx_.params.endGesture(p);
+    }
+    void beginDrawing(int index, bool length) override
+    {
+        if (length)
+        {
+            gesture_ = firstLength_ + static_cast<std::size_t>(index);
+            ctx_.params.beginGesture(*gesture_);
+        }
+        else
+            ctx_.params.beginEdit("Draw steps"); // the steps it draws: one undo step
+    }
+    void endDrawing() override
+    {
+        if (gesture_)
+            ctx_.params.endGesture(*gesture_);
+        gesture_.reset();
     }
 
 private:
     ui::DeviceUiContext& ctx_;
     std::size_t firstLength_;
     std::vector<LaneSpec> lanes_;
+    std::optional<std::size_t> gesture_; // the length dragged
 };
 } // namespace fd::devices

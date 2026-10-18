@@ -330,3 +330,107 @@ TEST_CASE("midi effects: what they play in each clip, shown faint, kept up to da
     pitch->setEnabled(false);
     CHECK(played().empty());
 }
+
+#include "../../devices/midi-shared/ui/LaneFeed.h"
+#include "Arpeggiator.h"
+#include "Chord.h"
+
+#include <fd/device/Realtime.h>
+
+namespace fd::devices
+{
+const ui::PanelFactory& chordPanelFactory();
+}
+
+TEST_CASE("midi effects: a drag on a lane's steps is one undo step, a length's drag another", "[integration]")
+{
+    using A = fd::devices::Arpeggiator;
+    Daw daw;
+    auto& s = *daw.session;
+    const auto t = daw.track(0);
+    const auto arp = s.addDevice(t, "fd:arpeggiator");
+    auto handle = s.openDevice(arp);
+    REQUIRE(handle != nullptr);
+    fd::devices::LaneFeed<A> feed(handle->context(), A::VelocityLength,
+                                  {{"Velocity", 0.0f, 200.0f, false, " %"},
+                                   {"Gate", 0.0f, 200.0f, false, " %"},
+                                   {"Octave", -2.0f, 2.0f, false, ""},
+                                   {"Ratchet", 1.0f, 4.0f, false, "x"},
+                                   {"Chance", 0.0f, 100.0f, false, " %"}});
+    auto& device = dynamic_cast<A&>(nativeOf(s, arp).device());
+    REQUIRE(s.setTrackColour(t, 3)); // the step before: the drawing mustn't join it
+    feed.beginDrawing(A::VelocityLane, false);
+    feed.setStep(A::VelocityLane, 0, 150.0f);
+    feed.setStep(A::VelocityLane, 1, 120.0f);
+    feed.setStep(A::VelocityLane, 2, 60.0f);
+    feed.endDrawing();
+    CHECK(device.step(A::VelocityLane, 0) == 150.0f);
+    CHECK(device.step(A::VelocityLane, 2) == 60.0f);
+    CHECK(s.undoDescription() == "Draw steps");
+    s.undo(); // the whole drag
+    CHECK(device.step(A::VelocityLane, 0) == 100.0f);
+    CHECK(device.step(A::VelocityLane, 2) == 100.0f);
+    CHECK(s.undoDescription() == "Track colour");
+    s.redo();
+    CHECK(device.step(A::VelocityLane, 1) == 120.0f);
+
+    // A length dragged from 16 to 5 through 9: one step back to 16.
+    feed.beginDrawing(A::GateLane, true);
+    feed.setLength(A::GateLane, 9);
+    feed.setLength(A::GateLane, 5);
+    feed.endDrawing();
+    const auto length = [&] { return std::lround(handle->context().params.getPlain(A::GateLength)); };
+    CHECK(length() == 5);
+    s.undo();
+    CHECK(length() == 16);
+    CHECK(device.step(A::VelocityLane, 1) == 120.0f); // the drawing before it stays
+}
+
+TEST_CASE("midi effects: Chord's Learn writes the chord held as its shifts, one undo step", "[integration]")
+{
+    using C = fd::devices::Chord;
+    Daw daw;
+    auto& s = *daw.session;
+    const auto t = daw.track(0);
+    const auto chord = s.addDevice(t, "fd:chord");
+    auto& device = nativeOf(s, chord).device();
+    // A C minor seventh held coming in.
+    fd::EventList in, out;
+    in.reserve(16);
+    out.reserve(64);
+    for (const int key : {60, 63, 67, 70})
+        in.push({.type = fd::EventType::NoteOn, .key = static_cast<std::uint8_t>(key), .value = 0.8f});
+    fd::ProcessContext ctx;
+    ctx.events = &in;
+    ctx.outEvents = &out;
+    ctx.numSamples = 256;
+    fd::processRealtime(device, ctx);
+
+    auto handle = s.openDevice(chord);
+    REQUIRE(handle != nullptr);
+    auto panel = fd::devices::chordPanelFactory().create(handle->context());
+    std::vector<juce::Component*> all{panel.get()};
+    for (std::size_t i = 0; i < all.size(); ++i)
+        for (auto* child : all[i]->getChildren())
+            all.push_back(child);
+    juce::Button* learn = nullptr;
+    for (auto* c : all)
+        if (auto* b = dynamic_cast<juce::Button*>(c); b != nullptr && b->getButtonText() == "Learn")
+            learn = b;
+    REQUIRE(learn != nullptr);
+    REQUIRE(s.setTrackColour(t, 3));
+    learn->onClick();
+    const auto shift = [&](std::size_t i)
+    { return std::lround(handle->context().params.getPlain(C::Shift1 + i)); };
+    CHECK(shift(0) == 3);
+    CHECK(shift(1) == 7);
+    CHECK(shift(2) == 10);
+    CHECK(shift(3) == 0);
+    CHECK(s.undoDescription() == "Learn chord");
+    s.undo(); // all of it
+    CHECK(shift(0) == 4);
+    CHECK(shift(1) == 7);
+    CHECK(shift(2) == 0);
+    CHECK(s.undoDescription() == "Track colour");
+    panel.reset();
+}

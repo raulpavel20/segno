@@ -231,13 +231,21 @@ void StepDisplay::mouseDown(const juce::MouseEvent& e)
     const float handle = stepArea().getX() + static_cast<float>(lane.length) * stepArea().getWidth() /
                                                  static_cast<float>(maxSteps);
     draggingLength_ = std::abs(e.position.x - handle) <= 4.0f;
+    drawing_ = true;
+    steps_->beginDrawing(lane_, draggingLength_);
     if (!draggingLength_)
         edit(e.position);
 }
 
+void StepDisplay::mouseUp(const juce::MouseEvent&)
+{
+    if (steps_ != nullptr && std::exchange(drawing_, false))
+        steps_->endDrawing();
+}
+
 void StepDisplay::mouseDrag(const juce::MouseEvent& e)
 {
-    if (steps_ == nullptr)
+    if (steps_ == nullptr || !drawing_)
         return;
     if (draggingLength_)
     {

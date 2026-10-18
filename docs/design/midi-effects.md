@@ -392,7 +392,7 @@ Eight shape what you play; three write a part of their own.
 
 ## 13. Browser, presets, menus and keys
 
-- **Browser:** a **MIDI effects** part with its icon, A to Z, each module a folder of its presets ([ADR 0046](../decisions/0046-one-browser-modules-are-folders.md)). Players are in Racks. A preset's preview plays it on a short phrase, through a matching instrument, in the song's key.
+- **Browser:** a **MIDI effects** part with its icon, A to Z, each module a folder of its presets ([ADR 0046](../decisions/0046-one-browser-modules-are-folders.md)). Players are in Racks. **No preview for a MIDI effect's presets, as an exception** (the product owner, 2026-10-18): a preset is heard on the track it's loaded on. Perhaps one day: a short phrase through the preset into a matching instrument, in the song's key (§16).
 - **Presets:** every module ships a designed set, to [ADR 0069](../decisions/0069-factory-presets-are-designed-and-never-clip.md)'s bar applied to notes: researched, using the module fully, right in any key.
 - **Menu bar** ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)):
   - Module ▸ **Add MIDI effect ▸** (before the instrument), **Keep as notes**, **Vary**, **Keep roll ▸** (with the rolls heard), **Learn from clip**;
@@ -428,6 +428,7 @@ Eight shape what you play; three write a part of their own.
 ## 16. Not now (backlog)
 
 - **Local models** for continuing a phrase, filling a gap, accompanying, turning a rhythm into drums. The Anticipatory Music Transformer (Apache-2.0, code and weights) and Composer's Assistant 2 (MIT, trained on public-domain MIDI) could run offline as a process of their own that drives Segno through MCP, as an assistant does: no model bundled, no network ([ADR 0021](../decisions/0021-mcp-server.md), vision.md). The modules stay explainable algorithms.
+- **A MIDI effect preset's preview** (§13): a short phrase through it into a matching instrument, in the song's key. Left out for now by the product owner (2026-10-18), "perhaps one day".
 - **Pitch's Parallel fit**, keeping a part's shape over new chords: it needs to know the chords a part was written against (the clip's own chord lane, where it has one).
 - **Chords read from audio** (Logic 12's Chord ID). **Key changes along the song** (ADR 0057's later step). **Settings per clip** for generators (Logic's regions carry theirs). **A reharmonising walk** (P, L, R moves, voice-led). **Rhythms from physics** (bouncing balls, cells). **A CLAP extension** carrying the key, chords and sections, proposed to the CLAP project. **MIDI out to hardware** (a non-goal).
 
@@ -571,4 +572,5 @@ The DAW's side of step 1, and Keep as notes.
   - the takes: "Before MIDI effects" (unless the clip was playing one of its takes) and "Kept notes", as bounce in place keeps its source;
   - the effects kept turned off; one undo step.
   - **Not yet:** a plugin's MIDI effect (refused, saying so); parameters under automation (their stored values are used); a listened track's notes are its clips' as written, before its own MIDI effects.
+- **Undo:** a drag across a lane's steps is one undo step, "Draw steps"; dragging a lane's length is another; Chord's Learn is one, "Learn chord" (its shifts, and In key off).
 - **Played notes** (§7; the arrangement's ghost behind a clip's notes, View ▸ Show played notes in the clip view) come from the same offline run: each MIDI clip on a track with MIDI effects of ours, with the rolls heard, kept per clip and run again only when the clip, the song, the notes heard or the effects changed. A knob moving or a new pass doesn't make a snapshot by itself: a check every quarter second compares the effects' settings and rolls, and makes one when they've changed.

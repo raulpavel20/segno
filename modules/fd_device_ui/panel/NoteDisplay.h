@@ -53,6 +53,9 @@ public:
     /// A step drawn, and a lane's length dragged: through the host binding, an undo step a gesture.
     virtual void setStep(int lane, int step, float value) = 0;
     virtual void setLength(int lane, int length) = 0;
+    /// A drag's start and end: what it draws (or the length it drags, `length`) is one undo step.
+    virtual void beginDrawing(int /*lane*/, bool /*length*/) {}
+    virtual void endDrawing() {}
 };
 
 /// The note display with a step sequence over it (the Arpeggiator's and Melody's STEPS): the lane
@@ -71,6 +74,7 @@ public:
 
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
     juce::String getTooltip() override;
 
     /// Where the lane's steps are drawn: the plot above the notes.
@@ -87,5 +91,6 @@ private:
     StepFeed* steps_ = nullptr;
     int lane_ = 0;
     bool draggingLength_ = false;
+    bool drawing_ = false; // a drag on the steps under way: its edits one undo step
 };
 } // namespace fd::ui
